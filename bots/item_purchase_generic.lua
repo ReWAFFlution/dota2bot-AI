@@ -37,6 +37,23 @@ bot.SecretShop = false
 local sPurchaseList = BotBuild['sBuyList']
 local sItemSellList = BotBuild['sSellList']
 
+-- Meta build from Stratz data (FunLib/item_meta_data.lua) instead of the hero
+-- file's list, unless the user customized this hero or a special mode is on.
+local okStrategy, ItemStrategy = pcall(require, GetScriptDirectory()..'/FunLib/item_strategy')
+if not okStrategy then ItemStrategy = nil end
+local function MetaBuyList(heroName, unit, fallback)
+	if ItemStrategy == nil or unit.bUserItemBuild or Role.IsPvNMode() or Role.IsAllShadow() then
+		return fallback
+	end
+	local list = ItemStrategy.GetMetaBuyList(heroName, J.GetPosition(unit))
+	if list then
+		print('[Items] '..heroName..' uses the meta build for pos '..tostring(J.GetPosition(unit)))
+		return list
+	end
+	return fallback
+end
+sPurchaseList = MetaBuyList(botName, bot, sPurchaseList)
+
 
 if sPurchaseList == nil then
 	print("[ERROR] Can't load purchase list for: " .. botName)
@@ -453,7 +470,7 @@ function ItemPurchaseThink()
 		local ok, newBuild = pcall(dofile, GetScriptDirectory().."/BotLib/"..heroFile)
 		if ok and newBuild ~= nil and newBuild['sBuyList'] ~= nil then
 			BotBuild = newBuild
-			sPurchaseList = newBuild['sBuyList']
+			sPurchaseList = MetaBuyList(botName, bot, newBuild['sBuyList'])
 			sItemSellList = newBuild['sSellList']
 		else
 			sPurchaseList = {}
@@ -575,7 +592,7 @@ function ItemPurchaseThink()
 		local ok, newBuild = pcall(dofile, GetScriptDirectory().."/BotLib/"..heroFile)
 		if ok and newBuild ~= nil and newBuild['sBuyList'] ~= nil then
 			BotBuild = newBuild
-			sPurchaseList = newBuild['sBuyList']
+			sPurchaseList = MetaBuyList(botName, bot, newBuild['sBuyList'])
 			sItemSellList = newBuild['sSellList']
 		end
 
@@ -1153,6 +1170,14 @@ function ItemPurchaseThink()
 				print("[Item] Core "..botName.." dropped "..lotusName.." (past 30min)")
 			end
 		end
+	end
+
+	-- Between two purchases: adapt the plan to the drafts and the game state
+	-- (also once the planned build is finished).
+	if ItemStrategy ~= nil and not Role.IsPvNMode()
+	and bot.currBuyingItemInPurchaseList == nil and #bot.currBuyingBasicItemList == 0
+	then
+		ItemStrategy.Think(bot, J.GetPosition(bot), bot.purchaseListInReverseOrder)
 	end
 
 	if #bot.purchaseListInReverseOrder == 0 then

@@ -51,6 +51,7 @@ function J.SetUserHeroInit( nAbilityBuildList, nTalentBuildList, sBuyList, sSell
 		nTalentBuildList = J.GetTalentBuildList( tBotSet.Talent )
 		sBuyList = tBotSet.PurchaseList
 		sSellList = tBotSet.SellList
+		bot.bUserItemBuild = true -- item_strategy keeps the user's item list as is
 	end
 	return nAbilityBuildList, nTalentBuildList, sBuyList, sSellList
 end

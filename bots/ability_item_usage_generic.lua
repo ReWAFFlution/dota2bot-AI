@@ -3422,6 +3422,21 @@ X.ConsiderItemDesire["item_mjollnir"] = function( hItem )
 
 	local nNearbyAllyList = J.GetNearbyHeroes(bot, nCastRange + 100, false, BOT_MODE_NONE);
 
+	-- Static Charge on self when fighting illusions (PL, TB, Naga, CK...):
+	-- every hit on the bot zaps the illusions around it.
+	if not bot:HasModifier( "modifier_item_mjollnir_static" )
+	then
+		local nIllusions = 0
+		for _, unit in pairs( bot:GetNearbyHeroes( 700, true, BOT_MODE_NONE ) or {} )
+		do
+			if J.IsValid( unit ) and unit:IsIllusion() then nIllusions = nIllusions + 1 end
+		end
+		if nIllusions >= 2
+		then
+			return BOT_ACTION_DESIRE_HIGH, bot, sCastType, 'static charge vs illusions'
+		end
+	end
+
 	--团战中对被攻击频率最高的用
 	if J.IsInTeamFight( bot, 900 )
 	then
