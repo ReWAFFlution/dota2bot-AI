@@ -40,6 +40,8 @@ local heroUnitNames = require( GetScriptDirectory()..'/FretBots/HeroNames')
 local Customize = require(GetScriptDirectory()..'/FunLib/custom_loader')
 local okMatchupLib, HeroMatchups = pcall(require, GetScriptDirectory()..'/FunLib/aba_matchups')
 if not okMatchupLib then HeroMatchups = nil end
+local okMetaDraft, MetaDraft = pcall(require, GetScriptDirectory()..'/FunLib/meta_draft_data')
+if not okMetaDraft then MetaDraft = nil end
 HeroPositionMap = HeroPositionMap.GetHeroPositions()
 
 if GAMEMODE_TURBO == nil then GAMEMODE_TURBO = 23 end
@@ -87,6 +89,28 @@ local DEFAULT_WEAK_HERO_CAP = 1
 --   { type="exp",    base=0.6 }       ->  penalty = base^(weakPicked)  (more weak -> smaller)
 -- Missing params fall back to sensible defaults.
 local DEFAULT_WEAK_PENALTY = { type = "exp", base = 0.6 }
+
+-- Draft director (data: FunLib/meta_draft_data.lua). Each value can be
+-- overridden from Customize with the key in brackets.
+-- Every bot team takes 1 meta and 1 popular hero; the team facing a human also
+-- takes 1 counter to the human's hero. One of these categories may get a second
+-- hero with this chance, checked in priority order counter -> meta -> popular;
+-- the first that rolls gets it [Second_Pick_Chance].
+local SECOND_PICK_CHANCE = 20
+-- These categories go to cores (pos 1-3) first. With this chance one meta or
+-- counter hero goes to a support slot instead and one core slot gets a free
+-- hero [Support_Swap_Chance].
+local SUPPORT_SWAP_CHANCE = 25
+-- Slots outside the quotas (mostly supports) take a hero from the position's
+-- pool of up to 40 popular heroes; with this chance a free hero that plays the
+-- position instead, however rare (Chen, Largo...) [Free_Pick_Chance].
+local FREE_PICK_CHANCE = 10
+-- Chance that the human's team adds one hero with good synergy [Synergy_Chance].
+local SYNERGY_CHANCE = 60
+-- Every hero must play the slot's position: at least 20% of its Stratz games
+-- there (MetaDraft.Positions). Heroes without Stratz data need at least this
+-- bot role weight (FunLib/aba_hero_pos_weights.lua) instead.
+local POS_FIT_MIN_WEIGHT = 50
 
 --==============================================================================
 -- State
@@ -143,6 +167,13 @@ local WeakHeroes = {
 --==============================================================================
 
 if Customize and not Customize.Enable then Customize = nil end
+
+if Customize then
+	SECOND_PICK_CHANCE = tonumber(Customize.Second_Pick_Chance) or SECOND_PICK_CHANCE
+	SYNERGY_CHANCE     = tonumber(Customize.Synergy_Chance)     or SYNERGY_CHANCE
+	SUPPORT_SWAP_CHANCE = tonumber(Customize.Support_Swap_Chance) or SUPPORT_SWAP_CHANCE
+	FREE_PICK_CHANCE   = tonumber(Customize.Free_Pick_Chance)   or FREE_PICK_CHANCE
+end
 
 -- Per-team string name for Role.RoleAssignment keying
 local sTeamName = GetTeam() == TEAM_RADIANT and 'TEAM_RADIANT' or 'TEAM_DIRE'
@@ -671,18 +702,306 @@ local function SelectTopWithFuzz(scored)
 	return scored[1].name
 end
 
+--==============================================================================
+-- Draft director
+--   On its first bot pick each team plans which bot slot fills which category:
+--     counter  - beats the enemy human's hero (only the team facing a human)
+--     meta     - meta hero for the slot's position
+--     popular  - one of the 10 most popular (non-meta) heroes of the position
+--     synergy  - optional, human's team only: good with the human's hero
+--     pool     - one of up to 40 popular heroes of the position (other slots)
+--     free     - any hero that plays the position, however rare
+--   Quotas: 1 of each of counter/meta/popular; one of them may get a second
+--   hero (SECOND_PICK_CHANCE, priority counter -> meta -> popular). Quotas go
+--   to cores (pos 1-3) first; with SUPPORT_SWAP_CHANCE one meta/counter goes to
+--   a support and a core gets a free hero. Remaining slots: pool, or free with
+--   FREE_PICK_CHANCE. Heroes are drawn uniformly so the same hero doesn't show
+--   up every game, and only heroes that play the slot's position are used.
+--==============================================================================
+
+local MetaSet = {}
+if MetaDraft then
+	for _, names in pairs(MetaDraft.MetaByPosition) do
+		for _, name in ipairs(names) do MetaSet[name] = true end
+	end
+end
+
+local DraftPlan = nil -- slot index -> category, built on this team's first bot pick
+
+local function OtherTeam(team)
+	return team == TEAM_RADIANT and TEAM_DIRE or TEAM_RADIANT
+end
+
+local function SelectedHeroesOf(team, humansOnly)
+	local list = {}
+	for _, pid in pairs(GetTeamPlayers(team)) do
+		local h = GetSelectedHeroName(pid)
+		if h ~= nil and h ~= '' and (not humansOnly or not IsPlayerBot(pid)) then
+			table.insert(list, h)
+		end
+	end
+	return list
+end
+
+local function HasHumanPlayer(team)
+	for _, pid in pairs(GetTeamPlayers(team)) do
+		if not IsPlayerBot(pid) then return true end
+	end
+	return false
+end
+
+-- minWeight given = relaxed check on bot role weights only (used when a rule
+-- must be met and no hero fits strictly).
+local function FitsPosition(hero, pos, minWeight)
+	local stratz = MetaDraft and MetaDraft.Positions[hero]
+	if stratz and not minWeight then return stratz[pos] ~= nil end
+	local w = HeroPositionMap[hero]
+	return w ~= nil and (w[pos] or 0) >= (minWeight or POS_FIT_MIN_WEIGHT)
+end
+
+-- Merge per-hero lists ({name, value}) for several source heroes into one list
+-- sorted by value; a hero listed for several sources gets the values summed.
+local function MergeLists(dataTable, sourceHeroes)
+	local byName, out = {}, {}
+	for _, src in ipairs(sourceHeroes) do
+		for _, entry in ipairs(dataTable[src] or {}) do
+			local name, value = entry[1], entry[2]
+			if byName[name] then
+				byName[name].value = byName[name].value + value
+			else
+				byName[name] = { name = name, value = value }
+				table.insert(out, byName[name])
+			end
+		end
+	end
+	table.sort(out, function(a, b) return a.value > b.value end)
+	return out
+end
+
+local function RandomFrom(list)
+	if #list == 0 then return nil end
+	return list[RandomInt(1, #list)]
+end
+
+local function IsCore(pos) return pos <= 3 end
+
+-- Heroes from `names` the team can pick that play `pos` and aren't in `skip`
+-- (minWeight: relaxed role-weight check, see FitsPosition).
+local function PickableAtPos(team, names, pos, minWeight, skip)
+	local out = {}
+	for _, h in ipairs(names) do
+		if not (skip and skip[h]) and X.CanPickHero(team, h) and FitsPosition(h, pos, minWeight) then
+			table.insert(out, h)
+		end
+	end
+	return out
+end
+
+local function EntryNames(list)
+	local out = {}
+	for _, e in ipairs(list) do table.insert(out, e.name) end
+	return out
+end
+
+local function CounterNames(team)
+	return EntryNames(MergeLists(MetaDraft.Counters, SelectedHeroesOf(OtherTeam(team), true)))
+end
+
+local AllHeroNames = {}
+for name, _ in pairs(HeroPositionMap) do table.insert(AllHeroNames, name) end
+
+-- Heroes the pool/free slots must not take, so the category quotas hold.
+local function ReservedHeroes(team, pos)
+	local set = {}
+	for h, _ in pairs(MetaSet) do set[h] = true end
+	for _, h in ipairs(CounterNames(team)) do set[h] = true end
+	if IsCore(pos) then
+		for _, h in ipairs(MetaDraft.PopularByPosition[pos] or {}) do set[h] = true end
+	end
+	return set
+end
+
+-- Heroes of a category that can go to `pos` right now.
+local function CategoryHeroes(team, cat, pos)
+	-- Counter heroes only come from the counter category, so their count stays 1-2.
+	local counterSet = {}
+	for _, h in ipairs(CounterNames(team)) do counterSet[h] = true end
+	if cat == 'counter' then
+		return PickableAtPos(team, CounterNames(team), pos)
+	elseif cat == 'meta' then
+		return PickableAtPos(team, MetaDraft.MetaByPosition[pos] or {}, pos, nil, counterSet)
+	elseif cat == 'popular' then
+		return PickableAtPos(team, MetaDraft.PopularByPosition[pos] or {}, pos, nil, counterSet)
+	elseif cat == 'synergy' then
+		local names = EntryNames(MergeLists(MetaDraft.Synergy, SelectedHeroesOf(team, true)))
+		return PickableAtPos(team, names, pos, nil, counterSet)
+	elseif cat == 'pool' then
+		return PickableAtPos(team, MetaDraft.PoolByPosition[pos] or {}, pos, nil, ReservedHeroes(team, pos))
+	elseif cat == 'free' then
+		return PickableAtPos(team, AllHeroNames, pos, nil, ReservedHeroes(team, pos))
+	end
+	return {}
+end
+
+-- Place one category: draw a hero uniformly among all heroes of the category
+-- that fit one of `slots` (hero first, then a slot it fits), so heroes that fit
+-- many positions are not favoured. Returns the slot index used in `slots`.
+local function PlaceCategory(team, cat, slots, taken)
+	local fits, heroes = {}, {}
+	for k, s in ipairs(slots) do
+		for _, h in ipairs(CategoryHeroes(team, cat, s.pos)) do
+			if not taken[h] then
+				if not fits[h] then fits[h] = {} table.insert(heroes, h) end
+				table.insert(fits[h], k)
+			end
+		end
+	end
+	local hero = RandomFrom(heroes)
+	if not hero then return nil end
+	return RandomFrom(fits[hero]), hero
+end
+
+local function BuildDraftPlan(team, botSlots)
+	local facesHuman = HasHumanPlayer(OtherTeam(team))
+	local order = facesHuman and { 'counter', 'meta', 'popular' } or { 'meta', 'popular' }
+
+	-- Quotas: 1 each; the first category whose roll succeeds gets a second hero.
+	local cats = {}
+	for _, cat in ipairs(order) do table.insert(cats, { cat = cat, second = false }) end
+	for idx, cat in ipairs(order) do
+		if RandomInt(1, 100) <= SECOND_PICK_CHANCE then
+			table.insert(cats, idx + 1, { cat = cat, second = true })
+			break
+		end
+	end
+
+	local cores, supports = {}, {}
+	for _, s in ipairs(botSlots) do table.insert(IsCore(s.pos) and cores or supports, s) end
+	local plan, taken = {}, {}
+
+	-- Support swap: one meta/counter hero goes to a support and one core is
+	-- kept for a free hero.
+	local swap = nil
+	if #supports > 0 and #cores > 0 and RandomInt(1, 100) <= SUPPORT_SWAP_CHANCE then
+		local movable = {}
+		for idx, c in ipairs(cats) do
+			if c.cat == 'meta' or c.cat == 'counter' then table.insert(movable, idx) end
+		end
+		local idx = RandomFrom(movable)
+		local k, hero = PlaceCategory(team, cats[idx].cat, supports, taken)
+		if k then
+			plan[supports[k].slot] = { cat = cats[idx].cat, hero = hero }
+			taken[hero] = true
+			table.remove(supports, k)
+			table.remove(cats, idx)
+			local c = RandomInt(1, #cores)
+			plan[cores[c].slot] = { cat = 'free' }
+			table.remove(cores, c)
+			swap = true
+		end
+	end
+
+	-- Remaining quotas: cores first, supports if no core fits.
+	for _, c in ipairs(cats) do
+		local placed = false
+		for _, slots in ipairs({ cores, supports }) do
+			local k, hero = PlaceCategory(team, c.cat, slots, taken)
+			if k then
+				plan[slots[k].slot] = { cat = c.cat, hero = hero }
+				taken[hero] = true
+				table.remove(slots, k)
+				placed = true
+				break
+			end
+		end
+		if not placed and not c.second then
+			-- Required hero with nothing fitting now (e.g. the human hasn't
+			-- picked yet): reserve a core slot and decide at pick time.
+			local slots = #cores > 0 and cores or supports
+			if #slots > 0 then
+				local k = RandomInt(1, #slots)
+				plan[slots[k].slot] = { cat = c.cat }
+				table.remove(slots, k)
+			end
+		end
+	end
+
+	-- Synergy (human's team, optional), then pool / rare free hero.
+	local rest = {}
+	for _, s in ipairs(cores) do table.insert(rest, s) end
+	for _, s in ipairs(supports) do table.insert(rest, s) end
+	if HasHumanPlayer(team) and #rest > 0 and RandomInt(1, 100) <= SYNERGY_CHANCE then
+		local k, hero = PlaceCategory(team, 'synergy', rest, taken)
+		if k then
+			plan[rest[k].slot] = { cat = 'synergy', hero = hero }
+			taken[hero] = true
+			table.remove(rest, k)
+		end
+	end
+	for _, s in ipairs(rest) do
+		plan[s.slot] = { cat = RandomInt(1, 100) <= FREE_PICK_CHANCE and 'free' or 'pool' }
+	end
+
+	local desc = {}
+	for _, s in ipairs(botSlots) do table.insert(desc, 'pos'..s.pos..'='..plan[s.slot].cat) end
+	print('[Draft] '..(team == TEAM_RADIANT and 'Radiant' or 'Dire')..' plan'..(swap and ' (support swap)' or '')..': '..table.concat(desc, ', '))
+	return plan
+end
+
+local function EnsureDraftPlan(team)
+	if DraftPlan or not MetaDraft then return end
+	local botSlots = {}
+	for i, pid in pairs(GetTeamPlayers(team)) do
+		if IsPlayerBot(pid) and GetSelectedHeroName(pid) == '' then
+			table.insert(botSlots, { slot = i, pos = Role.RoleAssignment[sTeamName][i] or i })
+		end
+	end
+	DraftPlan = BuildDraftPlan(team, botSlots)
+end
+
+-- Returns a hero for this bot slot (nil only without draft data).
+local function DirectorPick(team, slot, pos)
+	if not MetaDraft then return nil end
+	EnsureDraftPlan(team)
+	local planned = DraftPlan[slot] or { cat = 'pool' }
+	local cat = planned.cat
+	local teamName = team == TEAM_RADIANT and 'Radiant' or 'Dire'
+
+	-- The planned hero, unless someone took it meanwhile; then another hero of
+	-- the same category for this position, then the position pool, then any
+	-- hero that plays the position.
+	local pick, source = nil, cat
+	if planned.hero and X.CanPickHero(team, planned.hero) then
+		pick = planned.hero
+	else
+		pick = RandomFrom(CategoryHeroes(team, cat, pos))
+		if not pick then pick, source = RandomFrom(CategoryHeroes(team, 'pool', pos)), 'pool (fallback)' end
+		if not pick then pick, source = RandomFrom(CategoryHeroes(team, 'free', pos)), 'free (fallback)' end
+	end
+
+	if pick then print('[Draft] '..teamName..' pos '..pos..': '..source..' -> '..pick) end
+	return pick
+end
+
 local function PickHeroForBotSlot(i, id)
 	local team = TeamOfPlayer(id)
 	local rolePool = tSelectPoolList[i]
 	local preselect = sSelectList[i]
+	local pos = Role.RoleAssignment[sTeamName][i] or i
 
 	-- Default to preselect for variety path; can be overridden below
 	local pick = preselect
 
-	-- Use matchup data most of the time unless user forced picks
-	if not X.IsInCustomizedPicks(preselect) and RandomInt(1, 5) >= 1 then
+	local directed = nil
+	if not X.IsInCustomizedPicks(preselect) then
+		directed = DirectorPick(team, i, pos)
+	end
+	if directed then
+		pick = directed
+	-- Without draft data: matchup logic unless user forced picks
+	elseif not X.IsInCustomizedPicks(preselect) and RandomInt(1, 5) >= 1 then
 		local enemyNames = GetEnemyHeroNames()
-		local scored = ScoreCandidatesForTeam(team, rolePool, enemyNames, i)
+		local scored = ScoreCandidatesForTeam(team, rolePool, enemyNames, pos)
 
 		local teamName = (team == TEAM_RADIANT and 'Radiant' or 'Dire')
 		print('==== top 5 heroes for team: '..teamName..' pos: '..i..' id: '..id..' ====')

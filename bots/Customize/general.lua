@@ -74,6 +74,20 @@ Customize.Weak_Penalty = { type = "exp", base = 0.6 }
 -- Exact match on unit names by default; set Customize.Strict_Ban_Match = false to allow guarded substring matches (length ≥ 6).
 Customize.Strict_Ban_Match = true
 
+-- Draft (All Pick, data in FunLib/meta_draft_data.lua). Each bot team takes 1 meta
+-- and 1 popular hero for their positions; the team facing a human also takes 1
+-- counter to the human's hero. One category may get a 2nd hero with this chance (%),
+-- checked in priority order counter -> meta -> popular.
+Customize.Second_Pick_Chance = 20
+-- These heroes go to cores (pos 1-3) first. Chance (%) that one meta/counter hero goes
+-- to a support instead and a core gets a free hero that plays its position.
+Customize.Support_Swap_Chance = 25
+-- Other slots (mostly supports) take one of up to 40 popular heroes of the position;
+-- chance (%) to take any hero that plays the position instead, however rare.
+Customize.Free_Pick_Chance = 10
+-- Chance (%) that the human's bot teammates add one hero with good synergy.
+Customize.Synergy_Chance = 60
+
 -- To allow bots do trash talking in different scenarios: got fb, killing a human, etc. Disable this also disables GPT chat.
 Customize.Allow_Trash_Talk = true
 
