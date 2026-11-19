@@ -771,6 +771,31 @@ function X.Combat(bot)
 	end
 	local ourRate = Power(allies, enemies) / TotalHP(enemies)
 	local theirRate = Power(enemies, allies) / TotalHP(allies)
+	-- Who else may join. Enemies seen near here in the last 10 s but in the
+	-- fog now count almost fully; enemies unseen for longer a little (they
+	-- may come). Our heroes 1400-3000 away (a human too) are on their way and
+	-- count half. (A fight taken 4v2 on what was visible turned out 4v4,
+	-- without the human who was a bit further.)
+	local visible = {}
+	for _, e in ipairs(enemies) do visible[e:GetPlayerID()] = true end
+	local ghosts, farMissing = 0, 0
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+		if IsHeroAlive(pid) and not visible[pid] then
+			local info = GetHeroLastSeenInfo(pid)
+			local d = info and info[1]
+			if d and d.time_since_seen < 10 and Dist(d.location, myLoc) < 3000 then
+				ghosts = ghosts + 1
+			elseif not d or d.time_since_seen >= 10 then
+				farMissing = farMissing + 1
+			end
+		end
+	end
+	local arriving = 0
+	for _, a in ipairs(HeroesNear(GetTeam(), myLoc, 3000)) do
+		if Dist(a:GetLocation(), myLoc) > 1400 then arriving = arriving + 1 end
+	end
+	theirRate = theirRate * (1 + (ghosts * 0.9 + farMissing * 0.25) / math.max(1, #enemies))
+	ourRate = ourRate * (1 + 0.5 * arriving / math.max(1, #allies))
 	local teamRatio = ourRate / math.max(0.0001, theirRate)
 
 	-- Our fastest kill among them.
@@ -790,7 +815,7 @@ function X.Combat(bot)
 	local noTarget = best == nil
 	if not best then best = enemies[1] end
 
-	local c = { target = best, ttkUs = bestT, ttkThem = ttkThem, teamRatio = teamRatio }
+	local c = { target = best, ttkUs = bestT, ttkThem = ttkThem, teamRatio = teamRatio, ghosts = ghosts, arriving = arriving }
 	local hp = J.GetHP(bot)
 	local teamWins = teamRatio >= 1.2
 	c.go = J.GetHP(bot) > 0.3 and ((bestT <= 4 and bestT < ttkThem) or (teamWins and bestT <= 6))
@@ -918,8 +943,8 @@ function X.FightHint(bot)
 	local function Say(what)
 		if not bot._fightLogT or t - bot._fightLogT > 8 then
 			bot._fightLogT = t
-			print(string.format('[Fight] %s %s %s (we kill in %.1f s, they kill us in %.1f s, team x%.2f, value %.0f)',
-				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, c.teamRatio or 0, ev))
+			print(string.format('[Fight] %s %s %s (we kill in %.1f s, they kill us in %.1f s, team x%.2f, unseen enemies %d, allies coming %d, value %.0f)',
+				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, c.teamRatio or 0, c.ghosts or 0, c.arriving or 0, ev))
 		end
 	end
 	if c.retreat and not laneCalm then

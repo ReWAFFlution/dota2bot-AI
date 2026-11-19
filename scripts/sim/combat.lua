@@ -7,7 +7,8 @@ DAMAGE_TYPE_MAGICAL = 2
 local function hero(name, team, loc, hp, dps)
 	local u = { name = name, team = team, loc = loc, hp = hp, dps = dps, items = {} }
 	function u:GetUnitName() return 'npc_dota_hero_'..name end function u:GetLocation() return self.loc end
-	function u:IsAlive() return true end function u:IsIllusion() return false end function u:GetPlayerID() return 0 end
+	u.pid = (team == 3) and 5 or 0
+	function u:IsAlive() return true end function u:IsIllusion() return false end function u:GetPlayerID() return self.pid end
 	function u:GetHealth() return self.hp end function u:GetMaxHealth() return 2000 end function u:GetHealthRegen() return 5 end
 	function u:GetEstimatedDamageToTarget(_, _, secs, dtype) return dtype == DAMAGE_TYPE_MAGICAL and self.dps * 0.3 * secs or self.dps * secs end
 	function u:FindItemSlot(n) return self.items[n] and 0 or -1 end
@@ -20,7 +21,9 @@ local me = hero('sven', 2, Vector(0, 0), 1800, 250)
 local allies, enemies = { me }, {}
 function GetUnitList(t) if t == UNIT_LIST_ENEMY_HEROES then return enemies end if t == UNIT_LIST_ALLIED_HEROES then return allies end return {} end
 function GetTower() return nil end function GetTeamMember(i) return allies[i] end
-function GetTeamPlayers() return { 0 } end function IsHeroAlive() return true end
+local seenNear = {}
+function GetTeamPlayers(t) return t == 3 and { 5, 6, 7, 8 } or { 0 } end function IsHeroAlive() return true end
+function GetHeroLastSeenInfo(pid) if seenNear[pid] then return { { time_since_seen = 2, location = Vector(800, 0) } } end return { { time_since_seen = 1, location = Vector(9000, 9000) } } end
 local J = { IsValidHero = function(h) return h ~= nil end, CanBeAttacked = function() return true end, GetHP = function(u) return u.hp / 2000 end,
 	GetMP = function() return 0.8 end, IsSuspiciousIllusion = function() return false end, GetPosition = function() return 1 end,
 	GetEnemyFountain = function() return Vector(7000, 7000) end, GetTeamFountain = function() return Vector(-7000, -7000) end }
@@ -58,4 +61,16 @@ c = show('same fight at their fountain') assert(c.retreat and not c.go)
 me.loc, me.hp = Vector(0, 0), 1500
 allies = { me } enemies = { hero('wk', 3, Vector(500, 0), 1800, 250) }
 c = show('1v1 even, enemy close') assert(c.go or c.retreat)
+-- 3 of ours vs 2 visible, 2 more seen right here 2 s ago: not a free fight.
+me.loc, me.hp = Vector(0, 0), 1500
+allies = { me, hero('mk', 2, Vector(100, 100), 1800, 300), hero('nyx', 2, Vector(50, -120), 1300, 250) }
+local e1, e2 = hero('pango', 3, Vector(500, 0), 1200, 300), hero('ven', 3, Vector(550, -100), 900, 250)
+e1.pid, e2.pid = 5, 6
+enemies = { e1, e2 }
+local cVisible = O.Combat(me)
+seenNear[7], seenNear[8] = true, true
+me._x = nil
+local cGhosts = O.Combat(me)
+print(string.format('3v2 visible: team x%.2f go=%s | +2 seen nearby: team x%.2f go=%s', cVisible.teamRatio, tostring(cVisible.go), cGhosts.teamRatio, tostring(cGhosts.go)))
+assert(cGhosts.teamRatio < cVisible.teamRatio * 0.6)
 print('combat ok')
