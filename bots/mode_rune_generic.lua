@@ -102,11 +102,11 @@ function GetDesire()
 		end
 	end
 
-	-- A rune right on the way (within 700): take it, it's two seconds
+	-- A rune right on the way (within 900): take it, it's two seconds
 	-- (Bristleback ran past a bounty rune: its distance-scaled desire lost to
 	-- push/farm). Not while retreating or fighting.
 	bot._passRune = nil
-	-- Right on the way (500) with no enemy hero within 700: even while
+	-- Within 900 with no enemy hero within 700: even while
 	-- retreating or fighting (WK backed off past a bounty rune and left it).
 	local nearFree = #J.GetEnemiesNearLoc(bot:GetLocation(), 700) == 0
 	local busy = J.IsRetreating(bot) or J.IsGoingOnSomeone(bot) or J.GetHP(bot) <= 0.3
@@ -126,7 +126,7 @@ function GetDesire()
 				end
 				local dist = loc and GetUnitToLocationDistance(bot, loc) or math.huge
 				if DotaTime() > (bot._runeBan[r] or -math.huge)
-				and loc and (loc.x ~= 0 or loc.y ~= 0) and dist < (busy and 500 or 700) then
+				and loc and (loc.x ~= 0 or loc.y ~= 0) and dist < 900 then
 					bot._passRune = r
 					return busy and 0.97 or BOT_MODE_DESIRE_VERYHIGH
 				end
