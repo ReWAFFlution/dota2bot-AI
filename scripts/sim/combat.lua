@@ -238,4 +238,19 @@ local near = O.FightAt(Vector(5000, 5000), sfB)
 local all = O.FightAt(Vector(5000, 5000), sfB, true)
 print(string.format('SF alone at their T4: nearby only x%.2f, everyone defending x%.2f', near, all))
 assert(all < 1.2 and all < near)
+-- LC on Lion: alone with him it's ours, but three of Lion's allies are
+-- 2500 away and coming: the group fight isn't a go any more.
+SIM_T = SIM_T + 10
+local lc = hero('legion_commander', 2, Vector(0, 0), 1500, 200)
+local lion = hero('lion', 3, Vector(300, 0), 700, 120) lion.pid = 5
+allies, enemies = { lc }, { lion }
+local alone = O.GroupFight(lion).ratio
+SIM_T = SIM_T + 2
+local h1 = hero('earthshaker', 3, Vector(2500, 0), 1600, 150) h1.pid = 6
+local h2 = hero('hoodwink', 3, Vector(2400, 500), 1100, 150) h2.pid = 7
+local h3 = hero('dragon_knight', 3, Vector(2600, -400), 1900, 150) h3.pid = 8
+enemies = { lion, h1, h2, h3 }
+local coming = O.GroupFight(lion).ratio
+print(string.format('LC on Lion: alone x%.2f, with three of theirs coming x%.2f', alone, coming))
+assert(coming < alone and coming < 1.2)
 print('combat ok')

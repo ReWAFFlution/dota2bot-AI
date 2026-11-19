@@ -507,15 +507,21 @@ local function PickGroup(S, obj, taken)
 	-- and it takes 3 of us (fewer only when fewer of them are alive). SF was
 	-- sent alone to a T4 "at x1.64" and died to the five of them.
 	local base = obj.kind == 'push' and (obj.tier or 1) >= 3
+	local towerPush = obj.kind == 'push' and (obj.tier or 0) >= 1 -- an enemy tower (not a wave in our base)
 	local minGroup = base and math.min(3, math.max(1, GetNumAlive(GetOpposingTeam()))) or 1
 	local maxGroup = base and 5 or 3
+	-- Just called off here: nobody for 10 s unless clearly winning (Dire
+	-- called three off at x0.63 and sent three others at x1.57 the same second).
+	local offT = S.calledOff and S.calledOff[obj.name..obj.lane]
+	local need = (base or towerPush) and 1.2 or 1.0
+	if offT and DotaTime() - offT < 10 then need = math.max(need, 1.3) end
 	for _, c in ipairs(Candidates(S, obj.loc, taken, obj.lane, obj.kind, obj.tier)) do
 		if #group >= maxGroup then break end
 		if not (obj.ttd and c.travel > obj.ttd + 5) then -- in time to matter
 			table.insert(group, c.m)
 			table.insert(chosen, { m = c.m, gain = obj.value, cost = X.Rate(c.m) * c.travel / 60 + 2 })
-			local ratio = X.FightAt(obj.loc, group, base)
-			if ratio >= (base and 1.2 or 1.0) and #group >= minGroup then
+			local ratio = X.FightAt(obj.loc, group, base, towerPush)
+			if ratio >= need and #group >= minGroup then
 				ObjLog(string.format('%d heroes win at %s lane %d (x%.2f): sending them', #group, obj.name, obj.lane, ratio))
 				return chosen
 			end
@@ -665,9 +671,11 @@ local function Assign(S, t)
 				end
 			end
 			if #group > 0 then
-				local ratio = X.FightAt(obj.loc, group, base)
+				local ratio = X.FightAt(obj.loc, group, base, obj.kind == 'push' and (obj.tier or 0) >= 1)
 				if ratio < 0.8 or (base and #group < math.min(3, math.max(1, GetNumAlive(GetOpposingTeam())))) then
 					ObjLog(string.format('%d heroes lose at %s lane %d (x%.2f): calling them off', #group, obj.name, obj.lane, ratio))
+					S.calledOff = S.calledOff or {}
+					S.calledOff[obj.name..obj.lane] = t
 					for i, m in ipairs(group) do taken[m] = nil newAssign[pids[i]] = nil end
 					S.dropped = S.dropped or {}
 					for _, pid in ipairs(pids) do S.dropped[pid] = obj.name..obj.lane end
@@ -1285,7 +1293,7 @@ end
 -- Enemies in the fog who may be at `loc`: seen near it in the last 10 s
 -- (0.9), not seen for longer (0.5: they may be there or teleport in), seen
 -- elsewhere just now (0.2). Returns their power and HP, weighted.
-local function FogEnemies(loc, visible, all)
+local function FogEnemies(loc, visible, all, half)
 	local power, hp, n = 0, 0, 0
 	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
 		local snap = enemySnap[pid]
@@ -1295,6 +1303,7 @@ local function FogEnemies(loc, visible, all)
 			local w = 0.5
 			if d and d.time_since_seen <= 10 then w = Dist(d.location, loc) < 3000 and 0.9 or 0.2 end
 			if all then w = 1 end -- at their base they all come
+			if half then w = math.max(w, 0.5) end -- their tower: they may teleport in
 			power, hp, n = power + snap.power * w, hp + snap.hp * w, n + w
 		end
 	end
@@ -1305,7 +1314,7 @@ end
 -- we win). Enemies in the fog who may be there count too (Enigma and Rubick
 -- teleported one by one to push a T2 "at x99" with our heroes behind it in
 -- the fog). 99 with no enemy there and none unaccounted for.
-function X.FightAt(loc, extra, allEnemies)
+function X.FightAt(loc, extra, allEnemies, halfEnemies)
 	local allies = HeroesNear(GetTeam(), loc, 1500)
 	-- extra: one hero or a list of heroes joining.
 	local extras = (type(extra) == 'table' and extra[1] ~= nil) and extra or (extra and { extra } or {})
@@ -1319,7 +1328,16 @@ function X.FightAt(loc, extra, allEnemies)
 	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
 		if J.IsValidHero(e) and not e:IsIllusion() then visible[e:GetPlayerID()] = true end
 	end
-	local fogPower, fogHP, fogN = FogEnemies(loc, visible, allEnemies)
+	local fogPower, fogHP, fogN = FogEnemies(loc, visible, allEnemies, halfEnemies)
+	if halfEnemies and not allEnemies then
+		-- Visible enemies elsewhere can teleport to their tower: half each.
+		for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+			if J.IsValidHero(e) and not e:IsIllusion() and not J.IsSuspiciousIllusion(e) and Dist(e:GetLocation(), loc) > 1500 then
+				local snap = enemySnap[e:GetPlayerID()]
+				if snap then fogPower, fogHP, fogN = fogPower + snap.power * 0.5, fogHP + snap.hp * 0.5, fogN + 0.5 end
+			end
+		end
+	end
 	if allEnemies then
 		-- Every enemy alive defends there: the visible ones anywhere count too.
 		for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
@@ -1365,7 +1383,21 @@ function X.GroupFight(target)
 	local allies = HeroesNear(GetTeam(), loc, GROUP_RADIUS)
 	local enemies = HeroesNear(GetOpposingTeam(), loc, GROUP_RADIUS)
 	if #allies == 0 or #enemies == 0 then return nil end
-	local ratio = (TeamPower(allies, enemies) / TeamHP(enemies)) / math.max(0.0001, TeamPower(enemies, allies) / TeamHP(allies))
+	-- Their heroes on the way (1800-3000) count half, and those in the fog
+	-- by what they had when seen (LC dived Lion at "x1.57" with three of
+	-- Lion's allies running in).
+	local coming = {}
+	for _, e in ipairs(HeroesNear(GetOpposingTeam(), loc, 3000)) do
+		if Dist(e:GetLocation(), loc) > GROUP_RADIUS then table.insert(coming, e) end
+	end
+	local visible = {}
+	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+		if J.IsValidHero(e) and not e:IsIllusion() then visible[e:GetPlayerID()] = true end
+	end
+	local fogPower, fogHP = FogEnemies(loc, visible)
+	local theirPower = TeamPower(enemies, allies) + 0.5 * TeamPower(coming, allies) + fogPower
+	local theirHP = TeamHP(enemies) + 0.5 * (#coming > 0 and TeamHP(coming) or 0) + fogHP
+	local ratio = (TeamPower(allies, enemies) / theirHP) / math.max(0.0001, theirPower / TeamHP(allies))
 	local g = { t = t, target = target, ratio = ratio, n = #allies }
 	groupCache[target:GetPlayerID()] = g
 	return g
