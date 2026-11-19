@@ -821,12 +821,33 @@ local function ReservedHeroes(team, pos)
 	return set
 end
 
+-- The carry slot takes a strong carry: the position's meta heroes plus carries
+-- these bots play well (right-click fighters that scale, few micro skills).
+local BOT_STRONG_CARRIES = {
+	'npc_dota_hero_skeleton_king', 'npc_dota_hero_phantom_assassin', 'npc_dota_hero_juggernaut',
+	'npc_dota_hero_spectre', 'npc_dota_hero_luna', 'npc_dota_hero_drow_ranger', 'npc_dota_hero_medusa',
+	'npc_dota_hero_sven', 'npc_dota_hero_ursa', 'npc_dota_hero_life_stealer', 'npc_dota_hero_chaos_knight',
+	'npc_dota_hero_troll_warlord', 'npc_dota_hero_gyrocopter', 'npc_dota_hero_muerta', 'npc_dota_hero_slark',
+}
+local function StrongCarries()
+	local list, seen = {}, {}
+	for _, h in ipairs((MetaDraft and MetaDraft.MetaByPosition[1]) or {}) do
+		if not seen[h] then seen[h] = true table.insert(list, h) end
+	end
+	for _, h in ipairs(BOT_STRONG_CARRIES) do
+		if not seen[h] then seen[h] = true table.insert(list, h) end
+	end
+	return list
+end
+
 -- Heroes of a category that can go to `pos` right now.
 local function CategoryHeroes(team, cat, pos)
 	-- Counter heroes only come from the counter category, so their count stays 1-2.
 	local counterSet = {}
 	for _, h in ipairs(CounterNames(team)) do counterSet[h] = true end
-	if cat == 'counter' then
+	if cat == 'carry' then
+		return PickableAtPos(team, StrongCarries(), pos, nil, counterSet)
+	elseif cat == 'counter' then
 		return PickableAtPos(team, CounterNames(team), pos)
 	elseif cat == 'meta' then
 		return PickableAtPos(team, MetaDraft.MetaByPosition[pos] or {}, pos, nil, counterSet)
@@ -898,6 +919,18 @@ local function BuildDraftPlan(team, botSlots)
 			plan[cores[c].slot] = { cat = 'free' }
 			table.remove(cores, c)
 			swap = true
+		end
+	end
+
+	-- The carry slot always gets a strong carry (weak carries lost games by
+	-- 20 minutes).
+	for k, c in ipairs(cores) do
+		if c.pos == 1 and not plan[c.slot] then
+			local kk, hero = PlaceCategory(team, 'carry', { c }, taken)
+			plan[c.slot] = { cat = 'carry', hero = hero }
+			if hero then taken[hero] = true end
+			table.remove(cores, k)
+			break
 		end
 	end
 

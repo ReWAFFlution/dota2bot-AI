@@ -18,8 +18,9 @@ if not okER then EnemyRoles = nil end
 local X = {}
 
 local HARASS_TIME = 1.5
-local SUPPORT_HARASS_GAP = 2.0
-local CORE_HARASS_GAP = 4.0
+local SUPPORT_HARASS_TIME = 2.5  -- supports keep hitting the enemy core
+local SUPPORT_HARASS_GAP = 0.8
+local CORE_HARASS_GAP = 3.0
 local LANING_END = 10 * 60
 local PULL_FROM, PULL_UNTIL = 2 * 60, 10 * 60
 local PULL_GAP = 50
@@ -88,14 +89,28 @@ local function PickHarassTarget(bot)
 	end
 	if #list == 0 then return nil end
 	if IsSupport(bot) then
-		-- Enemy support first; their core once the support has left.
+		-- The enemy core first (deny its farm), the lowest HP one if several;
+		-- their support when no core is in reach.
+		local best, low = nil, math.huge
 		for _, e in ipairs(list) do
 			local p = EnemyPos(e)
-			if p and p >= 4 then return e end
+			if (not p or p <= 3) and e:GetHealth() < low then best, low = e, e:GetHealth() end
 		end
+		if best then return best end
 	end
 	table.sort(list, function(a, b) return Dist(a:GetLocation(), myLoc) < Dist(b:GetLocation(), myLoc) end)
 	return list[1]
+end
+
+-- Share of our HP the enemies around could take in ~2 s (their tower too).
+function X.TradeRisk(bot, enemies)
+	local dmg = 0
+	for _, e in ipairs(enemies) do
+		local ok, d = pcall(function() return e:GetEstimatedDamageToTarget(true, bot, 2.0, DAMAGE_TYPE_ALL) end)
+		if ok and d then dmg = dmg + d end
+	end
+	if EnemyTowerNear(bot:GetLocation(), 850) then dmg = dmg + 300 end
+	return dmg / math.max(1, bot:GetHealth())
 end
 
 -- Called from mode_laning_generic.GetDesire every frame.
@@ -120,12 +135,14 @@ function X.Harass(bot)
 	local target = PickHarassTarget(bot)
 	if not target then return end
 	if not support and J.GetHP(target) > J.GetHP(bot) + 0.15 then return end
-	-- Not into a trade we'd lose (their burst, their tower, a gank coming).
-	local _, _, pDeath = Objectives.FightValue(bot, target)
-	if pDeath > 0.35 then return end
+	-- Not into a trade we'd lose: a harass is a short trade, so what counts is
+	-- the enemies' burst over ~2 s (the 4 s all-in estimate made supports
+	-- skip almost every trade at low levels).
+	if X.TradeRisk(bot, enemies) > (support and 0.75 or 0.6) then return end
 
-	bot.forceFightUntil = t + HARASS_TIME
-	bot._harassNext = t + HARASS_TIME + (support and SUPPORT_HARASS_GAP or CORE_HARASS_GAP)
+	local window = support and SUPPORT_HARASS_TIME or HARASS_TIME
+	bot.forceFightUntil = t + window
+	bot._harassNext = t + window + (support and SUPPORT_HARASS_GAP or CORE_HARASS_GAP)
 	bot._harassTarget = target
 	bot:SetTarget(target)
 end
@@ -301,7 +318,7 @@ function X.SupportThink(bot)
 	-- Harass window: right-click the target (spells come from the hero file).
 	local target = bot._harassTarget
 	if (bot.forceFightUntil or -1) > t and J.IsValidHero(target) and J.CanBeAttacked(target)
-	and GetUnitToUnitDistance(bot, target) < bot:GetAttackRange() + 350
+	and GetUnitToUnitDistance(bot, target) < bot:GetAttackRange() + 600
 	and not EnemyTowerNear(target:GetLocation(), 750) then
 		bot:Action_AttackUnit(target, true)
 		return
@@ -329,8 +346,23 @@ function X.SupportThink(bot)
 		end
 	end
 
-	-- Stand a little behind our wave, between it and the enemy heroes.
+	-- Zone the enemy core: stand at our attack range from it (on our side)
+	-- when the trade is safe, so every last hit it goes for costs it HP.
 	local enemies = RealHeroes(true, bot:GetLocation(), 1600)
+	local core
+	for _, e in ipairs(enemies) do
+		local p = EnemyPos(e)
+		if (not p or p <= 3) and not EnemyTowerNear(e:GetLocation(), 800) then core = e break end
+	end
+	if core and J.GetHP(bot) > 0.45 and X.TradeRisk(bot, enemies) < 0.5 then
+		local away = (bot:GetLocation() - core:GetLocation())
+		if away:Length2D() < 1 then away = Vector(1, 0, 0) end
+		local spot = core:GetLocation() + away:Normalized() * (bot:GetAttackRange() + 30)
+		if GetUnitToLocationDistance(bot, spot) > 120 then bot:Action_MoveToLocation(spot) end
+		return
+	end
+
+	-- Stand a little behind our wave, between it and the enemy heroes.
 	local range = math.max(bot:GetAttackRange(), 300)
 	local back = #enemies > 0 and -(range + 100) or -250
 	local loc = GetLaneFrontLocation(GetTeam(), lane, back)

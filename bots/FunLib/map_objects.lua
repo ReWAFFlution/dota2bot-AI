@@ -152,6 +152,11 @@ end
 -- Desire for mode_roam_generic, or nil.
 function X.RoamDesire(bot)
 	-- Stuck at a pool/watcher (can't reach it, order ignored): give up for a while.
+	-- Standing in a lotus pool is on purpose.
+	if bot._lotusStandT then
+		if DotaTime() - bot._lotusStandT < 8 and #J.GetNearbyHeroes(bot, 1000, true, BOT_MODE_NONE) == 0 then return 0.62 end
+		bot._lotusStandT, bot._mapTarget = nil, nil
+	end
 	if StuckGuard.Blocked(bot, 'map', BOT_MODE_ROAM, 90) then
 		bot._mapTarget, bot._mapUseT = nil, nil
 		return nil
@@ -166,6 +171,56 @@ function X.RoamDesire(bot)
 	return LotusDesire(bot, S) or WatcherDesire(bot, S)
 end
 
+-- Lotuses in the inventory (all kinds, charges counted).
+local function LotusCount(bot)
+	local n = 0
+	for _, name in ipairs({ 'item_famango', 'item_great_famango', 'item_greater_famango' }) do
+		for slot = 0, 16 do
+			local it = bot:GetItemInSlot(slot)
+			if it and it:GetName() == name then n = n + math.max(1, it:GetCurrentCharges()) end
+		end
+	end
+	return n
+end
+
+-- The pool's passive (ability_lotus_pool, radius 350) hands a lotus to a hero
+-- standing inside it for 1.5 s (the next ones faster). Any order resets that,
+-- so: walk in, stop, and give no orders until the lotuses stop coming.
+function X.LotusThink(bot, pool, S, key)
+	local t = DotaTime()
+	local d = GetUnitToUnitDistance(bot, pool)
+	if not bot._lotusStandT then
+		local inside = d <= 220
+		if not inside then
+			if not bot._mapApproach or d < bot._mapApproach.d - 20 then bot._mapApproach = { d = d, t = t } end
+			-- Can't get closer (the pool's hull): inside the 350 radius is enough.
+			if d <= 320 and t - bot._mapApproach.t > 1.5 then inside = true end
+		end
+		if not inside then
+			bot:Action_MoveToLocation(pool:GetLocation())
+			return true
+		end
+		bot._mapApproach = nil
+		bot:Action_ClearActions(true)
+		bot._lotusStandT, bot._lotusLastT, bot._lotusCount, bot._lotusGot = t, t, LotusCount(bot), 0
+		Log(bot:GetUnitName()..' stands in the lotus pool')
+		return true
+	end
+	local n = LotusCount(bot)
+	if n > bot._lotusCount then
+		bot._lotusGot = bot._lotusGot + (n - bot._lotusCount)
+		bot._lotusCount, bot._lotusLastT = n, t
+	end
+	local done = (bot._lotusGot > 0 and t - bot._lotusLastT > 2.0) or (bot._lotusGot == 0 and t - bot._lotusStandT > 4.0)
+	if done or d > 400 then
+		S.poolTaken[key] = t
+		Log(bot:GetUnitName()..(bot._lotusGot > 0 and (' picked '..bot._lotusGot..' lotus(es)') or ' got no lotus from the pool'))
+		bot._lotusStandT, bot._mapTarget, bot._mapUseT = nil, nil, nil
+		return false
+	end
+	return true -- stand still: no order
+end
+
 function X.RoamThink(bot)
 	local u, kind = bot._mapTarget, bot._mapKind
 	if not u or u:IsNull() then return false end
@@ -173,6 +228,7 @@ function X.RoamThink(bot)
 	local key = Key(u)
 	if bot:IsChanneling() then bot._mapChanneled = true return true end
 	if bot:IsUsingAbility() then return true end
+	if kind == 'lotus' then return X.LotusThink(bot, u, S, key) end
 
 	-- Walk into the pool (the lotus is picked standing in it) / up to the lamp.
 	-- If the hero can't get closer (the pool's hull), cast from where it is.

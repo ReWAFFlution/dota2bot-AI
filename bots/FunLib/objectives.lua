@@ -687,7 +687,8 @@ function X.FightHint(bot)
 	end
 	local target, ev, pk, pd = X.BestFight(bot, 1200)
 	if not target then return 0 end
-	if ev < -10 and pd > 0.55 then
+	local lowHP = J.GetHP(bot) < 0.4
+	if (ev < -5 and pd > 0.45) or (lowHP and ev < 0 and pd > 0.3) then
 		if not bot._fightLogT or t - bot._fightLogT > 10 then
 			bot._fightLogT = t
 			print(string.format('[Fight] %s backs off from %s (value %.0f, kill %.0f%%, death %.0f%%)',
