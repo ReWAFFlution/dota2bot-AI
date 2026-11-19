@@ -21,6 +21,7 @@ local function hero(name, team, loc, hp, dps)
 	function u:GetAttackRange() return 550 end function u:GetAttackDamage() return 60 end
 	function u:GetAbilityByName(n) return self.abilities and self.abilities[n] end
 	function u:GetMana() return self.mana or 0 end
+	function u:GetTeam() return self.team end
 	return u
 end
 local me = hero('sven', 2, Vector(0, 0), 1800, 250)
@@ -253,4 +254,13 @@ enemies = { lion, h1, h2, h3 }
 local coming = O.GroupFight(lion).ratio
 print(string.format('LC on Lion: alone x%.2f, with three of theirs coming x%.2f', alone, coming))
 assert(coming < alone and coming < 1.2)
+-- An enemy WK: second life counted until his rebirth is seen, then not.
+SIM_T = SIM_T + 10
+local wkE = hero('skeleton_king', 3, Vector(400, 0), 2000, 200) wkE.pid = 9
+local before = O.ExtraLife(wkE)
+wkE.hp = 100 O.ExtraLife(wkE) -- nearly dead
+SIM_T = SIM_T + 3 wkE.hp = 1950 -- back, full
+local after = O.ExtraLife(wkE)
+print(string.format('enemy WK second life: before %d, after his rebirth %d', before, after))
+assert(before > 0 and after == 0)
 print('combat ok')

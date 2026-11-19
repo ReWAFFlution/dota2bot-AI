@@ -1199,14 +1199,26 @@ local function SteroidDamage(u, secs)
 	return extra
 end
 
+-- Enemy cooldowns are hidden from us: the "ready spells only" estimate of an
+-- enemy came out as little more than its attacks ("they kill us in 99 s"
+-- next to a Lion with Finger of Death up, and Troll walked in and died).
+-- Enemies are counted with all their spells (as a player assumes what he
+-- hasn't seen used is ready), at 85%.
+local function Estimate(u, victim, secs, dtype)
+	local enemy = u.GetTeam and u:GetTeam() ~= GetTeam()
+	local v = u:GetEstimatedDamageToTarget(not enemy, victim, secs, dtype)
+	if enemy and v then v = v * 0.85 end
+	return v
+end
+
 local function Burst(dealers, victim, secs, magicCut)
 	local d = 0
 	for _, u in ipairs(dealers) do
-		local ok, v = pcall(function() return u:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_ALL) end)
+		local ok, v = pcall(function() return Estimate(u, victim, secs, DAMAGE_TYPE_ALL) end)
 		if ok and v then v = v + SummonDamage(u, secs) + IllusionDamage(u, victim, secs) + SteroidDamage(u, secs) end
 		if ok and v then
 			if magicCut then
-				local ok2, mag = pcall(function() return u:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_MAGICAL) end)
+				local ok2, mag = pcall(function() return Estimate(u, victim, secs, DAMAGE_TYPE_MAGICAL) end)
 				if ok2 and mag then v = v - mag * 0.75 end
 			end
 			d = d + math.max(0, v)
@@ -1226,11 +1238,25 @@ end
 
 -- A second life: Wraith King's Reincarnation ready (its cooldown is read when
 -- the engine allows, else assumed ready from level 6) or the Aegis.
+local wkWatch = {}
 local function ExtraLife(victim)
 	if victim:HasModifier('modifier_aegis_regen') or (victim.FindItemSlot and victim:FindItemSlot('item_aegis') >= 0) then
 		return victim:GetMaxHealth()
 	end
 	if victim:GetUnitName() == 'npc_dota_hero_skeleton_king' then
+		-- An enemy WK's cooldown is hidden from us (it always read ready, so
+		-- Troll and Pugna didn't finish him after he came back): his rebirth
+		-- is seen instead (under 10% HP, then nearly full within 6 s), and
+		-- the second life is gone for 200 s after it.
+		if victim:GetTeam() ~= GetTeam() then
+			local pid = victim:GetPlayerID()
+			wkWatch[pid] = wkWatch[pid] or {}
+			local w, now, hp = wkWatch[pid], DotaTime(), J.GetHP(victim)
+			if hp < 0.1 then w.lowT = now end
+			if w.lowT and hp > 0.85 and now - w.lowT < 6 then w.usedT, w.lowT = now, nil end
+			if w.usedT and now - w.usedT < 200 then return 0 end
+			return victim:GetLevel() >= 6 and victim:GetMaxHealth() or 0
+		end
 		local ready = nil
 		pcall(function()
 			local ab = victim:GetAbilityByName('skeleton_king_reincarnation')
