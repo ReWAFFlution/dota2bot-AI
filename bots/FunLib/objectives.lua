@@ -1115,6 +1115,26 @@ local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns, s
 	return 99
 end
 
+-- The fight around an enemy hero for all of our heroes there: everyone of
+-- ours within GROUP_RADIUS of it against every enemy there, and the target
+-- they all take (the first one picked keeps it). Cached a second per team.
+local GROUP_RADIUS = 1800
+local groupCache = {}
+function X.GroupFight(target)
+	if not J.IsValidHero(target) then return nil end
+	local t = DotaTime()
+	local cached = groupCache[target:GetPlayerID()]
+	if cached and cached.target == target and t - cached.t >= 0 and t - cached.t < 1.0 then return cached end
+	local loc = target:GetLocation()
+	local allies = HeroesNear(GetTeam(), loc, GROUP_RADIUS)
+	local enemies = HeroesNear(GetOpposingTeam(), loc, GROUP_RADIUS)
+	if #allies == 0 or #enemies == 0 then return nil end
+	local ratio = (TeamPower(allies, enemies) / TeamHP(enemies)) / math.max(0.0001, TeamPower(enemies, allies) / TeamHP(allies))
+	local g = { t = t, target = target, ratio = ratio, n = #allies }
+	groupCache[target:GetPlayerID()] = g
+	return g
+end
+
 function X.Combat(bot)
 	if not bot:IsAlive() then return nil end
 	local myLoc = bot:GetLocation()
@@ -1218,6 +1238,21 @@ function X.Combat(bot)
 		c.lastStand = true
 		c.retreat = ttkThem <= 1.5 and hp < 0.3
 		if not c.retreat and best and not noTarget then c.go = true end
+	end
+	-- One decision for the whole group: every hero of ours near the target
+	-- uses the same fight (each bot used to count only allies within 1400 of
+	-- itself: Underlord, Grimstroke and DK went on Terrorblade at x1.40 while
+	-- Disruptor (x0.25) and Lifestealer stayed out, and the three lost it).
+	if not c.lastStand and not noTarget then
+		local g = X.GroupFight(best)
+		if g and Dist(myLoc, best:GetLocation()) < GROUP_RADIUS then
+			c.groupRatio = g.ratio
+			if g.ratio >= 1.2 and hp > 0.3 and ttkThem > 1.5 then
+				c.go, c.retreat, c.target = true, false, g.target
+			elseif g.ratio < 0.8 and not (bestT <= 2 and bestT < ttkThem) then
+				c.go = false
+			end
+		end
 	end
 	-- No target outside their fountain: nothing to chase.
 	if noTarget then c.go = false end
@@ -1345,8 +1380,8 @@ function X.FightHint(bot)
 	local function Say(what)
 		if not bot._fightLogT or t - bot._fightLogT > 8 then
 			bot._fightLogT = t
-			print(string.format('[Fight] %s %s %s (we kill in %.1f s, they kill us in %.1f s, team x%.2f, unseen enemies %d, allies coming %d, value %.0f)',
-				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, c.teamRatio or 0, c.ghosts or 0, c.arriving or 0, ev))
+			print(string.format('[Fight] %s %s %s (we kill in %.1f s, they kill us in %.1f s, team x%.2f, group x%.2f, unseen enemies %d, allies coming %d, value %.0f)',
+				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, c.teamRatio or 0, c.groupRatio or 0, c.ghosts or 0, c.arriving or 0, ev))
 		end
 	end
 	-- Commitment: a decision holds for a while (retreat 3 s, fight 2 s) so the

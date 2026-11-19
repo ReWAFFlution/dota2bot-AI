@@ -190,4 +190,17 @@ local tbLow = hero('terrorblade', 3, Vector(0, 0), 1500, 200) tbLow.abilities = 
 print(string.format('illusion damage: TB %.2f, TB (Conjure Image 1) %.2f, PL %.2f, Sven with Manta %.2f',
 	O._IllusionShare(tb2), O._IllusionShare(tbLow), O._IllusionShare(pl), O._IllusionShare(sven)))
 assert(O._IllusionShare(tb2) == 0.64 and O._IllusionShare(tbLow) == 0.40 and O._IllusionShare(pl) == 0.17 and O._IllusionShare(sven) == 0.33)
+-- One decision for the group: Underlord, Grimstroke and DK next to a
+-- Terrorblade, Disruptor 1200 away from him (1600+ from the others). Alone
+-- Disruptor would stay out; with the group's fight he goes in too.
+SIM_T = SIM_T + 10
+local tbG = hero('terrorblade', 3, Vector(0, 0), 1500, 300)
+local ul = hero('abyssal_underlord', 2, Vector(-600, 0), 1500, 150)
+local gr = hero('grimstroke', 2, Vector(-500, 300), 1300, 150)
+local dkG = hero('dragon_knight', 2, Vector(-400, -300), 1700, 150)
+local dis = hero('disruptor', 2, Vector(1200, 0), 900, 100)
+allies, enemies = { ul, gr, dkG, dis }, { tbG }
+local cd = O.Combat(dis)
+print(string.format('Disruptor 1200 from TB (1600+ from the rest): own team x%.2f, group x%.2f, go=%s', cd.teamRatio, cd.groupRatio or 0, tostring(cd.go)))
+assert(cd.go and cd.groupRatio >= 1.2)
 print('combat ok')
