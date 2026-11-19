@@ -17,7 +17,8 @@ function GetAncient() return { GetLocation = function() return Vector(0, 0) end 
 SIM_T = -60
 local J = { GetTeamFountain = function() return team == 2 and Vector(-7000, -7000) or Vector(7000, 7000) end,
 	GetEnemyFountain = function() return team == 2 and Vector(7000, 7000) or Vector(-7000, -7000) end }
-function require(p) if p:find('jmz_func') then return J end if p:find('objectives') then return {} end end
+function require(p) if p:find('jmz_func') then return J end if p:find('objectives') then return OBJ end end
+OBJ = { FightAt = function() return FIGHT_AT or 99 end }
 local E = dofile(BOTS..'/FunLib/early_game.lua')
 local r = E.TeamPlan()
 print('Radiant: safe pair -> '..tostring(r.safeRune)..' (bottom), off pair -> '..tostring(r.offRune)..' (top), mid -> '..tostring(r.midRune))
@@ -26,4 +27,16 @@ team = 3
 local d = E.TeamPlan()
 print('Dire: safe pair -> '..tostring(d.safeRune)..' (top), off pair -> '..tostring(d.offRune)..' (bottom)')
 assert(d.safeRune == 2 and d.offRune == 3)
+-- Dire Techies (pos 4, off pair -> bottom bounty) with Lifestealer standing
+-- on the rune: we lose there, so it goes to lane instead of walking in.
+J.GetPosition = function() return 4 end
+J.IsValidHero = function(h) return h ~= nil end J.IsSuspiciousIllusion = function() return false end
+local techies = { IsIllusion = function() return false end, GetUnitName = function() return 'npc_dota_hero_techies' end, GetLocation = function() return Vector(1500, -3500) end }
+local ls = { GetLocation = function() return Vector(600, -4600) end, IsIllusion = function() return false end }
+function GetUnitList(t) if t == UNIT_LIST_ENEMY_HEROES then return { ls } end return { techies } end
+function GetUnitToLocationDistance(u, l) return (u:GetLocation() - l):Length2D() end
+FIGHT_AT = 0.3
+local dz = E.GetDesire(techies)
+print('Techies, Lifestealer on the bounty (x0.3): rune desire', dz)
+assert(dz == nil and techies._earlyDone)
 print('early ok')

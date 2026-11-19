@@ -328,6 +328,18 @@ function X.GetDesire(bot)
 
 	local rune, isPicker = Assignment(bot, plan)
 	if not rune then return nil end
+	-- Enemies hold the rune and we don't win there (Techies walked on into
+	-- Lifestealer and Disruptor and gave first blood): leave it, go to lane.
+	local rloc = GetRuneSpawnLocation(rune)
+	local holders = RealHeroesNear(rloc, 1100, true)
+	if #holders > 0 and GetUnitToLocationDistance(bot, rloc) < 2500 then
+		local ratio = Objectives.FightAt(rloc, RealHeroesNear(bot:GetLocation(), 1500, false))
+		if ratio < 0.9 then
+			bot._earlyDone = true
+			Log(bot, string.format('%d enemies hold rune %d and we lose there (x%.2f): going to lane', #holders, rune, ratio))
+			return nil
+		end
+	end
 	if t < 0 then return 0.9 end
 
 	-- After the horn: stay while the rune is up or there's a fight around it.
@@ -362,7 +374,9 @@ function X.Think(bot)
 	-- Outnumbered: back off toward the own tower.
 	local close = 0
 	for _, e in ipairs(enemies) do if Dist(e:GetLocation(), myLoc) < 900 then close = close + 1 end end
-	if close > #allies then
+	-- Or the exchange here says we lose it (one strong enemy is enough).
+	local c = #enemies > 0 and Objectives.Combat(bot) or nil
+	if close > #allies or (c and c.retreat) then
 		bot:Action_MoveToLocation(SafePoint(bot))
 		return true
 	end
