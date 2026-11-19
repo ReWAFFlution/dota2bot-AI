@@ -138,13 +138,23 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 		local up = status == RUNE_STATUS_AVAILABLE
 			or (status == RUNE_STATUS_UNKNOWN and (minute == 2 or minute == 4) and second < 50)
 		if not up then return nil end
-		local need = hasBottle or hp < 0.85 or mp < 0.8
-		if not need then return BOT_MODE_DESIRE_NONE end
-		if waveClear or dist < 900 then
-			if bot._waterLog ~= minute then bot._waterLog = minute Log(bot, 'wave cleared, going for the water rune') end
-			return Scaled(BOT_MODE_DESIRE_HIGH, dist, 3500)
+		-- The mid always takes it (the enemy mid would): with a Bottle it
+		-- refills it, without one it heals. It goes right away when it needs
+		-- it or the wave is dead, and still goes otherwise (lower desire).
+		if dist > 4000 then return nil end
+		local bottleLow = false
+		if hasBottle then
+			local slot = bot:FindItemSlot('item_bottle')
+			local b = slot >= 0 and bot:GetItemInSlot(slot)
+			bottleLow = b ~= nil and b:GetCurrentCharges() < 3
 		end
-		return BOT_MODE_DESIRE_NONE
+		local need = hp < 0.7 or mp < 0.6 or bottleLow
+		if bot._waterLog ~= minute then
+			bot._waterLog = minute
+			Log(bot, 'going for the water rune'..(need and ' (needs it)' or (waveClear and ' (wave cleared)' or '')))
+		end
+		if need or waveClear or dist < 1200 then return Scaled(BOT_MODE_DESIRE_VERYHIGH, dist, 4000) end
+		return Scaled(BOT_MODE_DESIRE_HIGH, dist, 4000)
 	end
 
 	-- Power rune: every 2 minutes from 6:00.

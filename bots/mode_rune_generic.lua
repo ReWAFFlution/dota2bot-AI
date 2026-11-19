@@ -74,9 +74,8 @@ function GetDesire()
 	local nEarlyDesire = SafeCall('EarlyGame.GetDesire', EarlyGame.GetDesire, bot)
 	if nEarlyDesire then return nEarlyDesire end
 
-	if (DotaTime() > 2 * 60 and DotaTime() < 6 * 60 and GetUnitToLocationDistance(bot, GetRuneSpawnLocation(RUNE_POWERUP_2)) < 80) then
-		return BOT_MODE_DESIRE_NONE
-	end
+	-- (Removed: "no rune within 80 of the bottom river spot from 2:00 to 6:00",
+	-- it stopped the mid from picking the water rune there.)
 
 	bBottle = bot:FindItemSlot('item_bottle') >= 0
 	botHP = J.GetHP(bot)
@@ -516,7 +515,10 @@ function X.GetBestRune()
 	for _, rune in pairs(nRuneList) do
 		local vRuneLocation = GetRuneSpawnLocation(rune)
 
-		if X.IsTheClosestAlly(bot, vRuneLocation)
+		-- River runes before 15:00 are the mid's, whoever stands closer.
+		local bMidRune = J.GetPosition(bot) == 2 and DotaTime() < 15 * 60
+			and (rune == RUNE_POWERUP_1 or rune == RUNE_POWERUP_2)
+		if (bMidRune or X.IsTheClosestAlly(bot, vRuneLocation))
 		and not X.IsPingedByHumanPlayer(vRuneLocation, math.huge)
 		and not IsHumanClaimingRune(rune)
 		and not X.IsMissing(rune)
