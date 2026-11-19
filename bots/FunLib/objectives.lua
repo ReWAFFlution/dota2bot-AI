@@ -920,11 +920,46 @@ local function SummonDamage(u, secs)
 	return total
 end
 
+-- Illusions hit too (Terrorblade's Conjure Image and Reflection, Phantom
+-- Lancer, Naga, Manta): they're left out of the hero lists, so their damage is
+-- added to the hero they copy, at the share illusions deal.
+local ILLUSION_SHARE = 0.4
+local function IllusionDamage(u, victim, secs)
+	local total = 0
+	local lt = (u.GetTeam and u:GetTeam() == GetTeam()) and UNIT_LIST_ALLIED_HEROES or UNIT_LIST_ENEMY_HEROES
+	pcall(function()
+		local name, loc = u:GetUnitName(), u:GetLocation()
+		for _, h in pairs(GetUnitList(lt)) do
+			if h ~= u and J.IsValidHero(h) and h:GetUnitName() == name and Dist(h:GetLocation(), loc) < 1200
+			and (h:IsIllusion() or J.IsSuspiciousIllusion(h)) then
+				local v = h:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_PHYSICAL or DAMAGE_TYPE_ALL)
+				if v then total = total + v * ILLUSION_SHARE end
+			end
+		end
+	end)
+	return total
+end
+
+-- Ready steroids the estimate doesn't count: Terrorblade's Metamorphosis
+-- (bonus damage, and his illusions get it too).
+local function SteroidDamage(u, secs)
+	local extra = 0
+	pcall(function()
+		if u:GetUnitName() ~= 'npc_dota_hero_terrorblade' then return end
+		if u:HasModifier('modifier_terrorblade_metamorphosis') then return end -- already in the estimate
+		local ab = u:GetAbilityByName('terrorblade_metamorphosis')
+		if ab and ab:GetLevel() > 0 and ab:GetCooldownTimeRemaining() <= 0 then
+			extra = ({ 40, 60, 80, 100 })[math.min(4, ab:GetLevel())] * 1.4 * math.max(0, secs - 1)
+		end
+	end)
+	return extra
+end
+
 local function Burst(dealers, victim, secs, magicCut)
 	local d = 0
 	for _, u in ipairs(dealers) do
 		local ok, v = pcall(function() return u:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_ALL) end)
-		if ok and v then v = v + SummonDamage(u, secs) end
+		if ok and v then v = v + SummonDamage(u, secs) + IllusionDamage(u, victim, secs) + SteroidDamage(u, secs) end
 		if ok and v then
 			if magicCut then
 				local ok2, mag = pcall(function() return u:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_MAGICAL) end)
@@ -968,6 +1003,15 @@ X.ExtraLife = ExtraLife
 -- a second life.
 local function ShieldHP(victim)
 	local extra = ExtraLife(victim)
+	-- Terrorblade's Sunder ready: hurt, he swaps HP with the healthiest of us.
+	if victim:GetUnitName() == 'npc_dota_hero_terrorblade' then
+		pcall(function()
+			local ab = victim:GetAbilityByName('terrorblade_sunder')
+			if ab and ab:GetLevel() > 0 and ab:GetCooldownTimeRemaining() <= 0 then
+				extra = extra + victim:GetMaxHealth() * 0.5
+			end
+		end)
+	end
 	if victim:HasModifier('modifier_medusa_mana_shield') or victim:GetUnitName() == 'npc_dota_hero_medusa' then
 		local ok, mana = pcall(function() return victim:GetMana() end)
 		if ok and mana then return extra + mana * 2.5 end

@@ -161,4 +161,25 @@ local g3 = hero('dragon_knight', 2, Vector(-5000, -300), 1900, 200)
 local fGroup = O.FightAt(Vector(-2800, 0), { g1, g2, g3 })
 print(string.format('vs the same Terrorblade: Clockwerk alone x%.2f, with WD and DK x%.2f', O.FightAt(Vector(-2800, 0), g1), fGroup))
 assert(fGroup >= 1.0)
+-- Clockwerk and DK on a Terrorblade with 3 illusions, Metamorphosis and
+-- Sunder ready: the illusions and the ult count, so they don't go in.
+SIM_T = SIM_T + 10
+clock.hp = 1900 clock.loc = Vector(0, 0)
+local dk = hero('dragon_knight', 2, Vector(100, 0), 2000, 180)
+allies = { clock, dk }
+local tb2 = hero('terrorblade', 3, Vector(500, 0), 1500, 200)
+local ready = function(lvl) return { GetLevel = function() return lvl end, GetCooldownTimeRemaining = function() return 0 end } end
+tb2.abilities = { terrorblade_metamorphosis = ready(2), terrorblade_sunder = ready(1) }
+local function illusion(i)
+	local u = hero('terrorblade', 3, Vector(500 + i * 50, 100), 1500, 200)
+	function u:IsIllusion() return true end
+	return u
+end
+enemies = { tb2 }
+local cNo = O.Combat(clock)
+enemies = { tb2, illusion(1), illusion(2), illusion(3) }
+local cYes = O.Combat(clock)
+print(string.format('Clock+DK vs Terrorblade: without illusions/ult counted %s s to die, with them %s s; go=%s retreat=%s',
+	tostring(cNo and cNo.ttkThem), tostring(cYes.ttkThem), tostring(cYes.go), tostring(cYes.retreat)))
+assert(cYes.ttkThem < cNo.ttkThem and not cYes.go)
 print('combat ok')
