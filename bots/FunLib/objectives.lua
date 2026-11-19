@@ -576,23 +576,40 @@ function X.RetreatStep(bot)
 	return loc
 end
 
--- Is a teleport home safe now? The channel takes seconds: an enemy seen in
--- the last 2 s within 1800 (2200 if we were just hit) gets there first. Next
--- to our own tower it's fine.
+-- Is a teleport home safe now? Damage doesn't cancel the channel (~3 s),
+-- disables do, and dying does. Unsafe when an enemy with a disable (role
+-- table) seen in the last 2 s can get within ~800 of the bot before the
+-- channel ends (not counted while the bot is magic immune), or when the
+-- enemies around can kill it before then. Next to our own tower it's fine.
+local TP_CHANNEL = 3.0
+local DISABLE_RANGE = 800
 function X.SafeToTeleport(bot)
 	local myLoc = bot:GetLocation()
 	for _, info in ipairs(TOWERS) do
 		local tw = GetTower(GetTeam(), info.id)
 		if tw and Dist(tw:GetLocation(), myLoc) < 500 then return true end
 	end
-	local radius = bot:WasRecentlyDamagedByAnyHero(3.0) and 2200 or 1800
+	local immune = bot:HasModifier('modifier_black_king_bar_immune') or (bot.IsMagicImmune and bot:IsMagicImmune())
+	local visible = {}
+	for _, e in ipairs(HeroesNear(GetOpposingTeam(), myLoc, 2500)) do visible[e:GetPlayerID()] = e end
 	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
 		if IsHeroAlive(pid) then
 			local info = GetHeroLastSeenInfo(pid)
 			local d = info and info[1]
-			if d and d.time_since_seen < 2 and Dist(d.location, myLoc) < radius then return false end
+			if d and d.time_since_seen < 2 then
+				local unit = visible[pid]
+				local name = unit and unit:GetUnitName() or GetSelectedHeroName(pid)
+				local disabler = HeroRolesLib and HeroRolesLib.IsDisabler and name and HeroRolesLib.IsDisabler(name)
+				local ms = 320
+				if unit then pcall(function() ms = unit:GetCurrentMovementSpeed() end) end
+				local reachIn = math.max(0, Dist(d.location, myLoc) - DISABLE_RANGE) / math.max(200, ms)
+				if disabler and not immune and reachIn < TP_CHANNEL then return false end
+			end
 		end
 	end
+	-- They'd kill us before we're gone.
+	local near = HeroesNear(GetOpposingTeam(), myLoc, 1600)
+	if #near > 0 and X._Burst and X._Burst(near, bot, TP_CHANNEL, false) >= bot:GetHealth() then return false end
 	return true
 end
 
@@ -769,6 +786,7 @@ local function Burst(dealers, victim, secs, magicCut)
 	end
 	return d
 end
+X._Burst = Burst
 
 local function ReadyStuns(units)
 	local n = 0
