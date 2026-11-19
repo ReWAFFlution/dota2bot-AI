@@ -428,15 +428,8 @@ function X.CoreThink(bot)
 	local enemies = RealHeroes(true, bot:GetLocation(), 1400)
 	local risk = X.TradeRisk(bot, enemies)
 
-	-- Harass window (set by X.Harass).
-	local target = bot._harassTarget
-	if (bot.forceFightUntil or -math.huge) > t and J.IsValidHero(target) and J.CanBeAttacked(target)
-	and GetUnitToUnitDistance(bot, target) < range + 250 and not EnemyTowerNear(target:GetLocation(), 750) then
-		bot:Action_AttackUnit(target, true)
-		return
-	end
-
-	-- Last hits: a creep we kill now, or walk up to one that's about to die.
+	-- Last hits first: a creep we kill now (DK chased Troll toward his tower
+	-- in a harass window and lost two last hits and a deny).
 	local walkTo
 	for _, c in pairs(bot:GetNearbyLaneCreeps(800, true)) do
 		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
@@ -446,6 +439,26 @@ function X.CoreThink(bot)
 				return
 			end
 			if c:GetHealth() < dmg * 2.2 and (not walkTo or c:GetHealth() < walkTo:GetHealth()) then walkTo = c end
+		end
+	end
+	-- A deny now beats a hit on a hero too.
+	for _, c in pairs(bot:GetNearbyLaneCreeps(range + 150, false)) do
+		if J.IsValid(c) and J.GetHP(c) < 0.5 and c:GetHealth() <= dmg and J.CanBeAttacked(c) then
+			bot:Action_AttackUnit(c, true)
+			return
+		end
+	end
+
+	-- Harass window (set by X.Harass): hit a hero in range, no chasing and
+	-- nothing near their tower, unless it's a kill (under 35% HP).
+	local target = bot._harassTarget
+	if (bot.forceFightUntil or -math.huge) > t and J.IsValidHero(target) and J.CanBeAttacked(target) then
+		local kill = J.GetHP(target) < 0.35
+		local d = GetUnitToUnitDistance(bot, target)
+		if (kill and d < range + 400 and not EnemyTowerNear(target:GetLocation(), 750))
+		or (d < range + 80 and not EnemyTowerNear(target:GetLocation(), 900) and not walkTo) then
+			bot:Action_AttackUnit(target, true)
+			return
 		end
 	end
 	if walkTo and risk < 0.8 then
