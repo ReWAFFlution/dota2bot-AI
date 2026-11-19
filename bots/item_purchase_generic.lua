@@ -133,6 +133,33 @@ local function _fullBasicCounts(itemName, acc)
 	return acc
 end
 
+-- Is `name` a component (at any depth) of an item still planned? Such items
+-- are never sold as fillers (a Radiance part was sold once the target moved
+-- on to BKB).
+local function _plannedComponent(name)
+	for _, planned in ipairs(bot.purchaseListInReverseOrder or {}) do
+		if planned == name or (_fullBasicCounts(planned)[name] ~= nil) then return true end
+		local comps = Item[planned]
+		if type(comps) == 'table' then
+			for _, c in ipairs(comps) do if c == name then return true end end
+		end
+	end
+	return false
+end
+
+-- Does the bot hold any part of `target` (so dropping it would waste gold)?
+local function _holdsPartOf(target)
+	local counts = _fullBasicCounts(target)
+	for part, _ in pairs(counts) do
+		if part ~= target and bot:FindItemSlot(part) >= 0 then return true end
+	end
+	local comps = Item[target]
+	if type(comps) == 'table' then
+		for _, c in ipairs(comps) do if bot:FindItemSlot(c) >= 0 then return true end end
+	end
+	return false
+end
+
 local function _buildRequiredCounts(list)
 	local m = {}
 	for _, n in ipairs(list) do
@@ -1189,7 +1216,7 @@ function ItemPurchaseThink()
 				local name = it:GetName()
 				local cost = GetItemCost(name)
 				local isBoots = string.find(name, 'boots') or string.find(name, 'treads') or string.find(name, 'greaves')
-				local needed = bot.currBuyingRequiredCounts and bot.currBuyingRequiredCounts[name]
+				local needed = (bot.currBuyingRequiredCounts and bot.currBuyingRequiredCounts[name]) or _plannedComponent(name)
 				if not tKeep[name] and not isBoots and not needed and not string.find(name, 'token')
 				and cost < sellCost then
 					sellSlot, sellCost = slot, cost
@@ -1385,7 +1412,8 @@ function ItemPurchaseThink()
 				and Item.GetItemTotalWorthInSlots(Utils.GetLoneDruid(bot).bear) < 28000
 				and Item.IsItemInTargetHero(bot.currBuyingItemInPurchaseList, Utils.GetLoneDruid(bot).bear)
 			)
-			or bot.countInvCheck > 30 -- can't assemble it: move on
+			or (bot.countInvCheck > 30 and not _holdsPartOf(bot.currBuyingItemInPurchaseList)) -- can't assemble it: move on, unless we hold parts of it
+			or bot.countInvCheck > 120 -- hard limit either way
 		then
 			-- skip it and continue next
 			if Item.IsItemInHero( bot.currBuyingItemInPurchaseList ) then
@@ -1397,7 +1425,9 @@ function ItemPurchaseThink()
 			bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder] = nil
 		elseif currentTime > bot.lastInvCheck + 1.0 then
 			bot.lastInvCheck = currentTime
-			if bot.rebuildCount < 3 and botCourierValue == 0 and botStashValue == 0 and botName ~= "npc_dota_hero_lone_druid" then
+			-- Holding parts of it: keep rebuying what's missing instead of giving up.
+			local nRebuilds = _holdsPartOf(bot.currBuyingItemInPurchaseList) and 10 or 3
+			if bot.rebuildCount < nRebuilds and botCourierValue == 0 and botStashValue == 0 and botName ~= "npc_dota_hero_lone_druid" then
 				bot.rebuildCount = bot.rebuildCount + 1
 				-- try rebuild it based on what's actually missing
 				local newList = Item.GetReducedPurchaseList(bot, bot.currBuyingBasicItemRefList)
