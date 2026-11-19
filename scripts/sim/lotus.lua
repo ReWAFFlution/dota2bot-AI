@@ -38,6 +38,12 @@ for i = 1, 40 do
 end
 print(string.format('casts=%d lotus=%d', casts, lot))
 assert(lot == 1 and casts >= 1, 'lotus not picked')
+-- Already picking in the pool when the carry gets hit: it finishes the pick.
+bot._lotusStandT = SIM_T carry.hit = true
+local dStand = M.RoamDesire(bot)
+print('in the pool, carry hit -> desire', dStand)
+assert(dStand == 0.75)
+bot._lotusStandT, bot._mapTarget = nil, nil
 -- The carry gets hit: the support doesn't go (and would turn back).
 SIM_T = SIM_T + 200 carry.hit = true bot._lotusGiveUpUntil = nil
 local d2 = M.RoamDesire(bot)

@@ -18,6 +18,8 @@ local function hero(name, team, loc, hp, dps)
 	function u:GetItemInSlot() return { IsFullyCastable = function() return true end } end
 	function u:CanBeSeen() return true end function u:HasModifier() return false end function u:IsHero() return true end
 	function u:GetNetWorth() return 5000 end function u:GetLevel() return 12 end function u:IsBot() return true end
+	function u:GetAttackRange() return 550 end function u:GetAttackDamage() return 60 end
+	function u:GetAbilityByName(n) return self.abilities and self.abilities[n] end
 	function u:GetMana() return self.mana or 0 end
 	return u
 end
@@ -121,4 +123,18 @@ for i = 1, 12 do
 end
 print('decision changes over 6 s of wobbling numbers:', flips)
 assert(flips <= 2)
+-- WD vs an almost dead Terrorblade in Metamorphosis: the engine estimate
+-- misses Death Ward; WD still has the kill.
+allies = { me } me.loc, me.hp = Vector(0, 0), 900
+me.dps = 30 me.mana = 400
+me.abilities = { witch_doctor_death_ward = { GetLevel = function() return 1 end, GetCooldownTimeRemaining = function() return 0 end, GetManaCost = function() return 200 end } }
+local tb = hero('terrorblade', 3, Vector(500, 0), 600, 500) tb.pid = 5
+enemies = { tb }
+local cw = O.Combat(me)
+print(string.format('WD vs TB at 600 HP with Death Ward ready: we kill in %d s, go=%s', cw.ttkUs, tostring(cw.go)))
+assert(cw.ttkUs <= 3)
+tb.hp = 150 me.abilities = {}
+local cf = O.Combat(me)
+print(string.format('WD vs TB at 150 HP, no ult: we kill in %d s, they kill us in %d s, go=%s', cf.ttkUs, cf.ttkThem, tostring(cf.go)))
+assert(cf.ttkUs <= 2 and cf.go)
 print('combat ok')

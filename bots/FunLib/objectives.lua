@@ -803,10 +803,38 @@ local function ItemReady(u, name)
 	return it ~= nil and it:IsFullyCastable()
 end
 
+-- Damage the engine's estimate leaves out: summons and channels (WD's Death
+-- Ward made WD think he couldn't finish an almost dead Terrorblade). Damage
+-- per second by ability level, while the ability is learned and ready.
+local SUMMON_DPS = {
+	{ name = 'witch_doctor_death_ward', dps = { 260, 380, 500 }, maxSecs = 8 },
+	{ name = 'jakiro_macropyre', dps = { 100, 140, 180 }, maxSecs = 8 },
+	{ name = 'crystal_maiden_freezing_field', dps = { 150, 220, 290 }, maxSecs = 10 },
+	{ name = 'enigma_black_hole', dps = { 100, 150, 200 }, maxSecs = 4 },
+	{ name = 'shadow_shaman_mass_serpent_ward', dps = { 140, 200, 260 }, maxSecs = 10 },
+}
+local function SummonDamage(u, secs)
+	local total = 0
+	for _, sd in ipairs(SUMMON_DPS) do
+		local ok, extra = pcall(function()
+			local ab = u:GetAbilityByName(sd.name)
+			if not ab or ab:GetLevel() <= 0 then return 0 end
+			local ready = true
+			pcall(function() ready = ab:GetCooldownTimeRemaining() <= 0 and u:GetMana() >= ab:GetManaCost() end)
+			if not ready then return 0 end
+			local lvl = math.min(#sd.dps, ab:GetLevel())
+			return sd.dps[lvl] * math.min(secs, sd.maxSecs)
+		end)
+		if ok and extra then total = total + extra end
+	end
+	return total
+end
+
 local function Burst(dealers, victim, secs, magicCut)
 	local d = 0
 	for _, u in ipairs(dealers) do
 		local ok, v = pcall(function() return u:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_ALL) end)
+		if ok and v then v = v + SummonDamage(u, secs) end
 		if ok and v then
 			if magicCut then
 				local ok2, mag = pcall(function() return u:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_MAGICAL) end)
@@ -953,6 +981,15 @@ function X.Combat(bot)
 			local extra = (HeroRolesLib and HeroRolesLib.HasEscape and HeroRolesLib.HasEscape(e:GetUnitName())) and e:GetHealth() * 0.5 or 0
 			local ourFountainDps = Dist(e:GetLocation(), J.GetTeamFountain()) < 1500 and 900 or 0 -- our fountain hits them
 			local tt = TimeToKill(helpers, e, extra, ourFountainDps, false, ReadyStuns(helpers))
+			-- Finishing blow: a target with a few hits of HP left, right next to
+			-- us, is a kill whatever the engine's estimate says.
+			local reach = 400
+			pcall(function() reach = bot:GetAttackRange() + 400 end)
+			local hits = 3
+			pcall(function() hits = e:GetHealth() / math.max(1, bot:GetAttackDamage()) end)
+			if Dist(e:GetLocation(), myLoc) < reach and (e:GetHealth() < 250 or hits <= 3) and ShieldHP(e) == 0 then
+				tt = math.min(tt, 2)
+			end
 			if tt < bestT or (tt == bestT and best and e:GetHealth() < best:GetHealth()) then best, bestT = e, tt end
 		end
 	end
@@ -962,7 +999,8 @@ function X.Combat(bot)
 	local c = { target = best, ttkUs = bestT, ttkThem = ttkThem, teamRatio = teamRatio, ghosts = ghosts, arriving = arriving }
 	local hp = J.GetHP(bot)
 	local teamWins = teamRatio >= 1.2
-	c.go = J.GetHP(bot) > 0.3 and ((bestT <= 4 and bestT < ttkThem) or (teamWins and bestT <= 6))
+	-- A tie goes to us: we strike first (finishing an almost dead hero).
+	c.go = J.GetHP(bot) > 0.3 and ((bestT <= 4 and bestT <= ttkThem) or (teamWins and bestT <= 6))
 	c.retreat = (ttkThem <= 1.5 and hp < 0.4)
 		or (not teamWins and ((ttkThem < bestT and ttkThem <= 4) or (ttkThem <= 3 and bestT >= 99)))
 	-- Pushing the win (team plan "finish"): only a real personal danger.
