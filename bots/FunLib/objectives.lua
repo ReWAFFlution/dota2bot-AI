@@ -406,6 +406,9 @@ local function PickHelpers(S, obj, taken, maxHelpers)
 		if #helpers >= maxHelpers then break end
 		if obj.ttd and c.travel > obj.ttd + 5 then break end -- too late to save it
 		local near = GetUnitToLocationDistance(c.m, obj.loc) < 1200 or obj.ancient
+		-- Not into a fight lost by strength, whatever the head count (Clockwerk
+		-- teleported to defend a T1 against a far stronger Terrorblade).
+		if not obj.ancient and obj.enemies > 0 and X.FightAt(obj.loc, c.m) < 0.8 then break end
 		local gain = obj.value * (WinChance(a + 1, e) - WinChance(a, e)) + obj.value * WinChance(a + 1, e) * 0.15
 		local cost = X.Rate(c.m) * c.travel / 60 + 2
 		if near or gain > cost then
@@ -886,6 +889,40 @@ local function ShieldHP(victim)
 end
 X.ShieldHP = ShieldHP
 
+-- Team strength helpers: 4 s of ready damage per hero on the average
+-- enemy, and total HP (shields and extra lives included).
+local function TeamPower(dealers, victims)
+	local sum = 0
+	for _, d in ipairs(dealers) do
+		local per = 0
+		for _, v in ipairs(victims) do per = per + Burst({ d }, v, 4, false) end
+		sum = sum + per / math.max(1, #victims)
+	end
+	return sum
+end
+local function TeamHP(units)
+	local sum = 0
+	for _, u in ipairs(units) do sum = sum + u:GetHealth() + ShieldHP(u) end
+	return math.max(1, sum)
+end
+
+-- Who wins a fight at `loc` if `extra` joins: our burn rate over theirs (>1
+-- we win). 99 with no enemy there.
+function X.FightAt(loc, extra)
+	local allies = HeroesNear(GetTeam(), loc, 1500)
+	if extra then
+		local has = false
+		for _, a in ipairs(allies) do if a == extra then has = true end end
+		if not has then table.insert(allies, extra) end
+	end
+	local enemies = HeroesNear(GetOpposingTeam(), loc, 1500)
+	if #enemies == 0 then return 99 end
+	if #allies == 0 then return 0 end
+	local ours = TeamPower(allies, enemies) / TeamHP(enemies)
+	local theirs = TeamPower(enemies, allies) / TeamHP(allies)
+	return ours / math.max(0.0001, theirs)
+end
+
 local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns, share, stunnedFor)
 	if #dealers == 0 and (extraDps or 0) == 0 then return 99 end
 	share = share or 1
@@ -930,20 +967,7 @@ function X.Combat(bot)
 
 	-- Team exchange: how fast each group burns the other's total HP (4 s of
 	-- ready damage, each hero on the average enemy). > 1: we win the fight.
-	local function Power(dealers, victims)
-		local sum = 0
-		for _, d in ipairs(dealers) do
-			local per = 0
-			for _, v in ipairs(victims) do per = per + Burst({ d }, v, 4, false) end
-			sum = sum + per / math.max(1, #victims)
-		end
-		return sum
-	end
-	local function TotalHP(units)
-		local sum = 0
-		for _, u in ipairs(units) do sum = sum + u:GetHealth() + ShieldHP(u) end
-		return math.max(1, sum)
-	end
+	local Power, TotalHP = TeamPower, TeamHP
 	local ourRate = Power(allies, enemies) / TotalHP(enemies)
 	local theirRate = Power(enemies, allies) / TotalHP(allies)
 	-- Who else may join. Enemies seen near here in the last 10 s but in the
@@ -1009,7 +1033,7 @@ function X.Combat(bot)
 		or (not teamWins and ((ttkThem < bestT and ttkThem <= 4) or (ttkThem <= 3 and bestT >= 99)))
 	-- Pushing the win (team plan "finish"): only a real personal danger.
 	local S = TeamPlanState and TeamPlanState[GetTeam()]
-	if S and S.phase == 'finish' and not (ttkThem <= 1.5 and hp < 0.35) then c.retreat = false end
+	if S and S.phase == 'finish' and not (ttkThem <= 1.5 and hp < 0.35) and teamRatio >= 0.6 then c.retreat = false end
 	-- Last stand: enemies at our ancient. Leaving only when about to die.
 	local ourAnc = GetAncient(GetTeam())
 	if ourAnc and #HeroesNear(GetOpposingTeam(), ourAnc:GetLocation(), 1800) > 0 and Dist(myLoc, ourAnc:GetLocation()) < 3500 then

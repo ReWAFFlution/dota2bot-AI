@@ -433,8 +433,13 @@ function X.HasPushAdvantage(enemyAlive, allyAlive, hpNeed)
 	local nwDiff = NetworthDiff()
 	local lvlDiff = J.GetAverageLevel(false) - J.GetAverageLevel(true)
 	if enemyAlive == 0 then return true, 'no enemies alive' end
-	if allyAlive - enemyAlive >= 2 then return true, allyAlive..' vs '..enemyAlive..' alive' end
-	if allyAlive > enemyAlive and (nwDiff > -3000 or lvlDiff >= 0) then
+	-- Heroes alive weighted by the teams' networth: 5 v 4 while 13k behind
+	-- isn't an advantage (Dire pushed "5 vs 4" into a far stronger Terrorblade).
+	local ourNW, theirNW = J.GetInventoryNetworth()
+	local nwFactor = math.max(0.3, math.min(3, (ourNW or 1) / math.max(1, theirNW or 1)))
+	local strength = (allyAlive / math.max(1, enemyAlive)) * nwFactor
+	if allyAlive - enemyAlive >= 2 and strength >= 1.2 then return true, allyAlive..' vs '..enemyAlive..' alive' end
+	if allyAlive > enemyAlive and strength >= 1.3 and (nwDiff > -3000 or lvlDiff >= 0) then
 		return true, allyAlive..' vs '..enemyAlive..' alive'
 	end
 	if allyAlive == enemyAlive and allyAlive <= 4 and (nwDiff > 12000 or lvlDiff >= 3) then

@@ -147,4 +147,11 @@ local cs = O.Combat(me)
 print(string.format('WD (Cask ready) vs TB 450 HP: we kill in %d s, they kill us in %d s, go=%s', cs.ttkUs, cs.ttkThem, tostring(cs.go)))
 assert(cs.go)
 DISABLERS = nil
+-- Clockwerk vs a Terrorblade twice as strong at a tower: not worth joining.
+local clock = hero('rattletrap', 2, Vector(-3000, 0), 1300, 150)
+local tb3 = hero('terrorblade', 3, Vector(-2700, 0), 2600, 450) tb3.pid = 5
+allies, enemies = {}, { tb3 }
+local f = O.FightAt(Vector(-2800, 0), clock)
+print(string.format('Clockwerk joining vs a twice-stronger Terrorblade: fight x%.2f', f))
+assert(f < 0.8)
 print('combat ok')

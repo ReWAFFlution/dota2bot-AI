@@ -23,6 +23,7 @@ local function hero(name, loc, team)
 	function u:GetEstimatedDamageToTarget() return 100 end function u:FindItemSlot() return -1 end function u:GetLevel() return 8 end
 	function u:CanBeSeen() return true end function u:GetCurrentMovementSpeed() return 300 end function u:GetAssignedLane() return LANE_TOP end
 	function u:WasRecentlyDamagedByHero() return false end function u:IsStunned() return false end function u:IsRooted() return false end
+	function u:HasModifier() return false end function u:GetMaxHealth() return 2000 end function u:GetMana() return 300 end function u:GetAbilityByName() return nil end
 	function u:IsHexed() return false end function u:IsSilenced() return false end function u:IsNightmared() return false end
 	return u
 end
