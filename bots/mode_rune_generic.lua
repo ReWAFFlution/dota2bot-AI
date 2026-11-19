@@ -192,18 +192,15 @@ function GetDesire()
 					else
 						return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, 3500)
 					end
-				elseif rune.status == RUNE_STATUS_UNKNOWN
-					and rune.distance <= nProximityRadius * 1.5
-					and DotaTime() > 3 * 60 + 50
-					and ((minute % 4 == 0) or (minute % 4 == 3) and second > 45)
+				-- Bounty runes spawn every 3 minutes now (this waited on a 4-minute
+				-- schedule, and at :52 of every minute): wait at the spot only in
+				-- the last 10 s before a spawn, from nearby.
+				elseif (rune.status == RUNE_STATUS_UNKNOWN or rune.status == RUNE_STATUS_MISSING)
+					and rune.distance <= nProximityRadius
+					and DotaTime() > 2 * 60
+					and minute % 3 == 2 and second > 50
 				then
 					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius)
-				elseif rune.status == RUNE_STATUS_MISSING
-					and rune.distance <= nProximityRadius * 1.5
-					and DotaTime() > 3 * 60 + 50
-					and ((minute % 4 == 3) or second > 52)
-				then
-					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius * 2.5)
 				end
 			else
 				-- Power rune / water rune
