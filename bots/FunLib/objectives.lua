@@ -440,7 +440,11 @@ local function FindObjectives(S, t)
 		if tw then
 			local hp = TowerHPTracker(S, 'o'..info.id, tw, t)
 			local enemies = HeroesNear(GetOpposingTeam(), tw:GetLocation(), 1200)
-			if hp.rate > 5 or #enemies > 0 then
+			-- A real threat: the tower is losing HP, or an enemy hero is in its
+			-- range. A hero farming near it isn't one (two enemy cores used to
+			-- come and stand behind their tower while a human farmed nearby).
+			local inRange = #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 750) > 0
+			if hp.rate > 5 or inRange then
 				local allies = #HeroesNear(GetTeam(), tw:GetLocation(), 1300)
 				local bonus = info.tier >= 3 and 1.5 or 1 -- the tower fights too
 				local ttd = hp.rate > 1 and tw:GetHealth() / hp.rate or 60
@@ -552,9 +556,23 @@ end
 -- The default defend desire, minus what a core shouldn't do: the carry keeps
 -- farming instead of walking across the map for a T1/T2 before 30:00, and no
 -- core leaves its lane for another lane in the early game.
+-- Tower under real threat: losing HP, or an enemy hero in its range.
+function X.TowerThreatened(tw)
+	if not tw then return false end
+	for _, info in ipairs(TOWERS) do
+		if GetTower(GetTeam(), info.id) == tw then
+			local h = State().hp and State().hp['o'..info.id]
+			if h ~= nil and h.rate > 5 then return true end
+		end
+	end
+	return #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 750) > 0
+end
+
 function X.FilterDefendDesire(bot, lane, desire)
 	if desire <= 0 then return desire end
 	local tw, tier = X.OwnLaneTower(lane)
+	-- Nobody hits the tower: no standing guard at T1/T2.
+	if tw and tier <= 2 and not X.TowerThreatened(tw) then return math.min(desire, 0.2) end
 	local far = not tw or GetUnitToUnitDistance(bot, tw) > 2500
 	if far and X.CoreLaneLocked(bot) and lane ~= bot:GetAssignedLane() and tier <= 2 then return math.min(desire, 0.1) end
 	if far and J.GetPosition(bot) == 1 and DotaTime() < 30 * 60 and tier <= 2 then return math.min(desire, 0.2) end
@@ -927,10 +945,24 @@ function X.DefendThink(bot, lane)
 
 	local enemies = HeroesNear(GetOpposingTeam(), tloc, 1100)
 	local allies = HeroesNear(GetTeam(), tloc, 1300)
+	-- Nothing threatens the tower (not losing HP, nobody in its range): don't
+	-- stand there, let farming/laning take over.
+	local losing = false
+	for _, info in ipairs(TOWERS) do
+		local tw = GetTower(GetTeam(), info.id)
+		if tw == tower then
+			local h = State().hp and State().hp['o'..info.id]
+			losing = h ~= nil and h.rate > 5
+		end
+	end
+	if not losing and #HeroesNear(GetOpposingTeam(), tloc, 750) == 0 then return false end
 	local strong = #allies + 1 >= #enemies -- +1: the tower
 	if #enemies > 0 then
 		local _, ev = X.BestFight(bot, 1300)
 		strong = strong and ev > -5
+		-- Who kills whom first (X.Combat) overrides: fight when we win it.
+		local c = X.Combat(bot)
+		if c and c.go then strong = true elseif c and c.retreat then strong = false end
 	end
 	local back = tloc + (J.GetTeamFountain() - tloc):Normalized() * 250
 
