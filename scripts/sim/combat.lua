@@ -16,7 +16,8 @@ local function hero(name, team, loc, hp, dps)
 	function u:GetEstimatedDamageToTarget(_, _, secs, dtype) return dtype == DAMAGE_TYPE_MAGICAL and self.dps * 0.3 * secs or self.dps * secs end
 	function u:FindItemSlot(n) return self.items[n] and 0 or -1 end
 	function u:GetItemInSlot() return { IsFullyCastable = function() return true end } end
-	function u:CanBeSeen() return true end function u:HasModifier() return false end
+	function u:CanBeSeen() return true end function u:HasModifier() return false end function u:IsHero() return true end
+	function u:GetNetWorth() return 5000 end function u:GetLevel() return 12 end function u:IsBot() return true end
 	function u:GetMana() return self.mana or 0 end
 	return u
 end
@@ -97,4 +98,27 @@ local a1, a2 = hero('mk', 3, Vector(-6700, -6300), 1800, 300), hero('sf', 3, Vec
 a1.pid, a2.pid = 5, 6
 enemies = { a1, a2 }
 c = show('1v2 at our ancient') assert(not c.retreat and c.lastStand)
+-- Wobbling numbers: once it decides to leave it keeps leaving for 3 s.
+J.IsInLaningPhase = function() return false end
+J.GetProperTarget = function() return nil end
+me.WasRecentlyDamagedByAnyHero = function() return true end
+me.SetTarget = function() end
+me.DistanceFromFountain = function() return 5000 end me.GetLevel = function() return 12 end
+function GetLaneFrontLocation() return Vector(0, 0) end me.GetAssignedLane = function() return 2 end
+wd_stub_done = true
+me.loc, me.hp = Vector(0, 0), 900
+allies = { me }
+local wd = hero('witch_doctor', 3, Vector(500, 0), 1500, 260) wd.pid = 5
+enemies = { wd }
+local flips, last = 0, nil
+for i = 1, 12 do
+	SIM_T = SIM_T + 0.5
+	wd.dps = (i % 2 == 0) and 260 or 120 -- the estimate wobbles
+	local h = O.FightHint(me)
+	local now = h >= 0.9 and 'retreat' or 'other'
+	if last and now ~= last then flips = flips + 1 end
+	last = now
+end
+print('decision changes over 6 s of wobbling numbers:', flips)
+assert(flips <= 2)
 print('combat ok')

@@ -1105,11 +1105,22 @@ function X.FightHint(bot)
 				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, c.teamRatio or 0, c.ghosts or 0, c.arriving or 0, ev))
 		end
 	end
+	-- Commitment: a decision holds for a while (retreat 3 s, fight 2 s) so the
+	-- bot doesn't turn around every half second as the numbers wobble (Sniper
+	-- kept turning back and taking hits). A fight is dropped early only when
+	-- the bot is about to die.
+	local d = bot._decision
+	if d and d.untilT > t then
+		if d.kind == 'retreat' then c.retreat, c.go = true, false
+		elseif d.kind == 'go' and not (ttkThem <= 1.5) then c.go, c.retreat = true, false end
+	end
 	if c.retreat and not laneCalm then
 		Say('backs off from')
+		if not (d and d.kind == 'retreat' and d.untilT > t) then bot._decision = { kind = 'retreat', untilT = t + 3 } end
 		bot._fightHint = ttkThem < 2.5 and 0.95 or 0.9
-	elseif c.go and ev > -5 then
+	elseif c.go and ev > -5 and J.IsValidHero(target) then
 		Say('goes for')
+		if not (d and d.kind == 'go' and d.untilT > t) then bot._decision = { kind = 'go', untilT = t + 2 } end
 		bot.forceFightUntil = t + 2.0 -- spells on the target
 		bot:SetTarget(target)
 	end
