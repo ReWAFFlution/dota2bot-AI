@@ -488,6 +488,7 @@ local function Candidates(S, loc, exclude, lane, kind, tier)
 	local list = {}
 	for _, m in ipairs(Members()) do
 		if m:IsBot() and m:IsAlive() and J.GetHP(m) > 0.4 and not exclude[m] and not m:IsChanneling()
+		and not X.IsIdle(m) -- dropped as idle: not handed the same job again every second
 		and not (CarryLocked(m, lane, kind, tier) and GetUnitToLocationDistance(m, loc) > 2500) then
 			table.insert(list, { m = m, travel = TravelTime(m, loc) })
 		end
@@ -694,7 +695,7 @@ local function Assign(S, t)
 					ObjLog(string.format('%s -> %s %s (gain %.0f vs cost %.0f)', h.m:GetUnitName(),
 						obj.kind == 'push' and 'push' or 'defend', obj.name..' lane '..obj.lane, h.gain, h.cost))
 				end
-				newAssign[pid] = { kind = obj.kind, lane = obj.lane, tier = obj.tier, loc = obj.loc, tower = obj.tower, name = obj.name, untilT = t + ASSIGN_TIME }
+				newAssign[pid] = { kind = obj.kind, lane = obj.lane, tier = obj.tier, loc = obj.loc, tower = obj.tower, name = obj.name, enemies = obj.enemies, untilT = t + ASSIGN_TIME }
 			end
 		end
 	end
@@ -1730,6 +1731,10 @@ end
 -- Teleport to our building closest to `loc` when that saves a long walk.
 local function TryTP(bot, loc)
 	if X.CoreLaneLocked(bot) then return false end
+	-- No teleport for creeps only (WK teleported from his camp to a T2 and
+	-- walked back to the same camp): walk, or leave it to whoever is close.
+	local a = X.Assignment(bot)
+	if a and (a.enemies or 0) < 0.5 and not (a.tier == 5) then return false end
 	if J.GetPosition(bot) >= 4 and DotaTime() < 15 * 60 then return false end -- walk: the lane partner stays
 	if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return false end
 	if DotaTime() < (bot._lastFieldTpT or -math.huge) + 60 then return false end -- one field teleport a minute
