@@ -128,6 +128,7 @@ end
 -- enemy wave next to it is dead.
 local function MayGoForLotus(bot)
 	if J.GetPosition(bot) >= 4 then return LaneCoreSafe(bot) end
+	if DotaTime() > 30 * 60 then return false end -- cores' slots are for items by then
 	return #bot:GetNearbyLaneCreeps(1200, true) == 0
 end
 

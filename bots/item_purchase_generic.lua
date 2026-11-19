@@ -1286,15 +1286,26 @@ function ItemPurchaseThink()
 		bot:ActionImmediate_SellItem(bot:GetItemInSlot(bot:FindItemSlot('item_mask_of_madness')))
 	end
 
-	-- Cores drop normal/great lotuses after 30min to free up slots for real items.
-	-- Greater lotus (item_greater_famango) is kept by everyone — too valuable to drop.
-	if currentTime > 30 * 60 and J.IsCore(bot) then
-		local tDropLotus = { 'item_famango', 'item_great_famango' }
-		for _, lotusName in ipairs(tDropLotus) do
+	-- Cores free the slot of a normal/great lotus after 30 min by eating it
+	-- (on the most hurt ally within 600, else on themselves). Dropping it made
+	-- SF drop it, pick it up again and drop it again, over and over.
+	-- Greater lotus (item_greater_famango) is kept by everyone.
+	if currentTime > 30 * 60 and J.IsCore(bot) and not bot:IsChanneling() and not J.CanNotUseAction(bot) then
+		for _, lotusName in ipairs({ 'item_famango', 'item_great_famango' }) do
 			local slot = bot:FindItemSlot(lotusName)
-			if slot >= 0 then
-				bot:Action_DropItem(bot:GetItemInSlot(slot), bot:GetLocation())
-				print("[Item] Core "..botName.." dropped "..lotusName.." (past 30min)")
+			if slot >= 0 and slot <= 5 then
+				local item = bot:GetItemInSlot(slot)
+				if item and item:IsFullyCastable() and (bot._lotusEatT or -math.huge) < currentTime - 2 then
+					local target, low = bot, J.GetHP(bot)
+					for i = 1, 5 do
+						local m = GetTeamMember(i)
+						if m and m:IsAlive() and m ~= bot and GetUnitToUnitDistance(bot, m) < 600 and J.GetHP(m) < low then target, low = m, J.GetHP(m) end
+					end
+					bot._lotusEatT = currentTime
+					bot:Action_UseAbilityOnEntity(item, target)
+					print('[Items] '..botName..' uses its '..lotusName..' on '..target:GetUnitName()..' (slot for real items)')
+				end
+				break
 			end
 		end
 	end
