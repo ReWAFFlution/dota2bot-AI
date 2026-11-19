@@ -43,7 +43,7 @@ local TOWERS = {
 	{ id = TOWER_TOP_1, lane = LANE_TOP, tier = 1 }, { id = TOWER_MID_1, lane = LANE_MID, tier = 1 }, { id = TOWER_BOT_1, lane = LANE_BOT, tier = 1 },
 	{ id = TOWER_TOP_2, lane = LANE_TOP, tier = 2 }, { id = TOWER_MID_2, lane = LANE_MID, tier = 2 }, { id = TOWER_BOT_2, lane = LANE_BOT, tier = 2 },
 	{ id = TOWER_TOP_3, lane = LANE_TOP, tier = 3 }, { id = TOWER_MID_3, lane = LANE_MID, tier = 3 }, { id = TOWER_BOT_3, lane = LANE_BOT, tier = 3 },
-	{ id = TOWER_BASE_1, lane = LANE_MID, tier = 4 }, { id = TOWER_BASE_2, lane = LANE_MID, tier = 4 },
+	{ id = TOWER_BASE_1, lane = LANE_MID, tier = 4, tag = 'T4a' }, { id = TOWER_BASE_2, lane = LANE_MID, tier = 4, tag = 'T4b' },
 }
 
 local function Log(msg) print('[Score] '..msg) end
@@ -452,7 +452,7 @@ local function FindObjectives(S, t)
 				local enemies = #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 2000) + missing * 0.4
 				table.insert(list, { kind = 'push', lane = info.lane, tier = info.tier, loc = tw:GetLocation(),
 					value = X.POINTS.tower[info.tier], allies = #allies, enemies = enemies, enough = 0.75,
-					max = math.min(4, GetNumAlive(GetOpposingTeam()) + 1), name = 'enemy T'..info.tier })
+					max = math.min(4, GetNumAlive(GetOpposingTeam()) + 1), name = 'enemy '..(info.tag or 'T'..info.tier) })
 			end
 		end
 	end
@@ -461,16 +461,21 @@ local function FindObjectives(S, t)
 	if anc and anc:IsAlive() then
 		local hp = TowerHPTracker(S, 'ancient', anc, t)
 		local enemies = HeroesNear(GetOpposingTeam(), anc:GetLocation(), 1500)
-		if hp.rate > 5 or #enemies > 0 then
+		-- It stays on 8 s after the last threat (enemies stepping in and out of
+		-- range flipped DK between the ancient and a T4 every second).
+		if hp.rate > 5 or #enemies > 0 then S.ancientUntil = t + 8 end
+		if (S.ancientUntil or -math.huge) > t then
 			table.insert(list, { kind = 'defend', lane = LANE_MID, tier = 5, loc = anc:GetLocation(), tower = anc,
 				value = X.POINTS.ancient, allies = #HeroesNear(GetTeam(), anc:GetLocation(), 1500) + 1.5, enemies = #enemies,
 				ttd = 99, enough = 0.99, max = 5, name = 'our ancient', ancient = true })
 		end
 	end
-	-- Our towers under attack.
+	-- Our towers under attack. With the ancient defended, the T4s are part of
+	-- that same fight (one objective, not three to switch between).
+	local ancientOn = (S.ancientUntil or -math.huge) > t
 	for _, info in ipairs(TOWERS) do
 		local tw = GetTower(GetTeam(), info.id)
-		if tw then
+		if tw and not (ancientOn and info.tier == 4) then
 			local hp = TowerHPTracker(S, 'o'..info.id, tw, t)
 			local enemies = HeroesNear(GetOpposingTeam(), tw:GetLocation(), 1200)
 			-- A real threat: the tower is losing HP, or an enemy hero is in its
@@ -484,7 +489,7 @@ local function FindObjectives(S, t)
 				local creepsOnly = #enemies == 0
 				table.insert(list, { kind = 'defend', lane = info.lane, tier = info.tier, loc = tw:GetLocation(), tower = tw,
 					value = X.POINTS.tower[info.tier] * (creepsOnly and 0.3 or 1), allies = allies + bonus, enemies = #enemies,
-					ttd = ttd, enough = 0.7, max = creepsOnly and 1 or math.min(4, #enemies + 1), name = 'our T'..info.tier })
+					ttd = ttd, enough = 0.7, max = creepsOnly and 1 or math.min(4, #enemies + 1), name = 'our '..(info.tag or 'T'..info.tier) })
 			end
 		end
 	end
