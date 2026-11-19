@@ -853,6 +853,7 @@ end
 -- The same when it says fight: heroes first, buildings after (SF hit a T4
 -- he couldn't take while enemies he could kill stood around him).
 function X.CapPushWhenLosing(bot, desire)
+	if X.IsIdle(bot) then return math.min(desire, 0.2) end
 	local c = bot._combat
 	if c and (c.retreat or (c.go and J.IsValidHero(c.target))) and DotaTime() - (bot._fightHintT or -math.huge) < 1.5 then
 		return math.min(desire, 0.3)
@@ -862,6 +863,7 @@ end
 
 -- For the push wrappers: max with the normal desire.
 function X.PushDesire(bot, lane)
+	if DropIfIdle(bot) then return 0 end
 	local a = X.Assignment(bot)
 	if a and a.kind == 'push' and a.lane == lane and not X.LosingHere(bot) then return 0.82 end
 	return 0
@@ -898,6 +900,7 @@ end
 function X.FilterDefendDesire(bot, lane, desire)
 	if desire <= 0 then return desire end
 	local tw, tier = X.OwnLaneTower(lane)
+	if tier <= 3 and X.IsIdle(bot) then return math.min(desire, 0.2) end
 	-- Losing the exchange here: retreat wins over a T1-T3 defense.
 	if tier <= 3 and X.LosingHere(bot) then return math.min(desire, 0.3) end
 	-- Nobody hits the tower: no standing guard at T1/T2.
@@ -910,7 +913,21 @@ function X.FilterDefendDesire(bot, lane, desire)
 end
 
 -- For the defend wrappers.
+-- An idle bot (no income for 20 s, not moving) loses its assignment and the
+-- default push/defend desires are capped: Juggernaut stood hitting a watcher
+-- by a quiet tower, "idle for 20 s" three times in a row.
+local function DropIfIdle(bot)
+	if not X.IsIdle(bot) then return false end
+	-- Holding the base, or enemies around: waiting there is the point.
+	if GetUnitToLocationDistance(bot, GetAncient(GetTeam()):GetLocation()) < 4000 then return false end
+	if #HeroesNear(GetOpposingTeam(), bot:GetLocation(), 1600) > 0 then return false end
+	local S = State()
+	if S.assign[bot:GetPlayerID()] then S.assign[bot:GetPlayerID()] = nil end
+	return true
+end
+
 function X.DefendDesire(bot, lane)
+	if DropIfIdle(bot) then return 0 end
 	local a = X.Assignment(bot)
 	if a and a.kind == 'defend' and a.lane == lane then
 		if a.tier ~= 5 and X.LosingHere(bot) then return 0 end
