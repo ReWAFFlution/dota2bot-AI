@@ -328,7 +328,7 @@ function X.Update()
 
 	SetPhase(S, 'hunt', 'all enemy T1 down')
 	local h = S.hunt
-	if h == nil or t > h.untilT or not h.target:IsAlive() or t - h.lastSeen > 8 then
+	if h == nil or t > h.untilT or h.target == nil or h.target:IsNull() or not h.target:IsAlive() or t - h.lastSeen > 8 then
 		local target = PickHuntTarget(group)
 		if target then
 			S.hunt = { target = target, startT = t, untilT = t + HUNT_TIMEOUT, lastSeen = t,
@@ -601,6 +601,7 @@ local function ThinkHunt(bot, S)
 	local h = S.hunt
 	local group = S.group
 	local target = h.target
+	if target == nil or target:IsNull() then S.hunt = nil return false end -- the handle went invalid
 	local targetLoc = (target:CanBeSeen() and target:GetLocation()) or h.lastLoc or target:GetLocation()
 	local center = GroupCenter(group) or bot:GetLocation()
 
