@@ -74,7 +74,7 @@ local orig_print = print
 -- Our behaviour logs always go to the console (and console.log with
 -- -condebug); other debug output only in debug mode.
 local LOG_TAGS = { '[Early]', '[Lane]', '[Map]', '[Obj]', '[Score]', '[Fight]', '[Team', '[Items]', '[Farm]',
-    '[Stuck]', '[Draft]', '[Ward]', '[Mid]', '[Outpost]', '[Diag]' }
+    '[Stuck]', '[Draft]', '[Ward]', '[Mid]', '[Outpost]', '[Diag]', '[Heal]' }
 local function IsTagged(s)
     if type(s) ~= 'string' then return false end
     for _, tag in ipairs(LOG_TAGS) do
