@@ -53,6 +53,10 @@ local function MetaBuyList(heroName, unit, fallback)
 	return fallback
 end
 sPurchaseList = MetaBuyList(botName, bot, sPurchaseList)
+-- Items a patch removed from the shop are replaced or dropped.
+if ItemStrategy ~= nil and ItemStrategy.CleanBuildList and sPurchaseList ~= nil then
+	sPurchaseList = ItemStrategy.CleanBuildList(sPurchaseList, botName)
+end
 
 
 if sPurchaseList == nil then
@@ -1329,6 +1333,9 @@ function ItemPurchaseThink()
 
 		bot.rebuildCount = 0
 		bot.countInvCheck = 0
+		if ItemStrategy ~= nil and ItemStrategy.ReviewNext and not Role.IsPvNMode() then
+			ItemStrategy.ReviewNext(bot, J.GetPosition(bot), bot.purchaseListInReverseOrder)
+		end
 		bot.currBuyingItemInPurchaseList = bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder]
 		-- Item.GetBasicItems keeps "the last skipped owned item" on the bot to
 		-- handle doubled components; left over from an earlier item it made an

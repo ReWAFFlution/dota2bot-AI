@@ -627,6 +627,37 @@ for _, n in ipairs({ 'aghanims_shard', 'ultimate_scepter', 'ultimate_scepter_2',
 
 local okItemLib, ItemLib = pcall(require, GetScriptDirectory()..'/FunLib/aba_item')
 if not okItemLib then ItemLib = nil end
+local okValue, ItemValue = pcall(require, GetScriptDirectory()..'/FunLib/item_value')
+if not okValue then ItemValue = nil end
+local okStatsL, Stats = pcall(require, GetScriptDirectory()..'/FunLib/item_stats_data')
+if not okStatsL then Stats = nil end
+-- Added by 7.42.
+local NEW_ITEMS = { 'item_caduceus', 'item_skypiercer', 'item_starforge', 'item_berserkers_sabatons', 'item_ristuls_devotion' }
+
+-- Mid game: of the next big items planned, buy first the one worth clearly
+-- more for this hero right now (pros' order otherwise). Called by
+-- item_purchase_generic before it starts a new item.
+function X.ReviewNext(bot, pos, stack)
+	if not ItemValue or #stack < 2 or DotaTime() < 15 * 60 then return end
+	local top = stack[#stack]
+	if GetItemCost(top) < 2500 then return end
+	local hero, minutes = bot:GetUnitName(), DotaTime() / 60
+	local magic = ItemValue.EnemyMix()
+	local topScore = ItemValue.Score(hero, pos, top, minutes, magic)
+	local bestIdx, bestScore = nil, topScore * 1.25
+	for i = #stack - 1, math.max(1, #stack - 3), -1 do
+		local it = stack[i]
+		if GetItemCost(it) >= 2500 then
+			local sc = ItemValue.Score(hero, pos, it, minutes, magic)
+			if sc > bestScore then bestIdx, bestScore = i, sc end
+		end
+	end
+	if bestIdx then
+		local it = table.remove(stack, bestIdx)
+		table.insert(stack, it)
+		Log(bot, string.format('%s before %s (worth %.2f vs %.2f for this hero now)', it, top, bestScore, topScore))
+	end
+end
 
 -- Owned, or already built into an owned item (Kaya inside Kaya and Sange).
 local function Has(bot, item)
@@ -669,23 +700,31 @@ function X.NextLateItem(bot, pos)
 	-- Six big items: nothing left to add (selling for upgrades isn't planned).
 	if BigItemsCount(bot) >= 6 then return nil end
 
+	-- Candidates: what this hero buys on Stratz, the role list and the new
+	-- 7.42 items; ranked by the item's stats for this hero now (item_value.lua),
+	-- with the pros' purchase rate as a bonus.
+	local cand = {}
 	local b = BuildData(hero, pos)
 	if b and b.known then
-		local list = {}
 		for name, rate in pairs(b.known) do
-			local item = 'item_'..name
-			if rate >= 6 and not NOT_LATE[name] and GetItemCost(item) >= 2000 and not Has(bot, item)
-			and not (TEAM_UNIQUE[item] and AllyHasItem(bot, item)) then
-				table.insert(list, { item = item, rate = rate })
-			end
+			if rate >= 4 then cand['item_'..name] = rate end
 		end
-		table.sort(list, function(x, y) return x.rate > y.rate end)
-		if list[1] then return list[1].item end
 	end
-	for _, item in ipairs(LATE_BY_ROLE[pos] or LATE_BY_ROLE[1]) do
-		if not Has(bot, item) and not (TEAM_UNIQUE[item] and AllyHasItem(bot, item)) then return item end
+	for _, item in ipairs(LATE_BY_ROLE[pos] or LATE_BY_ROLE[1]) do cand[item] = cand[item] or 0 end
+	for _, item in ipairs(NEW_ITEMS) do cand[item] = cand[item] or 0 end
+	local magic = ItemValue and ItemValue.EnemyMix() or 0.5
+	local best, bestScore
+	for item, rate in pairs(cand) do
+		local name = string.gsub(item, '^item_', '')
+		if not NOT_LATE[name] and GetItemCost(item) >= 2000 and not Has(bot, item)
+		and not (Stats and Stats.Items and not Stats.Items[item])
+		and not (TEAM_UNIQUE[item] and AllyHasItem(bot, item)) then
+			local sc = ItemValue and ItemValue.Score(hero, pos, item, DotaTime() / 60, magic) or 0
+			sc = sc * (1 + 0.6 * rate / 100)
+			if not bestScore or sc > bestScore then best, bestScore = item, sc end
+		end
 	end
-	return nil
+	return best
 end
 
 -- Called by item_purchase_generic when the purchase list is empty.
@@ -699,6 +738,50 @@ function X.LateGame(bot, pos, stack)
 		table.insert(stack, item)
 		Log(bot, '+'..item..' (late game, the build is finished)')
 	end
+end
+
+--==============================================================================
+-- Patch check: items removed from the shop
+--==============================================================================
+-- The meta data and the hero files can name items a patch removed (7.42:
+-- Khanda, Helm of the Overlord, Javelin...). Buying them fails, so they're
+-- replaced by their closest successor, or dropped.
+local okStats, Stats = pcall(require, GetScriptDirectory()..'/FunLib/item_stats_data')
+if not okStats then Stats = nil end
+local SUCCESSOR = {
+	item_khanda = 'item_caduceus', item_angels_demise = 'item_caduceus',
+	item_helm_of_the_overlord = 'item_helm_of_the_dominator', item_eternal_shroud = 'item_pipe',
+	item_wraith_pact = 'item_ristuls_devotion',
+}
+local KEEP = { item_famango = true, item_great_famango = true, item_greater_famango = true, item_ward_dispenser = true }
+
+local function Removed(name)
+	if not Stats or KEEP[name] then return false end
+	if string.find(name, '^item_recipe_') or string.find(name, 'item_double') or string.find(name, 'PvN_') then return false end
+	if Stats.Items[name] then return false end
+	if Stats.Obsolete[name] then return true end
+	if Stats.Known and Stats.Known[name] then return false end -- free items (observer wards...)
+	-- Not in the game at all (and not one of aba_item's own bundles).
+	local okItem, ItemLib = pcall(require, GetScriptDirectory()..'/FunLib/aba_item')
+	if okItem and ItemLib and type(ItemLib[name]) == 'table' and #ItemLib[name] > 0 then return false end
+	return true
+end
+
+function X.CleanBuildList(list, heroName)
+	if not list or not Stats then return list end
+	local out, seen = {}, {}
+	for _, it in ipairs(list) do
+		local name = it
+		if Removed(name) then
+			name = SUCCESSOR[it]
+			print('[Items] '..tostring(heroName)..': '..it..' is not in the shop ('..(name and ('-> '..name) or 'dropped')..')')
+		end
+		if name and not (seen[name] and GetItemCost(name) >= 1000) then
+			table.insert(out, name)
+			seen[name] = true
+		end
+	end
+	return out
 end
 
 X.RULES = RULES -- for tests
