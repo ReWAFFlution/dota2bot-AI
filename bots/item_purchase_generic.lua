@@ -1423,7 +1423,11 @@ function ItemPurchaseThink()
 
 	if #bot.currBuyingBasicItemList == 0
 	then
-		if Item.IsItemInHero( bot.currBuyingItemInPurchaseList )
+		-- Done also when it went straight into a bigger item (Yasha + Kaya
+		-- merge into Yasha and Kaya the moment Kaya is done: SF then "rebuilt"
+		-- the Kaya and bought another Yasha).
+		local mergedIn = _insideOwnedUpgrade(bot.currBuyingItemInPurchaseList)
+		if Item.IsItemInHero( bot.currBuyingItemInPurchaseList ) or mergedIn
 			or bot.currBuyingItemInPurchaseList == "item_aghanims_shard"
 			or (
 				bot == Utils.GetLoneDruid(bot).hero
@@ -1435,7 +1439,7 @@ function ItemPurchaseThink()
 			or bot.countInvCheck > 120 -- hard limit either way
 		then
 			-- skip it and continue next
-			if Item.IsItemInHero( bot.currBuyingItemInPurchaseList ) then
+			if Item.IsItemInHero( bot.currBuyingItemInPurchaseList ) or mergedIn then
 				bot.completedItems = bot.completedItems or {}
 				bot.completedItems[bot.currBuyingItemInPurchaseList] = true
 			end
