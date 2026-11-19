@@ -96,31 +96,23 @@ function X.TeamPlan()
 
 	local own, enemy = BountySides(team)
 	local plan = { own = own, enemy = enemy }
-	plan.safeRune = ClosestToLane(own, SafeLane(team))
-	plan.offRune = ClosestToLane(own, OffLane(team))
-	if plan.offRune == plan.safeRune then
-		plan.offRune = nil
-		for _, r in ipairs(own) do if r ~= plan.safeRune then plan.offRune = r end end
-	end
-	-- Mid takes the river rune spot by the mid lane, not a bounty in the jungle
-	-- (with one own bounty that put pos 5, 1 and 2 on the same rune).
-	local midSpots = {}
-	for _, r in ipairs({ RUNE_POWERUP_1, RUNE_POWERUP_2 }) do
-		local l = r and GetRuneSpawnLocation(r)
-		if l and l:Length2D() > 500 then table.insert(midSpots, r) end
-	end
-	-- The game may report only one bounty spot per team: then the offlane pair
-	-- takes the river rune spot by its lane, and the mid the other one.
-	if not plan.offRune and #midSpots > 0 then
-		plan.offRune = ClosestToLane(midSpots, OffLane(team))
-		local rest = {}
-		for _, r in ipairs(midSpots) do if r ~= plan.offRune then table.insert(rest, r) end end
-		midSpots = #rest > 0 and rest or midSpots
-		print('[Early] team '..team..': one bounty spot known, offlane pair takes the river rune by its lane')
-	end
-	plan.midRune = ClosestToLane(midSpots, LANE_MID) or ClosestToLane(own, LANE_MID)
-	-- The enemy carry stands at the enemy's safe-lane bounty.
-	plan.enemyCarryRune = ClosestToLane(enemy, SafeLane(GetOpposingTeam()), GetOpposingTeam())
+	-- 7.42 has two bounty runes, each by a side lane: the bottom one by
+	-- Radiant's safe lane / Dire's off lane, the top one the other way round.
+	-- Each team's safe pair takes the bounty by its safe lane and the off-lane
+	-- pair the one by its off lane, contesting the other team's pair there.
+	-- (Splitting them by fountain distance left the off-lane pair with no
+	-- bounty; sent to a river spot, it stood on an empty rune.)
+	local all = {}
+	for _, r in ipairs(own) do table.insert(all, r) end
+	for _, r in ipairs(enemy) do table.insert(all, r) end
+	plan.safeRune = ClosestToLane(all, SafeLane(team))
+	plan.offRune = ClosestToLane(all, OffLane(team))
+	if plan.offRune == plan.safeRune then plan.offRune = nil end
+	-- The mid goes to its lane: the river spots are empty at the start.
+	plan.midRune = nil
+	-- The enemy carry stands at the bounty by the enemy's safe lane.
+	plan.enemyCarryRune = ClosestToLane(all, SafeLane(GetOpposingTeam()), GetOpposingTeam())
+	print(string.format('[Early] team %d: safe pair -> rune %s, off-lane pair -> rune %s', team, tostring(plan.safeRune), tostring(plan.offRune)))
 
 	-- Smoke gank: bots only (humans aren't dragged along), and the team needs
 	-- some disables among pos 2-5.

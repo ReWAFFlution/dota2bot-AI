@@ -132,6 +132,9 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 	end
 
 	local waveClear = #bot:GetNearbyLaneCreeps(900, true) == 0
+	-- The river spots are empty before the first water rune at 2:00 (the game
+	-- still reports them "available").
+	if t < 2 * 60 then return BOT_MODE_DESIRE_NONE end
 
 	if t < 6 * 60 - 15 or runeType == RUNE_WATER then
 		-- Water rune: after the wave is dead, and only if HP/mana are missing.
