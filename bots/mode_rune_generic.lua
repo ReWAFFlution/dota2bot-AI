@@ -369,7 +369,7 @@ function Think()
 	end
 
 	-- Post-horn rune pickup (reference pattern using bot.rune state)
-	if bot.rune and bot.rune.normal then
+	if bot.rune and bot.rune.normal and type(bot.rune.normal.location) == 'number' and bot.rune.normal.location ~= -1 then -- nil before a rune is chosen
 		local botAttackRange = math.min(bot:GetAttackRange() + 150, 1200)
 		local nInRangeEnemy = J.GetEnemiesNearLoc(bot:GetLocation(), botAttackRange)
 		local nEnemyCreeps = bot:GetNearbyCreeps(botAttackRange, true)
@@ -474,6 +474,7 @@ end
 function X.IsSuitableToPickRune()
 	if X.IsNearRune(bot, 550) then return true end
 
+	if not (bot.rune and bot.rune.normal and type(bot.rune.normal.location) == 'number') then return false end
 	local vRuneLocation = GetRuneSpawnLocation(bot.rune.normal.location)
 
 	if (J.IsRetreating(bot) and botActiveModeDesire > BOT_MODE_DESIRE_HIGH)
