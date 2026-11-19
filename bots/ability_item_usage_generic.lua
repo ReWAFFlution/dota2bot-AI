@@ -5909,6 +5909,25 @@ do
 				if not bSave then return BOT_ACTION_DESIRE_NONE end
 			end
 		end
+		-- A teleport out of the base: 60 s before the next one (Juggernaut
+		-- teleported top -> bottom T2 and walked all the way back), and every
+		-- one is logged with why and from which mode.
+		if nDesire and nDesire > 0 then
+			local vLoc = hTarget
+			if type(hTarget) == 'table' and hTarget.GetLocation then vLoc = hTarget:GetLocation() end
+			if vLoc and vLoc.x then
+				local bHome = J.GetDistance(vLoc, J.GetTeamFountain()) < 2500
+				if not bHome and DotaTime() < (bot._lastFieldTpT or -math.huge) + 60 then
+					return BOT_ACTION_DESIRE_NONE
+				end
+				if (bot._tpLogT or -math.huge) < DotaTime() - 5 then
+					bot._tpLogT = DotaTime()
+					if not bHome then bot._lastFieldTpT = DotaTime() end
+					print(string.format('[Obj] %s TP to (%d, %d)%s, %s, mode %s', bot:GetUnitName(), vLoc.x, vLoc.y,
+						bHome and ' (home)' or '', tostring(sMotive), tostring(bot:GetActiveMode())))
+				end
+			end
+		end
 		return nDesire, hTarget, sType, sMotive
 	end
 end

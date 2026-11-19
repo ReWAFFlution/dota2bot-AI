@@ -1597,6 +1597,7 @@ local function TryTP(bot, loc)
 	if X.CoreLaneLocked(bot) then return false end
 	if J.GetPosition(bot) >= 4 and DotaTime() < 15 * 60 then return false end -- walk: the lane partner stays
 	if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return false end
+	if DotaTime() < (bot._lastFieldTpT or -math.huge) + 60 then return false end -- one field teleport a minute
 	local slot = bot:FindItemSlot('item_tpscroll')
 	if slot < 0 then return false end
 	local item = bot:GetItemInSlot(slot)
@@ -1612,6 +1613,7 @@ local function TryTP(bot, loc)
 		end
 	end
 	if best and bd < myDist - 3500 then
+		bot._lastFieldTpT = DotaTime()
 		bot:Action_UseAbilityOnLocation(item, best:GetLocation())
 		ObjLog(bot:GetUnitName()..' teleports to help')
 		return true
