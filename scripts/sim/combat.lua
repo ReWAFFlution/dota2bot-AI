@@ -22,7 +22,8 @@ function GetUnitList(t) if t == UNIT_LIST_ENEMY_HEROES then return enemies end i
 function GetTower() return nil end function GetTeamMember(i) return allies[i] end
 function GetTeamPlayers() return { 0 } end function IsHeroAlive() return true end
 local J = { IsValidHero = function(h) return h ~= nil end, CanBeAttacked = function() return true end, GetHP = function(u) return u.hp / 2000 end,
-	GetMP = function() return 0.8 end, IsSuspiciousIllusion = function() return false end, GetPosition = function() return 1 end }
+	GetMP = function() return 0.8 end, IsSuspiciousIllusion = function() return false end, GetPosition = function() return 1 end,
+	GetEnemyFountain = function() return Vector(7000, 7000) end, GetTeamFountain = function() return Vector(-7000, -7000) end }
 function require(p) if p:find('jmz_func') then return J end if p:find('roles_map') then return { IsDisabler = function() return false end, HasEscape = function() return false end } end end
 local O = dofile(BOTS..'/FunLib/objectives.lua')
 local function show(label) local c = O.Combat(me) print(string.format('%-28s us %4.0f s  them %4.0f s  go=%s retreat=%s', label, c.ttkUs, c.ttkThem, tostring(c.go), tostring(c.retreat))) return c end
@@ -48,4 +49,13 @@ enemies = { hero('medusa', 3, Vector(600, 0), 1500, 260), hero('pango', 3, Vecto
 for _, e in ipairs(enemies) do e.mana = 0 end
 c = show('4v4, our group stronger') print(string.format('team ratio x%.2f', c.teamRatio))
 assert(c.teamRatio > 1.2 and not c.retreat and c.go)
+-- The same won fight right at their fountain: no chase, step back.
+local ef = Vector(7000, 7000)
+for _, e in ipairs(enemies) do e.loc = ef + (e.loc - Vector(600, 0)) end
+me.loc = ef + Vector(-900, -900) for i = 2, #allies do allies[i].loc = me.loc end
+c = show('same fight at their fountain') assert(c.retreat and not c.go)
+-- An enemy next to us, even odds: decide, don't idle.
+me.loc, me.hp = Vector(0, 0), 1500
+allies = { me } enemies = { hero('wk', 3, Vector(500, 0), 1800, 250) }
+c = show('1v1 even, enemy close') assert(c.go or c.retreat)
 print('combat ok')

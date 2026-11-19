@@ -581,6 +581,12 @@ local function UseItem(bot, name, loc)
 end
 
 local function Attack(bot, target)
+	-- Never chase into their fountain (allies died there after a won fight).
+	if GetUnitToLocationDistance(target, J.GetEnemyFountain()) < 1700 then
+		local back = J.GetTeamFountain() - bot:GetLocation()
+		bot:Action_MoveToLocation(bot:GetLocation() + back:Normalized() * 500)
+		return
+	end
 	bot.forceFightUntil = DotaTime() + 2 -- spells on the target
 	bot:SetTarget(target)
 	bot:Action_AttackUnit(target, true)

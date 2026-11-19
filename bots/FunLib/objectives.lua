@@ -747,7 +747,11 @@ function X.Combat(bot)
 	local bkb = ItemReady(bot, 'item_black_king_bar')
 	local tower = BuildingNear(GetOpposingTeam(), myLoc, 750)
 	local share = 1 / math.sqrt(#allies)
-	local ttkThem = TimeToKill(enemies, bot, escape and bot:GetHealth() * 0.4 or 0, tower and 150 or 0, bkb, ReadyStuns(enemies), share)
+	-- Their fountain shreds anyone in its range (allies died chasing into it).
+	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
+	local nearFountain = Dist(myLoc, enemyFountain) < 1500
+	local extraDps = (tower and 150 or 0) + (nearFountain and 900 or 0)
+	local ttkThem = TimeToKill(enemies, bot, escape and bot:GetHealth() * 0.4 or 0, extraDps, bkb, ReadyStuns(enemies), share)
 
 	-- Team exchange: how fast each group burns the other's total HP (4 s of
 	-- ready damage, each hero on the average enemy). > 1: we win the fight.
@@ -772,7 +776,8 @@ function X.Combat(bot)
 	-- Our fastest kill among them.
 	local best, bestT = nil, 99
 	for _, e in ipairs(enemies) do
-		if J.CanBeAttacked(e) then
+		-- Not a target next to their fountain: chasing there kills us.
+		if J.CanBeAttacked(e) and Dist(e:GetLocation(), enemyFountain) > 1700 then
 			local helpers = HeroesNear(GetTeam(), e:GetLocation(), 1300)
 			local mine = false
 			for _, a in ipairs(helpers) do if a == bot then mine = true end end
@@ -782,6 +787,7 @@ function X.Combat(bot)
 			if tt < bestT or (tt == bestT and best and e:GetHealth() < best:GetHealth()) then best, bestT = e, tt end
 		end
 	end
+	local noTarget = best == nil
 	if not best then best = enemies[1] end
 
 	local c = { target = best, ttkUs = bestT, ttkThem = ttkThem, teamRatio = teamRatio }
@@ -793,6 +799,18 @@ function X.Combat(bot)
 	-- Pushing the win (team plan "finish"): only a real personal danger.
 	local S = TeamPlanState and TeamPlanState[GetTeam()]
 	if S and S.phase == 'finish' and not (ttkThem <= 1.5 and hp < 0.35) then c.retreat = false end
+	-- No target outside their fountain: nothing to chase.
+	if noTarget then c.go = false end
+	if nearFountain and #enemies > 0 then c.go, c.retreat = false, true end
+	-- An enemy right next to us: decide (fight or leave), never keep farming
+	-- creeps in between (MK hit creeps with enemies around in their base).
+	if not c.go and not c.retreat then
+		local close = false
+		for _, e in ipairs(enemies) do if Dist(e:GetLocation(), myLoc) < 900 then close = true end end
+		if close then
+			if teamRatio >= 1.0 and not noTarget and hp > 0.35 then c.go = true else c.retreat = true end
+		end
+	end
 	-- Medusa's health is her mana: low on mana near enemies, step back.
 	if bot:GetUnitName() == 'npc_dota_hero_medusa' and J.GetMP(bot) < 0.25 then
 		c.retreat, c.go = true, false
