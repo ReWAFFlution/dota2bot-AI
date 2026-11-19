@@ -121,11 +121,26 @@ function ____exports.GetFirstBot()
     end
     return BotId
 end
+-- Draft hooks set by hero_selection.lua (meta/counter draft); nil -> random.
+local DraftHooks = nil
+function ____exports.SetDraftHooks(hooks)
+    DraftHooks = hooks
+end
+local function HookedHero(fn, ...)
+    if not DraftHooks or not DraftHooks[fn] then
+        return nil
+    end
+    local ok, hero = pcall(DraftHooks[fn], ...)
+    if ok and hero and not IsUnavailableHero(hero) and not IsCMPickedHero(GetTeam(), hero) and not IsCMPickedHero(GetOpposingTeam(), hero) and not IsCMBannedHero(hero) then
+        return hero
+    end
+    return nil
+end
 function BansHero()
     if not IsPlayerBot(GetCMCaptain()) or not IsPlayerInHeroSelectionControl(GetCMCaptain()) then
         return
     end
-    local BannedHero = RandomHero()
+    local BannedHero = HookedHero("ban") or RandomHero()
     print(BannedHero .. " is banned")
     CMBanHero(BannedHero)
     BanCycle = BanCycle + 1
@@ -135,6 +150,18 @@ function PicksHero()
         return
     end
     local sTeamName = GetTeam() == Team.Radiant and "TEAM_RADIANT" or "TEAM_DIRE"
+    -- Our draft first (position by pick order: offlane, support, mid,
+    -- support, carry), the random role-fitting hero otherwise.
+    local CycleRole = {"offlaner", "support", "midlaner", "support", "carry"}
+    local CyclePos = {3, 5, 2, 4, 1}
+    local drafted = PickCycle <= 5 and HookedHero("pick", CyclePos[PickCycle]) or nil
+    if drafted then
+        ____exports.PairsHeroNameNRole[sTeamName][drafted] = CycleRole[PickCycle]
+        print(drafted .. " is picked (draft)")
+        CMPickHero(drafted)
+        PickCycle = PickCycle + 1
+        return
+    end
     local PickedHero = RandomHero()
     if PickCycle == 1 then
         while not CanBeOfflaner(PickedHero) do

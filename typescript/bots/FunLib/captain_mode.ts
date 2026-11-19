@@ -115,11 +115,30 @@ export function GetFirstBot(): number | null {
 }
 
 // Ban hero function
+// Draft hooks set by hero_selection.lua (meta/counter draft); undefined -> random.
+type DraftHooksType = { ban?: () => HeroName | undefined; pick?: (pos: number) => HeroName | undefined };
+let DraftHooks: DraftHooksType | undefined = undefined;
+export function SetDraftHooks(hooks: DraftHooksType) {
+    DraftHooks = hooks;
+}
+
+function HookedHero(fn: "ban" | "pick", pos?: number): HeroName | undefined {
+    const hook = DraftHooks?.[fn];
+    if (hook === undefined) {
+        return undefined;
+    }
+    const [ok, hero] = pcall(() => (fn === "pick" ? DraftHooks!.pick!(pos!) : DraftHooks!.ban!()));
+    if (ok && hero && !IsUnavailableHero(hero) && !IsCMPickedHero(GetTeam(), hero) && !IsCMPickedHero(GetOpposingTeam(), hero) && !IsCMBannedHero(hero)) {
+        return hero;
+    }
+    return undefined;
+}
+
 function BansHero() {
     if (!IsPlayerBot(GetCMCaptain()) || !IsPlayerInHeroSelectionControl(GetCMCaptain())) {
         return;
     }
-    const BannedHero = RandomHero();
+    const BannedHero = HookedHero("ban") ?? RandomHero();
     print(BannedHero + " is banned");
     CMBanHero(BannedHero);
     BanCycle = BanCycle + 1;
@@ -132,6 +151,18 @@ function PicksHero() {
     }
 
     const sTeamName = GetTeam() === Team.Radiant ? "TEAM_RADIANT" : "TEAM_DIRE";
+    // Our draft first (position by pick order: offlane, support, mid,
+    // support, carry), the random role-fitting hero otherwise.
+    const CycleRole = ["offlaner", "support", "midlaner", "support", "carry"];
+    const CyclePos = [3, 5, 2, 4, 1];
+    const drafted = PickCycle <= 5 ? HookedHero("pick", CyclePos[PickCycle - 1]) : undefined;
+    if (drafted !== undefined) {
+        PairsHeroNameNRole[sTeamName][drafted] = CycleRole[PickCycle - 1];
+        print(drafted + " is picked (draft)");
+        CMPickHero(drafted);
+        PickCycle = PickCycle + 1;
+        return;
+    }
     let PickedHero = RandomHero() as HeroName;
     if (PickCycle === 1) {
         while (!CanBeOfflaner(PickedHero)) {

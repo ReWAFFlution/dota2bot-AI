@@ -1016,6 +1016,88 @@ local function DirectorPick(team, slot, pos)
 	return pick
 end
 
+--==============================================================================
+-- Captain Mode: bans and picks through the same draft (FunLib/captain_mode.lua
+-- calls these; it keeps the random choice as a fallback).
+--==============================================================================
+
+local function CMTaken(h)
+	return IsCMPickedHero(TEAM_RADIANT, h) or IsCMPickedHero(TEAM_DIRE, h) or IsCMBannedHero(h)
+end
+
+local function CMPickedOf(team)
+	local list = {}
+	for _, h in ipairs(AllHeroNames) do
+		if IsCMPickedHero(team, h) then table.insert(list, h) end
+	end
+	return list
+end
+
+local function CMFree(list)
+	local out = {}
+	for _, h in ipairs(list) do
+		if not CMTaken(h) and h ~= 'npc_dota_hero_techies' then table.insert(out, h) end
+	end
+	return out
+end
+
+-- Random among the first `n` (the list is best first).
+local function TopRandom(list, n)
+	if #list == 0 then return nil end
+	return list[RandomInt(1, math.min(n, #list))]
+end
+
+local function CMPick(pos)
+	if not MetaDraft then return nil end
+	local team = GetTeam()
+	local counterSet = {}
+	local enemyPicked = CMPickedOf(OtherTeam(team))
+	-- Carry slot: a strong carry; a counter to their picks if one is strong.
+	if pos == 1 then
+		local pick = TopRandom(CMFree(PickableAtPos(team, StrongCarries(), pos)), 6)
+		if pick then print('[Draft] CM pos 1: carry -> '..pick) return pick end
+	end
+	-- Counter to what they picked (best counter value first), half of the time.
+	if #enemyPicked > 0 and RandomInt(1, 100) <= 50 then
+		local counters = CMFree(PickableAtPos(team, EntryNames(MergeLists(MetaDraft.Counters, enemyPicked)), pos))
+		local pick = TopRandom(counters, 3)
+		if pick then print('[Draft] CM pos '..pos..': counter -> '..pick) return pick end
+	end
+	for _, cat in ipairs({ 'meta', 'popular', 'pool', 'free' }) do
+		local list = {}
+		if cat == 'meta' then list = MetaDraft.MetaByPosition[pos] or {}
+		elseif cat == 'popular' then list = MetaDraft.PopularByPosition[pos] or {}
+		elseif cat == 'pool' then list = MetaDraft.PoolByPosition[pos] or {}
+		else list = AllHeroNames end
+		local pick = RandomFrom(CMFree(PickableAtPos(team, list, pos, nil, counterSet)))
+		if pick then print('[Draft] CM pos '..pos..': '..cat..' -> '..pick) return pick end
+	end
+	return nil
+end
+
+local function CMBan()
+	if not MetaDraft then return nil end
+	local team = GetTeam()
+	-- What counters our picks, then the strongest meta heroes.
+	local ourPicked = CMPickedOf(team)
+	if #ourPicked > 0 then
+		local threats = CMFree(EntryNames(MergeLists(MetaDraft.Counters, ourPicked)))
+		local ban = TopRandom(threats, 2)
+		if ban then print('[Draft] CM ban (counters our picks): '..ban) return ban end
+	end
+	local meta = {}
+	for pos = 1, 5 do
+		for _, h in ipairs(MetaDraft.MetaByPosition[pos] or {}) do table.insert(meta, h) end
+	end
+	local ban = RandomFrom(CMFree(meta))
+	if ban then print('[Draft] CM ban (meta): '..ban) end
+	return ban
+end
+
+if CaptainMode and CaptainMode.SetDraftHooks then
+	CaptainMode.SetDraftHooks({ pick = CMPick, ban = CMBan })
+end
+
 local function PickHeroForBotSlot(i, id)
 	local team = TeamOfPlayer(id)
 	local rolePool = tSelectPoolList[i]
