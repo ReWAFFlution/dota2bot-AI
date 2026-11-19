@@ -102,6 +102,19 @@ end
 local function IsEmpty(camp) return cleared[CampKey(camp)] == Minute() end
 X.IsEmpty = IsEmpty
 
+-- One farmer per camp: the bot that picked it holds it for 10 s, unless
+-- another one is clearly closer. (J.Site.IsTheClosestOne looked members up
+-- by player id with GetTeamMember, which counts 1-5 per team, and any
+-- farming ally closer to a camp "took" it: "27 camps, 11 safe, 0 not taken".)
+local claims = {}
+local function TakenByOther(bot, camp)
+	local c = claims[CampKey(camp)]
+	if not c or c.bot == bot or DotaTime() - c.t > 10 then return false end
+	if not c.bot:IsAlive() then return false end
+	return GetUnitToLocationDistance(c.bot, camp.location) < GetUnitToLocationDistance(bot, camp.location) + 300
+end
+local function Claim(bot, camp) claims[CampKey(camp)] = { bot = bot, t = DotaTime() } end
+
 -- Why no camp: printed once a minute per bot.
 local function Diag(bot, msg)
 	if (bot._farmDiagT or -math.huge) < DotaTime() - 60 then
@@ -124,7 +137,7 @@ function X.BestCamp(bot, list, fallback)
 		if camp and camp.location then NoteEmpty(bot, camp) end
 		if camp and camp.location and not IsEmpty(camp) and X.IsSafe(bot, camp) then
 			nSafe = nSafe + 1
-			if not J.Site or not J.Site.IsTheClosestOne or J.Site.IsTheClosestOne(bot, camp.location) then -- one farmer per camp
+			if not TakenByOther(bot, camp) then -- one farmer per camp
 				nFree = nFree + 1
 				local r = X.CampRate(bot, camp)
 				if r > bestRate then best, bestRate = entry, r end
@@ -133,6 +146,7 @@ function X.BestCamp(bot, list, fallback)
 	end
 	if not best then Diag(bot, string.format('no camp: %d camps, %d safe, %d not taken', #list, nSafe, nFree)) end
 	if best then
+		Claim(bot, best.cattr)
 		if bot._farmCamp ~= best.idx then
 			bot._farmCamp = best.idx
 			print(string.format('[Farm] %s -> %s camp (%.1f gold/s)', bot:GetUnitName(), tostring(best.cattr.type), bestRate))
@@ -177,6 +191,7 @@ function X.BetweenWaves(bot, list)
 		local camp = entry.cattr
 		if camp and camp.location then NoteEmpty(bot, camp) end
 		if camp and camp.location and camp.team == GetTeam() and camp.type ~= 'ancient' and not IsEmpty(camp) and X.IsSafe(bot, camp)
+		and not TakenByOther(bot, camp)
 		and GetUnitToLocationDistance(bot, camp.location) < 2500 then
 			local rate = X.CampRate(bot, camp)
 			local gold = (GOLD[camp.type or 'medium'] or 80) * (1 + DotaTime() / 3600)
@@ -185,6 +200,7 @@ function X.BetweenWaves(bot, list)
 		end
 	end
 	if best then
+		Claim(bot, best.cattr)
 		bot._waveCamp = { idx = best.idx, t = t }
 		print(string.format('[Farm] %s clears a %s camp between waves (%.1f gold/s)', bot:GetUnitName(), tostring(best.cattr.type), bestRate))
 	end
