@@ -102,6 +102,12 @@ function GetDesireHelper()
 		end
 	end
 
+	-- Supports don't farm (jungle camps or lanes): pushing, wards and fights
+	-- are their jobs (FunLib/team_plan.lua).
+	if J.GetPosition(bot) >= 4 and not J.IsLateGame() then
+		return BOT_MODE_DESIRE_NONE
+	end
+
 	if not bInitDone
 	then
 		bInitDone = true

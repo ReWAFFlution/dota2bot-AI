@@ -348,9 +348,49 @@ end
 -- Push desire adjustment (mode_push_tower_*_generic)
 --------------------------------------------------------------------------------
 
+-- Supports after the laning stage: a fight our heroes are in (an ally
+-- trading with enemies within 4500 of us) worth running to. Returns the ally.
+function X.SupportFightToJoin(bot)
+	if J.GetPosition(bot) < 4 or J.IsInLaningPhase() or J.GetHP(bot) < 0.4 then return nil end
+	local best, bestD
+	for i = 1, 5 do
+		local m = GetTeamMember(i)
+		if m and m ~= bot and m:IsAlive() and GetUnitToUnitDistance(bot, m) < 4500 then
+			local enemies = RealEnemiesNear(m:GetLocation(), 1200)
+			local fighting = #enemies > 0 and (m:WasRecentlyDamagedByAnyHero(2.0) or J.IsGoingOnSomeone(m))
+			if fighting and (not bestD or GetUnitToUnitDistance(bot, m) < bestD) then
+				best, bestD = m, GetUnitToUnitDistance(bot, m)
+			end
+		end
+	end
+	return best
+end
+
+-- Supports after the laning stage push the closest wave that's safe to push
+-- (no enemy seen near it, not past the enemy tier-1 alone) instead of
+-- farming the jungle.
+function X.SupportPushLane(bot)
+	if J.GetPosition(bot) < 4 or J.IsInLaningPhase() then return nil end
+	local best, bestD
+	for _, lane in ipairs(LANES) do
+		local front = GetLaneFrontLocation(GetTeam(), lane, 0)
+		local safe = #RealEnemiesNear(front, 1800) == 0
+		local t1 = GetTower(GetOpposingTeam(), T1[lane])
+		local tooDeep = t1 == nil and #J.GetAlliesNearLoc(front, 1600) < 2
+		local d = GetUnitToLocationDistance(bot, front)
+		if safe and not tooDeep and (not bestD or d < bestD) then best, bestD = lane, d end
+	end
+	return best
+end
+
 function X.AdjustPushDesire(bot, lane, desire)
 	local S = X.Update()
 	local p = S.phase
+	-- A free support pushes its chosen wave (wards, fights and the team plan
+	-- below still take precedence through their own higher desires).
+	if (p == 'spread' or p == 'laning' or p == 'hunt') and not X.InGroup(bot) and X.SupportPushLane(bot) == lane then
+		desire = math.max(desire, 0.5)
+	end
 	if p == 'finish' then
 		-- Everyone to the lane with the most progress toward the ancient
 		-- (a hero that is nearly dead heals first).
@@ -489,6 +529,14 @@ function X.RoamDesire(bot)
 		return BOT_MODE_DESIRE_VERYHIGH
 	end
 
+	-- Supports go where the team fights.
+	local fightAlly = X.SupportFightToJoin(bot)
+	if fightAlly then
+		bot._teamAction = 'join_fight'
+		bot._teamTarget = fightAlly
+		return 0.8
+	end
+
 	-- Supports ward the jungle where our carry farms.
 	if X.CarryWardSpot(bot, S) then
 		bot._teamAction = 'ward_carry'
@@ -601,6 +649,23 @@ function X.RoamThink(bot)
 	local S = X.Update()
 	if a == 'regroup' then
 		bot:Action_MoveToLocation(SafePoint(bot))
+		return true
+	elseif a == 'join_fight' then
+		local ally = bot._teamTarget
+		if not J.IsValidHero(ally) then return false end
+		-- Close enough: hit the best enemy around the ally (spells via the
+		-- fight window), otherwise run to the ally.
+		if GetUnitToUnitDistance(bot, ally) < 1300 then
+			local best, bestEV = nil, -5
+			for _, e in ipairs(RealEnemiesNear(ally:GetLocation(), 1300)) do
+				if J.CanBeAttacked(e) then
+					local ev = Objectives.FightValue(bot, e)
+					if ev > bestEV then best, bestEV = e, ev end
+				end
+			end
+			if best then Attack(bot, best) return true end
+		end
+		bot:Action_MoveToLocation(ally:GetLocation())
 		return true
 	elseif a == 'pickoff' then
 		local e = bot._teamTarget

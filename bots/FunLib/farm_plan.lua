@@ -78,6 +78,8 @@ end
 -- Drop-in for J.Site.GetClosestNeutralSpwan(bot, list): list entries are
 -- { idx = ..., cattr = camp }.
 function X.BestCamp(bot, list, fallback)
+	-- Supports don't farm the jungle: they push lanes, ward and fight.
+	if J.GetPosition(bot) >= 4 then return nil end
 	if not list or #list == 0 then return fallback(bot, list) end
 	local best, bestRate = nil, 0
 	for _, entry in ipairs(list) do
