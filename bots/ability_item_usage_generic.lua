@@ -1448,6 +1448,12 @@ end
 
 --跳刀
 X.ConsiderItemDesire["item_blink"] = function( hItem )
+	-- SF blinks in only as part of his BKB + Blink + Requiem combo (hero
+	-- file); escapes are fine.
+	if bot:GetUnitName() == 'npc_dota_hero_nevermore' and not J.IsRetreating(bot) then
+		local r = bot:GetAbilityByName('nevermore_requiem')
+		if r and r:GetLevel() > 0 then return BOT_ACTION_DESIRE_NONE end
+	end
 	local nCastRange = 1200
 	if hItem:GetName() == 'item_arcane_blink' then
 		nCastRange = 1400

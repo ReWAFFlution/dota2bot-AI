@@ -1635,6 +1635,62 @@ local function TryTP(bot, loc)
 end
 
 -- Push helpers: get there (TP if far); the push mode does the rest.
+-- On their high ground: buildings in order, barracks first (Radiant walked
+-- back and forth on Dire's high ground while Dire wouldn't come out, and the
+-- barracks stood). Melee barracks before ranged, then the T4s, then the
+-- ancient; the closest one of the best kind, attackable, within 1800. Not
+-- while a fight is on (the combat evaluation says go / retreat) or with an
+-- enemy hero within 700.
+local RAX_ORDER = {}
+if BARRACKS_TOP_MELEE ~= nil then
+	RAX_ORDER = { BARRACKS_TOP_MELEE, BARRACKS_MID_MELEE, BARRACKS_BOT_MELEE, BARRACKS_TOP_RANGED, BARRACKS_MID_RANGED, BARRACKS_BOT_RANGED }
+end
+local function Attackable(u)
+	return u ~= nil and not u:IsNull() and u:IsAlive() and not u:IsInvulnerable()
+end
+function X.BaseTarget(bot)
+	local anc = GetAncient(GetOpposingTeam())
+	if not anc or GetUnitToUnitDistance(bot, anc) > 3500 then return nil end
+	local myLoc = bot:GetLocation()
+	local function closest(list)
+		local best, bd = nil, 1800
+		for _, u in ipairs(list) do
+			local fountain = J.GetEnemyFountain and J.GetEnemyFountain()
+			if Attackable(u) and not (fountain and Dist(u:GetLocation(), fountain) < 1700) then
+				local d = GetUnitToUnitDistance(bot, u)
+				if d < bd then best, bd = u, d end
+			end
+		end
+		return best
+	end
+	local melee, ranged = {}, {}
+	for i, id in ipairs(RAX_ORDER) do
+		local b = GetBarracks(GetOpposingTeam(), id)
+		if b then table.insert(i <= 3 and melee or ranged, b) end
+	end
+	local t4 = {}
+	for _, id in ipairs({ TOWER_BASE_1, TOWER_BASE_2 }) do
+		local tw = GetTower(GetOpposingTeam(), id)
+		if tw then table.insert(t4, tw) end
+	end
+	return closest(melee) or closest(ranged) or closest(t4) or (Attackable(anc) and GetUnitToUnitDistance(bot, anc) < 1800 and anc or nil)
+end
+
+function X.BaseSiegeThink(bot)
+	if J.CanNotUseAction(bot) or bot:IsChanneling() then return false end
+	local c = bot._combat
+	if c and (c.go or c.retreat) and DotaTime() - (bot._fightHintT or -math.huge) < 1.5 then return false end
+	if #HeroesNear(GetOpposingTeam(), bot:GetLocation(), 700) > 0 then return false end
+	local target = X.BaseTarget(bot)
+	if not target then return false end
+	if bot._baseTarget ~= target then
+		bot._baseTarget = target
+		ObjLog(bot:GetUnitName()..' hits '..target:GetUnitName()..' on their high ground')
+	end
+	bot:Action_AttackUnit(target, true)
+	return true
+end
+
 function X.PushThink(bot, lane)
 	local a = X.Assignment(bot)
 	if not a or a.kind ~= 'push' or a.lane ~= lane then return false end

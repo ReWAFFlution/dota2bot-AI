@@ -13,6 +13,7 @@ function GetDesire()
 end
 function Think()
     if Objectives.PushThink(bot, LANE_MID) then return end -- get to the ally's push (TP if far)
+    if Objectives.BaseSiegeThink(bot) then return end -- their high ground: barracks first
     if TeamPlan.PushFormationThink(bot, LANE_MID) then return end -- tank goes first
     if Objectives.RangedSiegeThink(bot) then return end -- ranged: hit the tower from full range
     Push.PushThink(bot, LANE_MID)

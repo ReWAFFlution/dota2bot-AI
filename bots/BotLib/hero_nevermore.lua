@@ -214,8 +214,64 @@ local castRDesire
 
 local nKeepMana, nMP, nHP, nLV, nInRangeEnemy, botTarget
 
+-- Blink + Requiem the way it's played: BKB (when they have disables) ->
+-- Blink into the middle of them -> Requiem at once, queued as one combo. SF
+-- used to blink in without BKB, pop BKB after a hex and ult seconds later.
+local BLINKS = { 'item_blink', 'item_overwhelming_blink', 'item_swift_blink', 'item_arcane_blink' }
+local function ReadyItem(name)
+	local slot = bot:FindItemSlot(name)
+	if slot < 0 or slot > 5 then return nil end
+	local it = bot:GetItemInSlot(slot)
+	if it and it:IsFullyCastable() then return it end
+	return nil
+end
+local ObjectivesLib = nil
+pcall(function() ObjectivesLib = require(GetScriptDirectory()..'/FunLib/objectives') end)
+local RolesLib = nil
+pcall(function() RolesLib = require(GetScriptDirectory()..'/FunLib/aba_hero_roles_map') end)
+
+function X.ConsiderBlinkUlt()
+	if not abilityR:IsFullyCastable() or bot:GetMana() < abilityR:GetManaCost() then return nil end
+	local nSouls = bot:GetModifierStackCount(bot:GetModifierByName('modifier_nevermore_necromastery'))
+	if nSouls < 10 then return nil end
+	local blink
+	for _, n in ipairs(BLINKS) do blink = blink or ReadyItem(n) end
+	if not blink then return nil end
+	local aoe = bot:FindAoELocation(true, true, bot:GetLocation(), 1150, 450, 0, 0)
+	local alive = 0
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do if IsHeroAlive(pid) then alive = alive + 1 end end
+	local need = alive <= 3 and 2 or 3
+	if not aoe or aoe.count < need then return nil end
+	if GetUnitToLocationDistance(bot, aoe.targetloc) < 350 then return nil end -- already there: the normal ult logic
+	-- The fight there has to be ours with the team around.
+	if ObjectivesLib and ObjectivesLib.FightAt then
+		local allies = J.GetAlliesNearLoc(bot:GetLocation(), 1600)
+		if ObjectivesLib.FightAt(aoe.targetloc, allies) < 0.9 then return nil end
+	end
+	local bkb = ReadyItem('item_black_king_bar')
+	local disables = false
+	for _, e in pairs(J.GetEnemiesNearLoc(aoe.targetloc, 1200)) do
+		if J.IsValidHero(e) and RolesLib and RolesLib.IsDisabler and RolesLib.IsDisabler(e:GetUnitName()) then disables = true end
+	end
+	return blink, aoe.targetloc, (disables and not bot:IsMagicImmune()) and bkb or nil, aoe.count
+end
+
 function X.SkillsComplement()
 	if bot.invisUltCombo then return end
+	if (bot._blinkUltUntil or -math.huge) > DotaTime() then return end -- combo running
+
+	if not J.CanNotUseAbility(bot) then
+		local blink, loc, bkb, n = X.ConsiderBlinkUlt()
+		if blink then
+			bot:Action_ClearActions(true)
+			if bkb then bot:ActionQueue_UseAbility(bkb) end
+			bot:ActionQueue_UseAbilityOnLocation(blink, loc)
+			bot:ActionQueue_UseAbility(abilityR)
+			bot._blinkUltUntil = DotaTime() + 2.5
+			print(string.format('[Fight] %s: %sblink + requiem on %d heroes', bot:GetUnitName(), bkb and 'BKB + ' or '', n))
+			return
+		end
+	end
 
 	J.ConsiderTarget()
 	if J.CanNotUseAbility( bot ) then return end
