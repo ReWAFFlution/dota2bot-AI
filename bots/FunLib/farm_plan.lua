@@ -75,21 +75,63 @@ function X.CampRate(bot, camp)
 	return gold / (walk + clear + 2)
 end
 
+-- Every camp on the map as { idx, cattr } entries, straight from the game:
+-- the farm mode's own list (J.Role.availableCampTable) is refreshed only once
+-- a minute from inside its GetDesire and was empty all game long (no bot
+-- ever picked a camp in any match).
+local function AllCamps()
+	local list = {}
+	for i, camp in pairs(GetNeutralSpawners and GetNeutralSpawners() or {}) do
+		if camp and camp.location then table.insert(list, { idx = camp.idx or i, cattr = camp }) end
+	end
+	return list
+end
+X.AllCamps = AllCamps
+
+-- Camps found empty this minute (they respawn on the minute): a bot standing
+-- at one with no neutrals around marks it. Shared by the team.
+local cleared = {}
+local function CampKey(camp) return math.floor(camp.location.x)..':'..math.floor(camp.location.y) end
+local function Minute() return math.floor(DotaTime() / 60) end
+local function NoteEmpty(bot, camp)
+	if GetUnitToLocationDistance(bot, camp.location) < 400 then
+		local ok, n = pcall(function() return #bot:GetNearbyNeutralCreeps(700) end)
+		if ok and n == 0 then cleared[CampKey(camp)] = Minute() end
+	end
+end
+local function IsEmpty(camp) return cleared[CampKey(camp)] == Minute() end
+X.IsEmpty = IsEmpty
+
+-- Why no camp: printed once a minute per bot.
+local function Diag(bot, msg)
+	if (bot._farmDiagT or -math.huge) < DotaTime() - 60 then
+		bot._farmDiagT = DotaTime()
+		print('[Farm] '..bot:GetUnitName()..': '..msg)
+	end
+end
+
 -- Drop-in for J.Site.GetClosestNeutralSpwan(bot, list): list entries are
 -- { idx = ..., cattr = camp }.
 function X.BestCamp(bot, list, fallback)
 	-- Supports don't farm the jungle: they push lanes, ward and fight.
 	if J.GetPosition(bot) >= 4 then return nil end
-	if not list or #list == 0 then return fallback(bot, list) end
+	if not list or #list == 0 then list = AllCamps() end
+	if #list == 0 then Diag(bot, 'no camps from the game') return nil end
 	local best, bestRate = nil, 0
+	local nSafe, nFree = 0, 0
 	for _, entry in ipairs(list) do
 		local camp = entry.cattr
-		if camp and camp.location and X.IsSafe(bot, camp)
-		and (not J.Site or not J.Site.IsTheClosestOne or J.Site.IsTheClosestOne(bot, camp.location)) then -- one farmer per camp
-			local r = X.CampRate(bot, camp)
-			if r > bestRate then best, bestRate = entry, r end
+		if camp and camp.location then NoteEmpty(bot, camp) end
+		if camp and camp.location and not IsEmpty(camp) and X.IsSafe(bot, camp) then
+			nSafe = nSafe + 1
+			if not J.Site or not J.Site.IsTheClosestOne or J.Site.IsTheClosestOne(bot, camp.location) then -- one farmer per camp
+				nFree = nFree + 1
+				local r = X.CampRate(bot, camp)
+				if r > bestRate then best, bestRate = entry, r end
+			end
 		end
 	end
+	if not best then Diag(bot, string.format('no camp: %d camps, %d safe, %d not taken', #list, nSafe, nFree)) end
 	if best then
 		if bot._farmCamp ~= best.idx then
 			bot._farmCamp = best.idx
@@ -115,13 +157,17 @@ local WAVE_FARM_FROM = { [1] = 4 * 60, [2] = 6 * 60, [3] = 6 * 60 }
 function X.BetweenWaves(bot, list)
 	local pos = J.GetPosition(bot)
 	local from = WAVE_FARM_FROM[pos]
-	if not from or DotaTime() < from or not list or #list == 0 then return nil end
+	if not from or DotaTime() < from then return nil end
+	if not list or #list == 0 then list = AllCamps() end
 	if J.GetHP(bot) < 0.5 then bot._waveCamp = nil return nil end
 	local t = DotaTime()
 	local w = bot._waveCamp
 	if w and t - w.t < 25 then
 		for _, entry in ipairs(list) do
-			if entry.idx == w.idx and entry.cattr and X.IsSafe(bot, entry.cattr) then return entry end
+			if entry.idx == w.idx and entry.cattr then
+				NoteEmpty(bot, entry.cattr)
+				if not IsEmpty(entry.cattr) and X.IsSafe(bot, entry.cattr) then return entry end
+			end
 		end
 	end
 	bot._waveCamp = nil
@@ -129,7 +175,8 @@ function X.BetweenWaves(bot, list)
 	local best, bestRate
 	for _, entry in ipairs(list) do
 		local camp = entry.cattr
-		if camp and camp.location and camp.team == GetTeam() and camp.type ~= 'ancient' and X.IsSafe(bot, camp)
+		if camp and camp.location then NoteEmpty(bot, camp) end
+		if camp and camp.location and camp.team == GetTeam() and camp.type ~= 'ancient' and not IsEmpty(camp) and X.IsSafe(bot, camp)
 		and GetUnitToLocationDistance(bot, camp.location) < 2500 then
 			local rate = X.CampRate(bot, camp)
 			local gold = (GOLD[camp.type or 'medium'] or 80) * (1 + DotaTime() / 3600)

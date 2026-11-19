@@ -13,7 +13,9 @@ function GetTeamPlayers() return {} end function GetTower() return nil end
 local creeps = {}
 local bot = { loc = Vector(0, 0) }
 function bot:GetLocation() return self.loc end function bot:GetUnitName() return 'npc_dota_hero_juggernaut' end
-function bot:GetNearbyLaneCreeps() return creeps end function bot:GetAttackDamage() return 55 end
+function bot:GetNearbyLaneCreeps() return creeps end
+local neutrals = { {} }
+function bot:GetNearbyNeutralCreeps() return neutrals end function bot:GetAttackDamage() return 55 end
 function bot:GetSecondsPerAttack() return 1.4 end function bot:GetLevel() return 6 end function bot:GetCurrentMovementSpeed() return 315 end
 function GetUnitToLocationDistance(u, l) return (u:GetLocation() - l):Length2D() end
 local F = dofile(BOTS..'/FunLib/farm_plan.lua')
@@ -38,4 +40,12 @@ assert(c and c.idx == b.idx)
 pos = 5 bot._waveCamp = nil creeps = {}
 assert(F.BetweenWaves(bot, list) == nil)
 print('support: no camp')
+-- The camp got cleared (standing at it, no neutrals): not picked again this
+-- minute; the empty list from the farm mode falls back to the game's camps.
+pos = 1 bot._waveCamp = nil creeps = {} neutrals = {}
+bot.loc = Vector(900, 300)
+GetNeutralSpawners = function() local r = {} for _, e in ipairs(list) do table.insert(r, e.cattr) end return r end
+local d = F.BetweenWaves(bot, {})
+print('standing at the cleared small camp: next camp', d and d.cattr.type)
+assert(d == nil or d.cattr.type ~= 'small')
 print('farm ok')
