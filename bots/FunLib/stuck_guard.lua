@@ -23,7 +23,7 @@ function X.Blocked(bot, key, mode, banTime, waitOk)
 	local t = DotaTime()
 	bot._stuck = bot._stuck or {}
 	local s = bot._stuck[key]
-	if not s then s = { ban = -1 } bot._stuck[key] = s end
+	if not s then s = { ban = -math.huge } bot._stuck[key] = s end -- DotaTime() is negative before the horn
 	if t < s.ban then return true end
 	if t < 30 or bot:GetActiveMode() ~= mode or Busy(bot) or (waitOk and waitOk(t)) then
 		s.loc, s.t = nil, nil

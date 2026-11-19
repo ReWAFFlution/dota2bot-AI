@@ -74,7 +74,7 @@ function GetDesireHelper()
 		DidWeGetOutpost = true
 	end
 
-	if (bot.outpostBanUntil or -1) > DotaTime() then return BOT_ACTION_DESIRE_NONE end
+	if (bot.outpostBanUntil or -math.huge) > DotaTime() then return BOT_ACTION_DESIRE_NONE end
 	ClosestOutpost, ClosestOutpostDist = GetClosestOutpost()
 	if ClosestOutpost ~= nil and ClosestOutpostDist < 3000
 	and not IsEnemyCloserToOutpostLoc(ClosestOutpost:GetLocation(), ClosestOutpostDist)

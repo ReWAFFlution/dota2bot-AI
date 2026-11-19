@@ -141,7 +141,7 @@ local function WatcherDesire(bot, S)
 		if w and not w:IsNull() then
 			local key = Key(w)
 			if DotaTime() > (S.watcherUsed[key] or -9999) + WATCHER_COOLDOWN
-			and DotaTime() > (S.watcherBan[key] or -1)
+			and DotaTime() > (S.watcherBan[key] or -math.huge)
 			and GetUnitToUnitDistance(bot, w) < WATCHER_RANGE
 			and EnemiesNear(w:GetLocation(), 1300) == 0 then
 				bot._mapTarget, bot._mapKind = w, 'watcher'

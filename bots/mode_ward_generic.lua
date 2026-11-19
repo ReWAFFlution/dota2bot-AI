@@ -218,7 +218,7 @@ function X.Unblocked(spots)
 	local list = {}
 	for _, spot in pairs(spots or {}) do
 		-- Not blocked, and safe to walk to alone (FunLib/objectives.lua).
-		if (spot.blocked_until or -1) < DotaTime() and Objectives.SafeSpot(bot, spot.location) then
+		if (spot.blocked_until or -math.huge) < DotaTime() and Objectives.SafeSpot(bot, spot.location) then
 			table.insert(list, spot)
 		end
 	end

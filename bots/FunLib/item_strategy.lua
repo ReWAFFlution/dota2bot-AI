@@ -570,7 +570,7 @@ end
 function X.Think(bot, pos, stack)
 	if bot.bUserItemBuild or not pos or pos < 1 or pos > 5 then return end
 	local now = DotaTime()
-	if now < 0 or (bot._itemStrategyNext or -1) > now then return end
+	if now < 0 or (bot._itemStrategyNext or -math.huge) > now then return end
 	bot._itemStrategyNext = now + THINK_INTERVAL
 	bot._itemPos = pos
 	bot._itemRulesDone = bot._itemRulesDone or {}
@@ -763,7 +763,7 @@ end
 function X.LateGame(bot, pos, stack)
 	if bot.bUserItemBuild or not pos or #stack > 0 then return end
 	local now = DotaTime()
-	if now < 20 * 60 or (bot._lateNext or -1) > now then return end
+	if now < 20 * 60 or (bot._lateNext or -math.huge) > now then return end
 	bot._lateNext = now + 5
 	local item = X.NextLateItem(bot, pos)
 	if item then

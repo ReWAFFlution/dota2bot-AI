@@ -64,7 +64,7 @@ function X.LaningHarass(bot)
 	if not IsMid(bot) or bot:GetActiveMode() ~= BOT_MODE_LANING then return end
 	local t = DotaTime()
 	if t < 0 or t > 10 * 60 then return end
-	if (bot.forceFightUntil or -1) > t or (bot._harassNext or -1) > t then return end
+	if (bot.forceFightUntil or -math.huge) > t or (bot._harassNext or -math.huge) > t then return end
 	if J.GetHP(bot) < 0.5 then return end
 
 	local myLoc = bot:GetLocation()

@@ -810,7 +810,7 @@ function X.FightHint(bot)
 		end
 	end
 
-	if (bot._fightHintT or -1) > t then return bot._fightHint or 0 end
+	if (bot._fightHintT or -math.huge) > t then return bot._fightHint or 0 end
 	bot._fightHintT = t + 0.5
 	bot._fightHint = 0
 	-- A support alone deep on the enemy side while enemies are unaccounted

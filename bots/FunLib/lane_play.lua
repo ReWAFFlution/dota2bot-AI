@@ -118,7 +118,7 @@ function X.Harass(bot)
 	if bot:GetActiveMode() ~= BOT_MODE_LANING then return end
 	local t = DotaTime()
 	if t < 0 or t > LANING_END then return end
-	if (bot.forceFightUntil or -1) > t or (bot._harassNext or -1) > t then return end
+	if (bot.forceFightUntil or -math.huge) > t or (bot._harassNext or -math.huge) > t then return end
 	if bot._pull then return end
 
 	local support = IsSupport(bot)
@@ -351,7 +351,7 @@ function X.SupportThink(bot)
 
 	-- Harass window: right-click the target (spells come from the hero file).
 	local target = bot._harassTarget
-	if (bot.forceFightUntil or -1) > t and J.IsValidHero(target) and J.CanBeAttacked(target)
+	if (bot.forceFightUntil or -math.huge) > t and J.IsValidHero(target) and J.CanBeAttacked(target)
 	and GetUnitToUnitDistance(bot, target) < bot:GetAttackRange() + 600
 	and not EnemyTowerNear(target:GetLocation(), 750) then
 		bot:Action_AttackUnit(target, true)
@@ -430,7 +430,7 @@ function X.CoreThink(bot)
 
 	-- Harass window (set by X.Harass).
 	local target = bot._harassTarget
-	if (bot.forceFightUntil or -1) > t and J.IsValidHero(target) and J.CanBeAttacked(target)
+	if (bot.forceFightUntil or -math.huge) > t and J.IsValidHero(target) and J.CanBeAttacked(target)
 	and GetUnitToUnitDistance(bot, target) < range + 250 and not EnemyTowerNear(target:GetLocation(), 750) then
 		bot:Action_AttackUnit(target, true)
 		return
