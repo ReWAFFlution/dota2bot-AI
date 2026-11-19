@@ -5,6 +5,7 @@ local EarlyGame = require(GetScriptDirectory()..'/FunLib/early_game')
 local MidPlay = require(GetScriptDirectory()..'/FunLib/mid_play')
 local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
 local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
+local SafeCall = SafeCall or function(_, fn, ...) return fn(...) end
 Customize.ThinkLess = Customize.Enable and Customize.ThinkLess or 1
 
 local bot = GetBot()
@@ -70,7 +71,7 @@ function GetDesire()
 	if DotaTime() > 60 and not RuneSpawnSoon(DotaTime()) and Objectives.IsIdle(bot) then return BOT_MODE_DESIRE_NONE end
 
 	-- Start of the game: bounty runes by position, harass, smoke gank.
-	local nEarlyDesire = EarlyGame.GetDesire(bot)
+	local nEarlyDesire = SafeCall('EarlyGame.GetDesire', EarlyGame.GetDesire, bot)
 	if nEarlyDesire then return nEarlyDesire end
 
 	if (DotaTime() > 2 * 60 and DotaTime() < 6 * 60 and GetUnitToLocationDistance(bot, GetRuneSpawnLocation(RUNE_POWERUP_2)) < 80) then
@@ -265,7 +266,9 @@ end
 --------------------------------------------------------------------
 local fNextMovementTime = -math.huge
 function Think()
-	if EarlyGame.Think(bot) then return end
+	if SafeCall('EarlyGame.Think', EarlyGame.Think, bot) then return end
+	-- The default logic below needs a rune chosen by its GetDesire.
+	if not (bot.rune and bot.rune.normal and type(bot.rune.normal.location) == 'number' and bot.rune.normal.location >= 0) then return end
 
 	if bot:IsInvulnerable() and bot:DistanceFromFountain() < 500 then
 		bot:Action_MoveToLocation(bot:GetLocation() + RandomVector(500))

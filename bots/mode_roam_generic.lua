@@ -3,6 +3,7 @@ local Customize = require( GetScriptDirectory()..'/Customize/general' )
 local MidPlay = require(GetScriptDirectory()..'/FunLib/mid_play')
 local TeamPlan = require(GetScriptDirectory()..'/FunLib/team_plan')
 local MapObjects = require(GetScriptDirectory()..'/FunLib/map_objects')
+local SafeCall = SafeCall or function(_, fn, ...) return fn(...) end
 
 local bot = GetBot()
 local botName = bot:GetUnitName()
@@ -105,7 +106,7 @@ function GetDesireHelper()
 
 	-- Team plan: smoke hunts, regroup after the enemies respawn, pick-offs in defense.
 	bot._roamBy = nil
-	local nTeamDesire = TeamPlan.RoamDesire(bot)
+	local nTeamDesire = SafeCall('TeamPlan.RoamDesire', TeamPlan.RoamDesire, bot)
 	if nTeamDesire then return nTeamDesire end
 
 	-- Mid: rune ganks, ganks after the enemy mid tower falls, safe farming.
@@ -113,7 +114,7 @@ function GetDesireHelper()
 	if nMidDesire then return nMidDesire end
 
 	-- Lotus pools and watchers.
-	local nMapDesire = MapObjects.RoamDesire(bot)
+	local nMapDesire = SafeCall('MapObjects.RoamDesire', MapObjects.RoamDesire, bot)
 	if nMapDesire then bot._roamBy = 'map' return nMapDesire end
 
 	-- unit special abilities
@@ -160,9 +161,9 @@ function Think()
 
 	nInRangeEnemy = bot:GetNearbyHeroes(1200, true, BOT_MODE_NONE)
 
-	if TeamPlan.RoamThink(bot) then return end
+	if SafeCall('TeamPlan.RoamThink', TeamPlan.RoamThink, bot) then return end
 	if MidPlay.RoamThink(bot) then return end
-	if bot._roamBy == 'map' and MapObjects.RoamThink(bot) then return end
+	if bot._roamBy == 'map' and SafeCall('MapObjects.RoamThink', MapObjects.RoamThink, bot) then return end
 
 	ThinkIndividualRoaming() -- unit special abilities
 	ThinkGeneralRoaming() -- general items or conditions.

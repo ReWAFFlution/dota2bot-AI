@@ -319,6 +319,17 @@ function X.LaneCoreHere(bot)
 	return false
 end
 
+-- Hold a spot without auto-attacking: an idle hero hits the creeps around
+-- it (taking the core's last hits and pushing the lane), so keep stepping
+-- around the spot instead of standing still.
+function X.StandAt(bot, loc)
+	if GetUnitToLocationDistance(bot, loc) > 150 then
+		bot:Action_MoveToLocation(loc)
+	else
+		bot:Action_MoveToLocation(loc + RandomVector(80))
+	end
+end
+
 function X.SupportThink(bot)
 	if J.CanNotUseAction(bot) then return end
 	local t = DotaTime()
@@ -381,7 +392,7 @@ function X.SupportThink(bot)
 		local away = (bot:GetLocation() - core:GetLocation())
 		if away:Length2D() < 1 then away = Vector(1, 0, 0) end
 		local spot = core:GetLocation() + away:Normalized() * (bot:GetAttackRange() + 30)
-		if GetUnitToLocationDistance(bot, spot) > 120 then bot:Action_MoveToLocation(spot) end
+		X.StandAt(bot, spot)
 		return
 	end
 
@@ -393,9 +404,7 @@ function X.SupportThink(bot)
 	if GetLaneFrontAmount(GetOpposingTeam(), lane, false) < GetLaneFrontAmount(GetTeam(), lane, false) then
 		loc = enemyFront
 	end
-	if GetUnitToLocationDistance(bot, loc) > 150 then
-		bot:Action_MoveToLocation(loc + RandomVector(60))
-	end
+	X.StandAt(bot, loc)
 end
 
 --------------------------------------------------------------------------------

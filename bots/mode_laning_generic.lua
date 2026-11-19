@@ -1,6 +1,7 @@
 local Utils = require( GetScriptDirectory()..'/FunLib/utils')
 local J = require( GetScriptDirectory()..'/FunLib/jmz_func')
 local LanePlay = require(GetScriptDirectory()..'/FunLib/lane_play')
+local SafeCall = SafeCall or function(_, fn, ...) return fn(...) end
 
 local Version      = require(GetScriptDirectory()..'/FunLib/version')
 local Localization = require(GetScriptDirectory()..'/FunLib/localization')
@@ -62,7 +63,7 @@ function GetDesire()
 
 	-- Harass windows: spells on the lane enemies (supports trade freely,
 	-- cores between last hits).
-	LanePlay.Harass(bot)
+	SafeCall('LanePlay.Harass', LanePlay.Harass, bot)
 
 	-- if DotaTime() > 20 and DotaTime() - skipLaningState.lastCheckTime < skipLaningState.checkGap then
 	-- 	if skipLaningState.count > 6 then
@@ -180,12 +181,12 @@ end
 if not local_mode_laning_generic and LanePlay.UseSupportThink(bot) then
 	-- Supports: harass, deny, leave last hits to the core, pull.
 	function Think()
-		LanePlay.SupportThink(bot)
+		SafeCall('LanePlay.SupportThink', LanePlay.SupportThink, bot)
 	end
 elseif not local_mode_laning_generic and LanePlay.UseCoreThink(bot) then
 	-- Melee pos 1/3: last hits next to the wave instead of hanging back.
 	function Think()
-		LanePlay.CoreThink(bot)
+		SafeCall('LanePlay.CoreThink', LanePlay.CoreThink, bot)
 	end
 elseif local_mode_laning_generic or (J.GetPosition(bot) == 1 and J.IsPosxHuman(5)) then
 	function Think()

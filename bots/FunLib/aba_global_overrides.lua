@@ -71,8 +71,19 @@ end
 
 -- Override the print function
 local orig_print = print
+-- Our behaviour logs always go to the console (and console.log with
+-- -condebug); other debug output only in debug mode.
+local LOG_TAGS = { '[Early]', '[Lane]', '[Map]', '[Obj]', '[Score]', '[Fight]', '[Team', '[Items]', '[Farm]',
+    '[Stuck]', '[Draft]', '[Ward]', '[Mid]', '[Outpost]', '[Diag]' }
+local function IsTagged(s)
+    if type(s) ~= 'string' then return false end
+    for _, tag in ipairs(LOG_TAGS) do
+        if string.sub(s, 1, #tag) == tag then return true end
+    end
+    return false
+end
 function print(...)
-    if not Utils.DebugMode then return end
+    if not Utils.DebugMode and not IsTagged((...)) then return end
 
     local args = {...}
     for i, v in ipairs(args) do
@@ -81,6 +92,38 @@ function print(...)
     local output = table.concat(args, "\t") -- Concatenate with tab as separator
 
     orig_print(output)
+end
+
+-- A nil rune (the game reported no such spot, or a caller passed nothing)
+-- used to abort the whole frame; return the map centre and say where it
+-- came from (a few times).
+local original_GetRuneSpawnLocation = GetRuneSpawnLocation
+local nRuneDiag = 0
+function GetRuneSpawnLocation(nRune)
+	if type(nRune) ~= 'number' then
+		if nRuneDiag < 10 then
+			nRuneDiag = nRuneDiag + 1
+			print('[Diag] GetRuneSpawnLocation('..tostring(nRune)..') '..debug.traceback())
+		end
+		return Vector(0, 0, 0)
+	end
+	return original_GetRuneSpawnLocation(nRune)
+end
+
+-- Run fn(...) and report an error (once per place) instead of dropping the
+-- frame: [Diag] lines in console.log show what broke.
+local tDiagSeen = {}
+function SafeCall(sWhere, fn, ...)
+	local args, n = { ... }, select('#', ...)
+	local res = { xpcall(function() return fn(unpack(args, 1, n)) end, debug.traceback) }
+	if not res[1] then
+		if not tDiagSeen[sWhere] then
+			tDiagSeen[sWhere] = true
+			print('[Diag] error in '..sWhere..': '..tostring(res[2]))
+		end
+		return nil
+	end
+	return unpack(res, 2)
 end
 
 local original_GetUnitToUnitDistance = GetUnitToUnitDistance
