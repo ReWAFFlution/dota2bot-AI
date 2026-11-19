@@ -227,6 +227,7 @@ function X.SkillsComplement()
     if DeployTurretsDesire > 0
     then
         bot:Action_UseAbilityOnLocation(DeployTurrets, DeployTurretsLocation)
+        bot._tinkerSpellT = DotaTime()
         return
     end
 
@@ -235,6 +236,7 @@ function X.SkillsComplement()
     then
         bot:Action_UseAbilityOnLocation(MarchOfTheMachines, MarchOfTheMachinesLocation)
         lastMarchCastTime = DotaTime()
+        bot._tinkerSpellT = DotaTime()
         return
     end
 
@@ -242,6 +244,7 @@ function X.SkillsComplement()
     if LaserDesire > 0
     then
         bot:Action_UseAbilityOnEntity(Laser, LaserTarget)
+        bot._tinkerSpellT = DotaTime()
         return
     end
 
@@ -249,6 +252,7 @@ function X.SkillsComplement()
     if WarpFlareDesire > 0
     then
         bot:ActionQueue_UseAbilityOnEntity(WarpFlare, WarpFlareTarget)
+        bot._tinkerSpellT = DotaTime()
         return
     end
 
@@ -256,6 +260,7 @@ function X.SkillsComplement()
     if RearmDesire > 0
     then
         bot:Action_UseAbility(Rearm)
+        bot._tinkerRearmT = DotaTime()
         return
     end
 
@@ -270,6 +275,7 @@ function X.SkillsComplement()
         end
 
         KeenConveyanceCastTime = DotaTime()
+        bot._tinkerSpellT = DotaTime()
         return
     end
 
@@ -969,6 +975,13 @@ function X.ConsiderRearm()
 
     local nChannelTime = Rearm:GetChannelTime()
 
+    -- No Rearm again before something was cast since the last one: Tinker
+    -- kept channeling Rearm without casting Laser or March in between.
+    if bot._tinkerRearmT and (bot._tinkerSpellT or -math.huge) < bot._tinkerRearmT
+    and DotaTime() - bot._tinkerRearmT < 15 then
+        return BOT_ACTION_DESIRE_NONE
+    end
+
     local nInRangeEnemy = J.GetEnemiesNearLoc(bot:GetLocation(), 1600)
     if bot.healInBase
     and nInRangeEnemy ~= nil and #nInRangeEnemy == 0
@@ -977,8 +990,12 @@ function X.ConsiderRearm()
         return BOT_ACTION_DESIRE_HIGH
     end
 
-    if Laser ~= nil and Laser:IsTrained() and Laser:GetCooldownTimeRemaining() > nChannelTime
-    or MarchOfTheMachines ~= nil and MarchOfTheMachines:IsTrained() and MarchOfTheMachines:GetCooldownTimeRemaining() > nChannelTime
+    -- Spells on cooldown: refresh them only with something to use them on
+    -- (an enemy hero within 1200, or 3+ creeps around).
+    local bUse = #J.GetEnemiesNearLoc(bot:GetLocation(), 1200) > 0
+        or #bot:GetNearbyLaneCreeps(900, true) >= 3 or #bot:GetNearbyNeutralCreeps(800) >= 3
+    if bUse and (Laser ~= nil and Laser:IsTrained() and Laser:GetCooldownTimeRemaining() > nChannelTime
+    or MarchOfTheMachines ~= nil and MarchOfTheMachines:IsTrained() and MarchOfTheMachines:GetCooldownTimeRemaining() > nChannelTime)
     then
         return BOT_ACTION_DESIRE_HIGH
     end
