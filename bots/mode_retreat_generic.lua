@@ -123,6 +123,16 @@ function GetDesire()
     -- local cachedVar = J.Utils.GetCachedVars(cacheKey, 0.35 * (1 + Customize.ThinkLess))
     -- if DotaTime() > 30 and cachedVar ~= nil then return cachedVar end
     local res = GetDesireHelper()
+    -- Laning: the default formula adds up "more enemies than allies", "each
+    -- hero hitting me" and "we aren't stronger", so in a 2v1 lane any harass
+    -- at 70% HP beat the lane desire (WK spent 24% of the first 10 minutes
+    -- retreating). Without real danger it stays under the lane (0.4): HP over
+    -- 45%, the fight check says they don't kill us within 3 s, no tower on us.
+    -- Real danger comes from the fight hint below.
+    if res > 0.4 and J.IsInLaningPhase() and J.GetHP(bot) > 0.45 and not bot:WasRecentlyDamagedByTower(1.5) then
+        local c = bot._combat
+        if not (c and c.ttkThem and c.ttkThem <= 3) then res = 0.4 end
+    end
     -- J.Utils.SetCachedVars(cacheKey, res)
     -- Fight value (FunLib/objectives.lua): leave fights that cost more than they bring.
     local ok, hint = pcall(Objectives.FightHint, bot)
