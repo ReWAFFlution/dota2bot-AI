@@ -36,7 +36,7 @@ local function IsMid(bot) return J.GetPosition(bot) == 2 end
 local function RealHeroes(listType, loc, radius)
 	local list = {}
 	for _, h in pairs(GetUnitList(listType)) do
-		if J.IsValidHero(h) and not h:IsIllusion() and Dist(h:GetLocation(), loc) <= radius then
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) and Dist(h:GetLocation(), loc) <= radius then
 			table.insert(list, h)
 		end
 	end

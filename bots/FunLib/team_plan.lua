@@ -79,7 +79,7 @@ end
 local function RealEnemiesNear(loc, radius)
 	local list = {}
 	for _, h in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
-		if J.IsValidHero(h) and not h:IsIllusion() and Dist(h:GetLocation(), loc) <= radius then
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) and Dist(h:GetLocation(), loc) <= radius then
 			table.insert(list, h)
 		end
 	end
@@ -107,7 +107,7 @@ end
 local function EnemyAtPosition(pos)
 	if EnemyRoles then EnemyRoles.UpdateEnemyHeroPositions() end
 	for _, h in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
-		if J.IsValidHero(h) and not h:IsIllusion() then
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) then
 			local p = EnemyRoles and EnemyRoles.GetEnemyPosition(h:GetPlayerID())
 			if p == pos then return h end
 		end
@@ -194,7 +194,7 @@ local function PickHuntTarget(group)
 	-- Anyone visible that the group can kill.
 	local best, bestM = nil, 1.0
 	for _, h in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
-		if J.IsValidHero(h) and not h:IsIllusion() then
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) then
 			local m = GroupMargin(group, h)
 			if m > bestM then best, bestM = h, m end
 		end

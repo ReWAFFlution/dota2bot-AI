@@ -182,6 +182,11 @@ if not local_mode_laning_generic and LanePlay.UseSupportThink(bot) then
 	function Think()
 		LanePlay.SupportThink(bot)
 	end
+elseif not local_mode_laning_generic and LanePlay.UseCoreThink(bot) then
+	-- Melee pos 1/3: last hits next to the wave instead of hanging back.
+	function Think()
+		LanePlay.CoreThink(bot)
+	end
 elseif local_mode_laning_generic or (J.GetPosition(bot) == 1 and J.IsPosxHuman(5)) then
 	function Think()
 		local hitCreep, moveToCreep = GetBestLastHitCreep(nEnemyCreeps)

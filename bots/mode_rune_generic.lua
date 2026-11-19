@@ -387,7 +387,9 @@ function Think()
 				end
 			end
 
-			if rune.distance > 50 then
+			-- Live distance (rune.distance is from the last desire update): within
+			-- 300 the pickup order walks the last steps itself.
+			if GetUnitToLocationDistance(bot, vRuneLocation) > 300 then
 				for _, enemyHero in pairs(nInRangeEnemy) do
 					if J.IsValidHero(enemyHero)
 					and (1.5 * bot:GetEstimatedDamageToTarget(false, bot, 5.0, DAMAGE_TYPE_ALL) > enemyHero:GetEstimatedDamageToTarget(true, bot, 5.0, DAMAGE_TYPE_ALL))

@@ -771,11 +771,16 @@ end
 
 function J.IsSuspiciousIllusion( npcTarget )
 	if npcTarget == nil or npcTarget:IsNull() then return false end
-	if npcTarget.is_suspicious_illusion ~= nil then
-		return npcTarget.is_suspicious_illusion
+	-- "Illusion" is final; "not an illusion" is re-checked every second (it
+	-- used to be cached forever, also when decided while the unit was unseen,
+	-- so Terrorblade's illusions ate spells).
+	if npcTarget.is_suspicious_illusion == true then return true end
+	if npcTarget.is_suspicious_illusion == false and (npcTarget.is_suspicious_illusion_t or -99) > DotaTime() - 1 then
+		return false
 	end
+	npcTarget.is_suspicious_illusion_t = DotaTime()
 	if not npcTarget:CanBeSeen() then
-		npcTarget.is_suspicious_illusion = false
+		npcTarget.is_suspicious_illusion = nil
 		return false
 	end
 
@@ -828,6 +833,17 @@ function J.IsSuspiciousIllusion( npcTarget )
 		end
 
 		if GetHeroLevel( tID ) > npcTarget:GetLevel()
+		then
+			npcTarget.is_suspicious_illusion = true
+			return true
+		end
+
+		-- The real hero is where the game last saw that player; a visible copy
+		-- somewhere else is an illusion.
+		local info = GetHeroLastSeenInfo( tID )
+		local dInfo = info and info[1]
+		if dInfo ~= nil and dInfo.time_since_seen < 0.25
+		and J.GetDistance( dInfo.location, npcTarget:GetLocation() ) > 250
 		then
 			npcTarget.is_suspicious_illusion = true
 			return true

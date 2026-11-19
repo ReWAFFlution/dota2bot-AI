@@ -7025,8 +7025,11 @@ X.ConsiderItemDesire['item_smoke_of_deceit'] = function(item)
 		local timeOfDay = J.CheckTimeOfDay()
 		hEffectTarget = bot
 
+		-- Only for a real gank: the team plan's hunt or the gank mode, never in
+		-- the laning stage (roam mode also covers lotus, wards, regrouping).
 		if #nInRangeAlly >= 2
-		and (nMode == BOT_MODE_ROAM
+		and not J.IsInLaningPhase() and DotaTime() > 10 * 60
+		and ((nMode == BOT_MODE_ROAM and bot._teamAction == 'hunt')
 			or nMode == BOT_MODE_GANK)
 		then
 			return BOT_ACTION_DESIRE_HIGH, hEffectTarget, sCastType, sCastMotive

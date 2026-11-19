@@ -24,7 +24,7 @@ local CORE_HARASS_GAP = 3.0
 local LANING_END = 10 * 60
 local PULL_FROM, PULL_UNTIL = 2 * 60, 10 * 60
 local PULL_GAP = 50
-local PULL_TIMEOUT = 25
+local PULL_TIMEOUT = 40
 
 local TIER1 = { [LANE_TOP] = TOWER_TOP_1, [LANE_MID] = TOWER_MID_1, [LANE_BOT] = TOWER_BOT_1 }
 
@@ -34,7 +34,7 @@ local function Dist(a, b) return (a - b):Length2D() end
 local function RealHeroes(enemy, loc, radius)
 	local list = {}
 	for _, h in pairs(GetUnitList(enemy and UNIT_LIST_ENEMY_HEROES or UNIT_LIST_ALLIED_HEROES)) do
-		if J.IsValidHero(h) and not h:IsIllusion() and Dist(h:GetLocation(), loc) <= radius then
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) and Dist(h:GetLocation(), loc) <= radius then
 			table.insert(list, h)
 		end
 	end
@@ -228,11 +228,12 @@ local function ThinkPull(bot)
 	end
 
 	if P.state == 'wait' then
-		local neutrals = bot:GetNearbyNeutralCreeps(700)
-		if #neutrals == 0 then EndPull(bot, 'camp is empty') return false end
-		-- Hit at :15/:45 — the next wave walks past the camp a few seconds later.
-		local sec = t % 30
-		if sec >= 14 and sec < 18 then
+		local neutrals = bot:GetNearbyNeutralCreeps(900)
+		if #neutrals == 0 and GetUnitToLocationDistance(bot, campLoc) < 500 then EndPull(bot, 'camp is empty') return false end
+		-- Hit the camp when our next wave walks by it (the camp follows us into
+		-- the wave); timings by the clock broke when the map changed.
+		local wave = NearestOwnLaneCreep(bot, 1600)
+		if #neutrals > 0 and wave and Dist(wave:GetLocation(), campLoc) < 1400 then
 			P.state = 'aggro'
 			P.aggroT = t
 			P.neutral = neutrals[1]
@@ -242,7 +243,7 @@ local function ThinkPull(bot)
 			local tower = GetTower(GetTeam(), TIER1[bot:GetAssignedLane()])
 			local side = (tower and tower:GetLocation() or J.GetTeamFountain()) - campLoc
 			if side:Length2D() < 1 then side = Vector(1, 0, 0) end
-			local spot = campLoc + side:Normalized() * 400
+			local spot = campLoc + side:Normalized() * 450
 			if GetUnitToLocationDistance(bot, spot) > 80 then bot:Action_MoveToLocation(spot) end
 			return true
 		end
@@ -372,6 +373,76 @@ function X.SupportThink(bot)
 	end
 	if GetUnitToLocationDistance(bot, loc) > 150 then
 		bot:Action_MoveToLocation(loc + RandomVector(60))
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Melee core lane Think (pos 1/3 melee): the default laning kept melee cores
+-- too far from the creeps to last hit.
+--------------------------------------------------------------------------------
+
+function X.UseCoreThink(bot)
+	local pos = J.GetPosition(bot)
+	return (pos == 1 or pos == 3) and bot:GetAttackRange() < 350 and bot:GetAssignedLane() ~= LANE_MID
+end
+
+function X.CoreThink(bot)
+	if J.CanNotUseAction(bot) then return end
+	local t = DotaTime()
+	local lane = bot:GetAssignedLane()
+	local range = bot:GetAttackRange()
+	local dmg = bot:GetAttackDamage()
+	if bot:GetItemSlotType(bot:FindItemSlot('item_quelling_blade')) == ITEM_SLOT_TYPE_MAIN then dmg = dmg + 8 end
+	local enemies = RealHeroes(true, bot:GetLocation(), 1400)
+	local risk = X.TradeRisk(bot, enemies)
+
+	-- Harass window (set by X.Harass).
+	local target = bot._harassTarget
+	if (bot.forceFightUntil or -1) > t and J.IsValidHero(target) and J.CanBeAttacked(target)
+	and GetUnitToUnitDistance(bot, target) < range + 250 and not EnemyTowerNear(target:GetLocation(), 750) then
+		bot:Action_AttackUnit(target, true)
+		return
+	end
+
+	-- Last hits: a creep we kill now, or walk up to one that's about to die.
+	local walkTo
+	for _, c in pairs(bot:GetNearbyLaneCreeps(800, true)) do
+		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
+			local delay = J.GetAttackProDelayTime(bot, c)
+			if J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) then
+				bot:Action_AttackUnit(c, true)
+				return
+			end
+			if c:GetHealth() < dmg * 2.2 and (not walkTo or c:GetHealth() < walkTo:GetHealth()) then walkTo = c end
+		end
+	end
+	if walkTo and risk < 0.8 then
+		if GetUnitToUnitDistance(bot, walkTo) > range + 50 then
+			bot:Action_MoveToLocation(walkTo:GetLocation())
+		end
+		return -- stay next to it for the last hit
+	end
+
+	-- Denies.
+	for _, c in pairs(bot:GetNearbyLaneCreeps(range + 300, false)) do
+		if J.IsValid(c) and J.GetHP(c) < 0.5 and c:GetHealth() <= dmg and J.CanBeAttacked(c) then
+			bot:Action_AttackUnit(c, true)
+			return
+		end
+	end
+
+	-- Out of enemy tower range.
+	local tower = EnemyTowerNear(bot:GetLocation(), 800)
+	if tower then
+		bot:Action_MoveToLocation(bot:GetLocation() + (bot:GetLocation() - tower:GetLocation()):Normalized() * 300)
+		return
+	end
+
+	-- Next to our wave's front; further back only when a trade would hurt.
+	local back = risk < 0.6 and -(range + 50) or -500
+	local loc = GetLaneFrontLocation(GetTeam(), lane, back)
+	if GetUnitToLocationDistance(bot, loc) > 150 then
+		bot:Action_MoveToLocation(loc + RandomVector(50))
 	end
 end
 

@@ -106,6 +106,15 @@ function X.TeamPlan()
 		local l = r and GetRuneSpawnLocation(r)
 		if l and l:Length2D() > 500 then table.insert(midSpots, r) end
 	end
+	-- The game may report only one bounty spot per team: then the offlane pair
+	-- takes the river rune spot by its lane, and the mid the other one.
+	if not plan.offRune and #midSpots > 0 then
+		plan.offRune = ClosestToLane(midSpots, OffLane(team))
+		local rest = {}
+		for _, r in ipairs(midSpots) do if r ~= plan.offRune then table.insert(rest, r) end end
+		midSpots = #rest > 0 and rest or midSpots
+		print('[Early] team '..team..': one bounty spot known, offlane pair takes the river rune by its lane')
+	end
 	plan.midRune = ClosestToLane(midSpots, LANE_MID) or ClosestToLane(own, LANE_MID)
 	-- The enemy carry stands at the enemy's safe-lane bounty.
 	plan.enemyCarryRune = ClosestToLane(enemy, SafeLane(GetOpposingTeam()), GetOpposingTeam())
@@ -142,7 +151,7 @@ local AssignmentRaw, SafePointFor
 local function Assignment(bot, plan)
 	local rune, picker = AssignmentRaw(bot, plan)
 	-- A rune on the other side of the map isn't worth the walk: lane instead.
-	if rune and not bot._earlyJoin and Dist(GetRuneSpawnLocation(rune), SafePointFor(bot)) > 7000 then return nil, false end
+	-- (Runes at the map centre are invalid slots, filtered in BountySides.)
 	return rune, picker
 end
 
@@ -176,7 +185,7 @@ end
 local function RealHeroesNear(loc, radius, enemy)
 	local list = {}
 	for _, h in pairs(GetUnitList(enemy and UNIT_LIST_ENEMY_HEROES or UNIT_LIST_ALLIED_HEROES)) do
-		if J.IsValidHero(h) and not h:IsIllusion() and Dist(h:GetLocation(), loc) <= radius then
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) and Dist(h:GetLocation(), loc) <= radius then
 			table.insert(list, h)
 		end
 	end
@@ -382,7 +391,7 @@ function X.Think(bot)
 			end
 		end
 		if picker then
-			if Dist(myLoc, runeLoc) > 100 then bot:Action_MoveToLocation(runeLoc) else bot:Action_PickUpRune(rune) end
+			if Dist(myLoc, runeLoc) > 400 then bot:Action_MoveToLocation(runeLoc) else bot:Action_PickUpRune(rune) end
 			return true
 		end
 	end

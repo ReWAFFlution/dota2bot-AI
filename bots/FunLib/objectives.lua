@@ -125,7 +125,7 @@ local function HeroesNear(team, loc, r)
 	local list = {}
 	local lt = team == GetTeam() and UNIT_LIST_ALLIED_HEROES or UNIT_LIST_ENEMY_HEROES
 	for _, h in pairs(GetUnitList(lt)) do
-		if J.IsValidHero(h) and not h:IsIllusion() and Dist(h:GetLocation(), loc) <= r then table.insert(list, h) end
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) and Dist(h:GetLocation(), loc) <= r then table.insert(list, h) end
 	end
 	return list
 end
@@ -638,6 +638,8 @@ end
 function X.LoneDanger(bot)
 	if J.GetPosition(bot) < 4 and J.GetHP(bot) > 0.6 then return false end
 	if DotaTime() < 60 or bot:DistanceFromFountain() < 3000 then return false end
+	-- In its own lane during the laning stage: that's where it should be.
+	if J.IsInLaningPhase() and GetUnitToLocationDistance(bot, GetLaneFrontLocation(GetTeam(), bot:GetAssignedLane(), 0)) < 1500 then return false end
 	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
 	if GetUnitToLocationDistance(bot, enemyFountain) > GetUnitToLocationDistance(bot, J.GetTeamFountain()) - 1500 then return false end
 	for _, a in ipairs(HeroesNear(GetTeam(), bot:GetLocation(), 1600)) do
@@ -672,6 +674,26 @@ end
 function X.FightHint(bot)
 	local t = DotaTime()
 	if t < 0 or not bot:IsAlive() then return 0 end
+
+	-- Burst: lost 30%+ of max HP in the last 1.5 s and below 55% -> leave now,
+	-- unless the target is about to die. Checked every frame (no throttle).
+	bot._hpHist = bot._hpHist or {}
+	table.insert(bot._hpHist, { t = t, hp = J.GetHP(bot) })
+	while #bot._hpHist > 1 and t - bot._hpHist[1].t > 1.5 do table.remove(bot._hpHist, 1) end
+	local lost = bot._hpHist[1].hp - J.GetHP(bot)
+	if lost > 0.3 and J.GetHP(bot) < 0.55 then
+		local target = J.GetProperTarget and J.GetProperTarget(bot)
+		local finishing = J.IsValidHero(target) and J.GetHP(target) < 0.2 and GetUnitToUnitDistance(bot, target) < 600
+		if not finishing then
+			if not bot._burstLogT or t - bot._burstLogT > 5 then
+				bot._burstLogT = t
+				print(string.format('[Fight] %s took %.0f%% HP in 1.5 s, getting out', bot:GetUnitName(), lost * 100))
+			end
+			bot._fightHint, bot._fightHintT = 0.95, t + 1.0
+			return 0.95
+		end
+	end
+
 	if (bot._fightHintT or -1) > t then return bot._fightHint or 0 end
 	bot._fightHintT = t + 0.5
 	bot._fightHint = 0
@@ -688,7 +710,10 @@ function X.FightHint(bot)
 	local target, ev, pk, pd = X.BestFight(bot, 1200)
 	if not target then return 0 end
 	local lowHP = J.GetHP(bot) < 0.4
-	if (ev < -5 and pd > 0.45) or (lowHP and ev < 0 and pd > 0.3) then
+	-- In lane, enemies standing nearby is normal: back off only when they're
+	-- actually hitting us (melee cores were too scared to last hit).
+	local laneCalm = J.IsInLaningPhase() and not bot:WasRecentlyDamagedByAnyHero(2.0) and J.GetHP(bot) > 0.5
+	if not laneCalm and ((ev < -5 and pd > 0.45) or (lowHP and ev < 0 and pd > 0.3)) then
 		if not bot._fightLogT or t - bot._fightLogT > 10 then
 			bot._fightLogT = t
 			print(string.format('[Fight] %s backs off from %s (value %.0f, kill %.0f%%, death %.0f%%)',

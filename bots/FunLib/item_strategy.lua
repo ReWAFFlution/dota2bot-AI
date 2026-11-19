@@ -637,7 +637,39 @@ local NEW_ITEMS = { 'item_caduceus', 'item_skypiercer', 'item_starforge', 'item_
 -- Mid game: of the next big items planned, buy first the one worth clearly
 -- more for this hero right now (pros' order otherwise). Called by
 -- item_purchase_generic before it starts a new item.
+-- Items that make the hero's fight work come before BKB: a BKB alone does
+-- nothing for an initiator (LC bought BKB with no Blink or Blade Mail).
+local INITIATION = { { item = 'item_blink', rate = 30 }, { item = 'item_blade_mail', rate = 40 } }
+local OWNED_AS = { item_blink = { 'item_blink', 'item_overwhelming_blink', 'item_swift_blink', 'item_arcane_blink' },
+                   item_blade_mail = { 'item_blade_mail' } }
+
+-- The initiation item this hero still lacks (nil if none or owned).
+local function MissingInitiation(bot, pos)
+	local hero = bot:GetUnitName()
+	for _, it in ipairs(INITIATION) do
+		local owned = false
+		for _, n in ipairs(OWNED_AS[it.item]) do if bot:FindItemSlot(n) >= 0 then owned = true end end
+		if not owned and KnownRate(hero, pos, it.item) >= it.rate then return it end
+	end
+	return nil
+end
+
+local function InitiationFirst(bot, pos, stack)
+	if stack[#stack] ~= 'item_black_king_bar' then return end
+	do
+		local it = MissingInitiation(bot, pos)
+		if it then
+			local idx = StackIndex(stack, it.item)
+			if idx then table.remove(stack, idx) end
+			table.insert(stack, it.item)
+			Log(bot, it.item..' before item_black_king_bar (the fight starts with it)')
+			return
+		end
+	end
+end
+
 function X.ReviewNext(bot, pos, stack)
+	if #stack >= 1 then InitiationFirst(bot, pos, stack) end
 	if not ItemValue or #stack < 2 or DotaTime() < 15 * 60 then return end
 	local top = stack[#stack]
 	if GetItemCost(top) < 2500 then return end
@@ -647,7 +679,7 @@ function X.ReviewNext(bot, pos, stack)
 	local bestIdx, bestScore = nil, topScore * 1.25
 	for i = #stack - 1, math.max(1, #stack - 3), -1 do
 		local it = stack[i]
-		if GetItemCost(it) >= 2500 then
+		if GetItemCost(it) >= 2500 and not (it == 'item_black_king_bar' and MissingInitiation(bot, pos)) then
 			local sc = ItemValue.Score(hero, pos, it, minutes, magic)
 			if sc > bestScore then bestIdx, bestScore = i, sc end
 		end

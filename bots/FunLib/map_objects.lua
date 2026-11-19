@@ -89,7 +89,7 @@ end
 local function EnemiesNear(loc, r)
 	local n = 0
 	for _, h in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
-		if J.IsValidHero(h) and not h:IsIllusion() and GetUnitToLocationDistance(h, loc) < r then n = n + 1 end
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) and GetUnitToLocationDistance(h, loc) < r then n = n + 1 end
 	end
 	return n
 end
@@ -154,7 +154,7 @@ function X.RoamDesire(bot)
 	-- Stuck at a pool/watcher (can't reach it, order ignored): give up for a while.
 	-- Standing in a lotus pool is on purpose.
 	if bot._lotusStandT then
-		if DotaTime() - bot._lotusStandT < 8 and #J.GetNearbyHeroes(bot, 1000, true, BOT_MODE_NONE) == 0 then return 0.62 end
+		if DotaTime() - bot._lotusStandT < 12 and #J.GetNearbyHeroes(bot, 1000, true, BOT_MODE_NONE) == 0 then return 0.62 end
 		bot._lotusStandT, bot._mapTarget = nil, nil
 	end
 	if StuckGuard.Blocked(bot, 'map', BOT_MODE_ROAM, 90) then
@@ -203,7 +203,23 @@ function X.LotusThink(bot, pool, S, key)
 		bot._mapApproach = nil
 		bot:Action_ClearActions(true)
 		bot._lotusStandT, bot._lotusLastT, bot._lotusCount, bot._lotusGot = t, t, LotusCount(bot), 0
+		bot._lotusCasts, bot._lotusCastT = 0, -99
 		Log(bot:GetUnitName()..' stands in the lotus pool')
+		return true
+	end
+	-- Pluck: the hero's hidden channel (ability_pluck_lotus, 1.5 s for the
+	-- first lotus, faster after). One order, then wait it out (RoamThink
+	-- returns early while channeling); recast if it didn't start.
+	local pluck = bot:GetAbilityByName('ability_pluck_lotus')
+	if bot:IsChanneling() then bot._lotusChanneled = true end
+	-- Cast again only if the last cast gave a lotus (more may be waiting) or
+	-- never started its channel.
+	local again = bot._lotusCasts == 0 or not bot._lotusChanneled or LotusCount(bot) > (bot._lotusCountAtCast or 0)
+	if pluck and again and bot._lotusCasts < 6 and t - bot._lotusCastT > 1.0 and not bot:IsChanneling() then
+		bot._lotusCasts, bot._lotusCastT = bot._lotusCasts + 1, t
+		bot._lotusCountAtCast, bot._lotusChanneled = LotusCount(bot), false
+		bot:Action_UseAbilityOnEntity(pluck, pool)
+		bot._lotusLastT = math.max(bot._lotusLastT, t)
 		return true
 	end
 	local n = LotusCount(bot)
@@ -211,7 +227,7 @@ function X.LotusThink(bot, pool, S, key)
 		bot._lotusGot = bot._lotusGot + (n - bot._lotusCount)
 		bot._lotusCount, bot._lotusLastT = n, t
 	end
-	local done = (bot._lotusGot > 0 and t - bot._lotusLastT > 2.0) or (bot._lotusGot == 0 and t - bot._lotusStandT > 4.0)
+	local done = (bot._lotusGot > 0 and t - bot._lotusLastT > 2.5) or (bot._lotusGot == 0 and t - bot._lotusStandT > 7.0)
 	if done or d > 400 then
 		S.poolTaken[key] = t
 		Log(bot:GetUnitName()..(bot._lotusGot > 0 and (' picked '..bot._lotusGot..' lotus(es)') or ' got no lotus from the pool'))
@@ -226,7 +242,7 @@ function X.RoamThink(bot)
 	if not u or u:IsNull() then return false end
 	local S = State()
 	local key = Key(u)
-	if bot:IsChanneling() then bot._mapChanneled = true return true end
+	if bot:IsChanneling() then bot._mapChanneled, bot._lotusChanneled = true, true return true end
 	if bot:IsUsingAbility() then return true end
 	if kind == 'lotus' then return X.LotusThink(bot, u, S, key) end
 
