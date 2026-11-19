@@ -434,7 +434,26 @@ end
 --   returns item, reason. Rules are checked in this order.
 --==============================================================================
 
+-- Heroes whose fighting depends on their mana (Medusa's HP is her mana):
+-- Diffusal Blade burns it.
+local okStatsE, StatsE = pcall(require, GetScriptDirectory()..'/FunLib/item_stats_data')
+if not okStatsE then StatsE = nil end
+local MANA_DEPENDENT = { npc_dota_hero_medusa = true, npc_dota_hero_storm_spirit = true }
+
 local RULES = {
+	-- Mana burn against mana-dependent heroes, for agility melee cores.
+	{ name = 'anti_mana', minute = 5, urgent = 'after_core',
+	  when = function(S)
+		if not S.core or not S.melee then return false end
+		local agi = StatsE and StatsE.Heroes and StatsE.Heroes[S.hero] and StatsE.Heroes[S.hero].attr == 'agi'
+		if not agi then return false end
+		for _, e in ipairs(S.enemies) do if MANA_DEPENDENT[e] then return true end end
+		return false
+	  end,
+	  pick = function(S, bot, stack)
+		if OwnsOrPlans(bot, {}, 'item_disperser') then return nil end
+		return 'item_diffusal_blade', 'mana burn against a mana-dependent hero'
+	  end },
 	-- Game state -----------------------------------------------------------
 	{ name = 'farm_first', minute = 6, protect = true, when = function(S) return S.core and (S.behind or S.cantFight) end,
 	  pick = function(S, bot, stack)
@@ -701,8 +720,32 @@ local function InitiationFirst(bot, pos, stack)
 	end
 end
 
+-- A carry's BKB with no damage item yet does nothing for its fights: take
+-- the first planned damage item first, unless the enemies are mostly magic.
+local function DamageBeforeBKB(bot, pos, stack)
+	if pos ~= 1 or stack[#stack] ~= 'item_black_king_bar' or not StatsE then return end
+	if ItemValue and ItemValue.EnemyMix() >= 0.65 then return end
+	local function IsDamage(name)
+		local st = StatsE.Items[name]
+		return st and (st.cost or 0) >= 1500 and ((st.dmg or 0) >= 20 or (st.as or 0) >= 25 or (st.crit or 0) > 0 or (st.agi or 0) >= 25)
+	end
+	for i = 0, 8 do
+		local it = bot:GetItemInSlot(i)
+		if it and IsDamage(it:GetName()) then return end -- already has one
+	end
+	for i = #stack - 1, 1, -1 do
+		if IsDamage(stack[i]) then
+			local it = table.remove(stack, i)
+			table.insert(stack, it)
+			Log(bot, it..' before item_black_king_bar (no damage item yet)')
+			return
+		end
+	end
+end
+
 function X.ReviewNext(bot, pos, stack)
 	if #stack >= 1 then InitiationFirst(bot, pos, stack) end
+	if #stack >= 1 then DamageBeforeBKB(bot, pos, stack) end
 	if not ItemValue or #stack < 2 or DotaTime() < 15 * 60 then return end
 	local top = stack[#stack]
 	if GetItemCost(top) < 2500 then return end

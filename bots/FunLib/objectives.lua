@@ -705,9 +705,19 @@ local function ReadyStuns(units)
 	return n
 end
 
+-- Mana that soaks damage (Medusa's Mana Shield: ~2.5 damage per mana).
+local function ShieldHP(victim)
+	if victim:HasModifier('modifier_medusa_mana_shield') or victim:GetUnitName() == 'npc_dota_hero_medusa' then
+		local ok, mana = pcall(function() return victim:GetMana() end)
+		if ok and mana then return mana * 2.5 end
+	end
+	return 0
+end
+X.ShieldHP = ShieldHP
+
 local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns)
 	if #dealers == 0 and (extraDps or 0) == 0 then return 99 end
-	local hp = victim:GetHealth() + (extraHP or 0)
+	local hp = victim:GetHealth() + (extraHP or 0) + ShieldHP(victim)
 	local regen = 0
 	pcall(function() regen = victim:GetHealthRegen() end)
 	for s = 1, 6 do
@@ -752,6 +762,10 @@ function X.Combat(bot)
 	local c = { target = best, ttkUs = bestT, ttkThem = ttkThem }
 	c.go = bestT <= 4 and bestT < ttkThem and J.GetHP(bot) > 0.3
 	c.retreat = (ttkThem < bestT and ttkThem <= 4) or (ttkThem <= 3 and bestT >= 99)
+	-- Medusa's health is her mana: low on mana near enemies, step back.
+	if bot:GetUnitName() == 'npc_dota_hero_medusa' and J.GetMP(bot) < 0.25 then
+		c.retreat, c.go = true, false
+	end
 	return c
 end
 

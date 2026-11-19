@@ -12,7 +12,8 @@ local function hero(name, team, loc, hp, dps)
 	function u:GetEstimatedDamageToTarget(_, _, secs, dtype) return dtype == DAMAGE_TYPE_MAGICAL and self.dps * 0.3 * secs or self.dps * secs end
 	function u:FindItemSlot(n) return self.items[n] and 0 or -1 end
 	function u:GetItemInSlot() return { IsFullyCastable = function() return true end } end
-	function u:CanBeSeen() return true end
+	function u:CanBeSeen() return true end function u:HasModifier() return false end
+	function u:GetMana() return self.mana or 0 end
 	return u
 end
 local me = hero('sven', 2, Vector(0, 0), 1800, 250)
@@ -31,4 +32,11 @@ enemies = { hero('lina', 3, Vector(400, 0), 1400, 300), hero('lion', 3, Vector(3
 c = show('1v3 full HP') assert(c.retreat and not c.go)
 me.items.item_blink = true me.hp = 1800
 c = show('1v3 with Blink ready') print('(escape adds 40% HP to survive the burst)')
+-- Medusa: her mana is HP. Full mana she outlasts us; drained she's a kill.
+me.items = {} me.hp = 1800
+local medusa = hero('medusa', 3, Vector(400, 0), 600, 150) medusa.mana = 1000
+enemies = { medusa }
+c = show('1v1 hurt Medusa, full mana') assert(not c.go)
+medusa.mana = 50
+c = show('1v1 hurt Medusa, drained') assert(c.go)
 print('combat ok')
