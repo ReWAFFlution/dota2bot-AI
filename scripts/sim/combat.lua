@@ -203,4 +203,19 @@ allies, enemies = { ul, gr, dkG, dis }, { tbG }
 local cd = O.Combat(dis)
 print(string.format('Disruptor 1200 from TB (1600+ from the rest): own team x%.2f, group x%.2f, go=%s', cd.teamRatio, cd.groupRatio or 0, tostring(cd.go)))
 assert(cd.go and cd.groupRatio >= 1.2)
+-- Pushing a tower with nobody visible there, but a strong enemy seen next to
+-- it 5 s ago (now in the fog): not a free x99 any more.
+SIM_T = SIM_T + 10
+local tbF = hero('terrorblade', 3, Vector(5000, 5000), 2500, 400) tbF.pid = 5
+local pusher = hero('enigma', 2, Vector(3000, 3000), 1400, 120)
+allies, enemies = { pusher }, { tbF }
+O.RememberEnemies()
+enemies = {}
+seenNear[5] = true
+local oldInfo = GetHeroLastSeenInfo
+GetHeroLastSeenInfo = function(pid) if pid == 5 then return { { time_since_seen = 5, location = Vector(5100, 5000) } } end return oldInfo(pid) end
+local fFog = O.FightAt(Vector(5000, 5000), pusher)
+print(string.format('Enigma pushing a tower, Terrorblade in the fog by it: x%.2f', fFog))
+assert(fFog < 1.0)
+GetHeroLastSeenInfo = oldInfo
 print('combat ok')

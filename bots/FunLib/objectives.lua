@@ -587,6 +587,7 @@ function X.Update()
 	if t < S.nextUpdate then return S end
 	S.nextUpdate = t + UPDATE_GAP
 	if t < 0 then return S end
+	X.RememberEnemies()
 	ScoreHeroes(S, t)
 	ScoreBuildings(S)
 	ScoreWards(S)
@@ -1082,8 +1083,42 @@ local function TeamHP(units)
 	return math.max(1, sum)
 end
 
+-- What each enemy hero brought to a fight when last seen (4 s of ready
+-- damage on our heroes, max HP with shields): used for the ones in the fog.
+local enemySnap = {}
+function X.RememberEnemies()
+	local ours = {}
+	for _, m in ipairs(Members()) do if m:IsAlive() then table.insert(ours, m) end end
+	if #ours == 0 then return end
+	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+		if J.IsValidHero(e) and not e:IsIllusion() and not J.IsSuspiciousIllusion(e) then
+			enemySnap[e:GetPlayerID()] = { power = TeamPower({ e }, ours), hp = e:GetMaxHealth() + ShieldHP(e) }
+		end
+	end
+end
+
+-- Enemies in the fog who may be at `loc`: seen near it in the last 10 s
+-- (0.9), not seen for longer (0.5: they may be there or teleport in), seen
+-- elsewhere just now (0.2). Returns their power and HP, weighted.
+local function FogEnemies(loc, visible)
+	local power, hp, n = 0, 0, 0
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+		local snap = enemySnap[pid]
+		if snap and IsHeroAlive(pid) and not visible[pid] then
+			local info = GetHeroLastSeenInfo(pid)
+			local d = info and info[1]
+			local w = 0.5
+			if d and d.time_since_seen <= 10 then w = Dist(d.location, loc) < 3000 and 0.9 or 0.2 end
+			power, hp, n = power + snap.power * w, hp + snap.hp * w, n + w
+		end
+	end
+	return power, hp, n
+end
+
 -- Who wins a fight at `loc` if `extra` joins: our burn rate over theirs (>1
--- we win). 99 with no enemy there.
+-- we win). Enemies in the fog who may be there count too (Enigma and Rubick
+-- teleported one by one to push a T2 "at x99" with our heroes behind it in
+-- the fog). 99 with no enemy there and none unaccounted for.
 function X.FightAt(loc, extra)
 	local allies = HeroesNear(GetTeam(), loc, 1500)
 	-- extra: one hero or a list of heroes joining.
@@ -1094,12 +1129,19 @@ function X.FightAt(loc, extra)
 		if not has then table.insert(allies, x) end
 	end
 	local enemies = HeroesNear(GetOpposingTeam(), loc, 1500)
-	if #enemies == 0 then return 99 end
+	local visible = {}
+	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+		if J.IsValidHero(e) and not e:IsIllusion() then visible[e:GetPlayerID()] = true end
+	end
+	local fogPower, fogHP, fogN = FogEnemies(loc, visible)
+	if #enemies == 0 and fogN < 0.3 then return 99 end
 	if #allies == 0 then return 0 end
-	local ours = TeamPower(allies, enemies) / TeamHP(enemies)
-	local theirs = TeamPower(enemies, allies) / TeamHP(allies)
+	-- Our damage on them: on the visible ones, else on heroes like ours.
+	local ours = TeamPower(allies, #enemies > 0 and enemies or allies) / (TeamHP(enemies) * (#enemies > 0 and 1 or 0) + fogHP + 1)
+	local theirs = ((#enemies > 0 and TeamPower(enemies, allies) or 0) + fogPower) / TeamHP(allies)
 	return ours / math.max(0.0001, theirs)
 end
+X._enemySnap = enemySnap
 
 local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns, share, stunnedFor)
 	if #dealers == 0 and (extraDps or 0) == 0 then return 99 end
