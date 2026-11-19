@@ -178,7 +178,13 @@ function GetBestDenyCreep(hCreepList)
 	return nil
 end
 
-if not local_mode_laning_generic and LanePlay.UseSupportThink(bot) then
+-- Heroes on the replacement laning logic (Hoodwink, Elder Titan, Dark
+-- Willow, IO...) get our support logic too (harass, deny, pull): it doesn't
+-- use the engine's buggy part; the lane comes from the replacement.
+if local_mode_laning_generic and local_mode_laning_generic.GetBotTargetLane then
+	bot._laneOverrideFn = local_mode_laning_generic.GetBotTargetLane
+end
+if LanePlay.UseSupportThink(bot) then
 	-- Supports: harass, deny, leave last hits to the core, pull.
 	function Think()
 		SafeCall('LanePlay.SupportThink', LanePlay.SupportThink, bot)

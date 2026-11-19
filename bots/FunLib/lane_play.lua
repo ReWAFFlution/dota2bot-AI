@@ -17,6 +17,18 @@ if not okER then EnemyRoles = nil end
 
 local X = {}
 
+-- The bot's lane. Heroes with the replacement laning logic (Hoodwink, Elder
+-- Titan, Dark Willow, IO, Marci...) get theirs from it: the engine's lane
+-- assignment isn't reliable for them.
+function X.Lane(bot)
+	if bot._laneOverrideFn then
+		local ok, lane = pcall(bot._laneOverrideFn)
+		if ok and lane then return lane end
+	end
+	return bot:GetAssignedLane()
+end
+
+
 local HARASS_TIME = 1.5
 local SUPPORT_HARASS_TIME = 2.5  -- supports keep hitting the enemy core
 local SUPPORT_HARASS_GAP = 0.8
@@ -154,7 +166,7 @@ end
 local function PullCamp(bot)
 	if bot._pullCamp ~= nil then return bot._pullCamp or nil end
 	bot._pullCamp = false
-	local lane = bot:GetAssignedLane()
+	local lane = X.Lane(bot)
 	local tower = TIER1[lane] and GetTower(GetTeam(), TIER1[lane])
 	if not tower or lane == LANE_MID then return nil end
 	local best, bestDist = nil, 3000
@@ -175,7 +187,7 @@ local function ShouldPull(bot)
 	local t = DotaTime()
 	if t < PULL_FROM or t > PULL_UNTIL then return false end
 	if t < (bot._pullNext or 0) then return false end
-	local pos, lane = J.GetPosition(bot), bot:GetAssignedLane()
+	local pos, lane = J.GetPosition(bot), X.Lane(bot)
 	local safe = GetTeam() == TEAM_RADIANT and LANE_BOT or LANE_TOP
 	if not ((pos == 5 and lane == safe) or (pos == 4 and lane ~= safe and lane ~= LANE_MID)) then return false end
 	if J.GetHP(bot) < 0.5 then return false end
@@ -240,7 +252,7 @@ local function ThinkPull(bot)
 			Log(bot, 'pulling the camp into our wave')
 		else
 			-- Wait out of the camp's aggro range, on the side of our lane.
-			local tower = GetTower(GetTeam(), TIER1[bot:GetAssignedLane()])
+			local tower = GetTower(GetTeam(), TIER1[X.Lane(bot)])
 			local side = (tower and tower:GetLocation() or J.GetTeamFountain()) - campLoc
 			if side:Length2D() < 1 then side = Vector(1, 0, 0) end
 			local spot = campLoc + side:Normalized() * 450
@@ -270,7 +282,7 @@ local function ThinkPull(bot)
 			return true
 		end
 		if t > P.dragT + 6 then EndPull(bot, 'no wave to pull into') return false end
-		local tower = GetTower(GetTeam(), TIER1[bot:GetAssignedLane()])
+		local tower = GetTower(GetTeam(), TIER1[X.Lane(bot)])
 		bot:Action_MoveToLocation(tower and tower:GetLocation() or J.GetTeamFountain())
 		return true
 	end
@@ -282,7 +294,7 @@ end
 --------------------------------------------------------------------------------
 
 function X.UseSupportThink(bot)
-	return IsSupport(bot) and bot:GetAssignedLane() ~= LANE_MID
+	return IsSupport(bot) and X.Lane(bot) ~= LANE_MID
 end
 
 local function BestDeny(bot)
@@ -307,7 +319,7 @@ end
 -- Is an allied core (pos 1-3) of this lane alive and in it (within 2500 of
 -- the bot, or of our wave)?
 function X.LaneCoreHere(bot)
-	local lane = bot:GetAssignedLane()
+	local lane = X.Lane(bot)
 	local front = GetLaneFrontLocation(GetTeam(), lane, 0)
 	for i = 1, 5 do
 		local m = GetTeamMember(i)
@@ -333,7 +345,7 @@ end
 function X.SupportThink(bot)
 	if J.CanNotUseAction(bot) then return end
 	local t = DotaTime()
-	local lane = bot:GetAssignedLane()
+	local lane = X.Lane(bot)
 
 	-- Pull.
 	if not bot._pull and ShouldPull(bot) then
@@ -414,13 +426,13 @@ end
 
 function X.UseCoreThink(bot)
 	local pos = J.GetPosition(bot)
-	return (pos == 1 or pos == 3) and bot:GetAttackRange() < 350 and bot:GetAssignedLane() ~= LANE_MID
+	return (pos == 1 or pos == 3) and bot:GetAttackRange() < 350 and X.Lane(bot) ~= LANE_MID
 end
 
 function X.CoreThink(bot)
 	if J.CanNotUseAction(bot) then return end
 	local t = DotaTime()
-	local lane = bot:GetAssignedLane()
+	local lane = X.Lane(bot)
 	local range = bot:GetAttackRange()
 	local dmg = bot:GetAttackDamage()
 	local qb = bot:FindItemSlot('item_quelling_blade')
