@@ -95,12 +95,19 @@ local function EnemiesNear(loc, r)
 	return n
 end
 
+-- A real threat, not just an enemy standing in its lane: the bot was hit in
+-- the last 3 s, an enemy is within 600, or it's under 50% HP. (The pools sit
+-- by the lanes; "no enemy within 1000-1200" kept restarting every trip.)
+local function Threatened(bot)
+	return bot:WasRecentlyDamagedByAnyHero(3) or J.GetHP(bot) < 0.5
+		or #J.GetNearbyHeroes(bot, 600, true, BOT_MODE_NONE) > 0
+end
+X.Threatened = Threatened
+
 local function Calm(bot)
-	return J.GetHP(bot) > 0.35
-		and not bot:WasRecentlyDamagedByAnyHero(3)
-		and not J.IsGoingOnSomeone(bot)
+	return not Threatened(bot)
 		and not J.IsRetreating(bot)
-		and #J.GetNearbyHeroes(bot, 1000, true, BOT_MODE_NONE) == 0
+		and not (J.IsGoingOnSomeone(bot) and (bot.forceFightUntil or -math.huge) < DotaTime()) -- a real fight, not a harass window
 end
 
 local function PoolHasLotus(S, pool)
@@ -125,7 +132,7 @@ local function LotusDesire(bot, S)
 			local claimer = S.poolBy[key]
 			local claimed = claimer and claimer ~= bot and claimer:IsAlive() and (claimer._mapTarget == pool)
 			local range = support and LOTUS_RANGE_SUPPORT or LOTUS_RANGE_ANY
-			if not claimed and d < range and EnemiesNear(pool:GetLocation(), 1300) == 0 and (not bestDist or d < bestDist) then
+			if not claimed and d < range and EnemiesNear(pool:GetLocation(), 700) == 0 and (not bestDist or d < bestDist) then -- an enemy right at the pool
 				best, bestDist = pool, d
 			end
 		end
@@ -161,7 +168,7 @@ end
 function X.RoamDesire(bot)
 	-- Stuck at a pool/watcher (can't reach it, order ignored): give up for a while.
 	-- Standing in a lotus pool is on purpose.
-	local enemiesClose = #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0
+	local enemiesClose = Threatened(bot)
 	if bot._lotusStandT then
 		if DotaTime() - bot._lotusStandT < 12 and not enemiesClose then return 0.75 end
 		bot._lotusStandT, bot._mapTarget = nil, nil

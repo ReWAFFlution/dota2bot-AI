@@ -11,7 +11,7 @@ local lot, channelUntil, casts = 0, -1, 0
 local bot = { loc = Vector(0, 0) }
 function bot:GetLocation() return self.loc end function bot:GetUnitName() return 'cm' end
 function bot:IsChanneling() return SIM_T < channelUntil end function bot:IsUsingAbility() return false end
-function bot:IsCastingAbility() return false end function bot:GetActiveMode() return BOT_MODE_ROAM end
+function bot:IsCastingAbility() return false end function bot:GetActiveMode() return BOT_MODE_ROAM end function bot:WasRecentlyDamagedByAnyHero() return false end
 function bot:GetAttackTarget() return nil end function bot:WasRecentlyDamagedByAnyHero() return false end
 function bot:Action_MoveToLocation(l) local d = l - self.loc local n = d:Length2D() if n > 300 then self.loc = self.loc + d / n * 300 else self.loc = Vector(l.x - 150, l.y) end end
 function bot:Action_ClearActions() end
