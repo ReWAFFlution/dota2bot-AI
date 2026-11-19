@@ -13,6 +13,7 @@
 -- a core (ConsiderHealingLotus).
 
 local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
+local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
 
 local X = {}
 
@@ -150,6 +151,11 @@ end
 
 -- Desire for mode_roam_generic, or nil.
 function X.RoamDesire(bot)
+	-- Stuck at a pool/watcher (can't reach it, order ignored): give up for a while.
+	if StuckGuard.Blocked(bot, 'map', BOT_MODE_ROAM, 90) then
+		bot._mapTarget, bot._mapUseT = nil, nil
+		return nil
+	end
 	if DotaTime() < 0 or not Calm(bot) then bot._mapTarget, bot._mapUseT = nil, nil return nil end
 	local S = State()
 	Scan(S)

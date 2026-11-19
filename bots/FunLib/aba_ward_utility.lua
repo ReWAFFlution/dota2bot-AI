@@ -507,6 +507,24 @@ function X.GetAvailabeObserverWardSpots(bot)
 	return availableSpots
 end
 
+-- The highest passable point around `loc` (an observer on high ground sees
+-- further and is harder to find). Keeps `loc` when nothing is higher.
+function X.HighGroundNear(loc, radius)
+	if not GetHeightLevel then return loc end
+	local best, bestH = loc, IsLocationPassable(loc) and GetHeightLevel(loc) or -1
+	for _, r in ipairs({ radius * 0.5, radius }) do
+		for i = 0, 7 do
+			local a = i * math.pi / 4
+			local p = loc + Vector(math.cos(a) * r, math.sin(a) * r, 0)
+			if IsLocationPassable(p) then
+				local h = GetHeightLevel(p)
+				if h > bestH then best, bestH = p, h end
+			end
+		end
+	end
+	return best
+end
+
 local EnemyJungleSpots = nil
 function X.GetEnemyJungleWardSpots()
 	if EnemyJungleSpots then return EnemyJungleSpots end
@@ -519,9 +537,11 @@ function X.GetEnemyJungleWardSpots()
 			dir.z = 0
 			if dir:Length2D() > 1 then
 				dir = dir / dir:Length2D()
+				-- Toward the river from the camp, then up onto the highest ground nearby.
 				for _, d in ipairs({ 450, 300, 600, 150 }) do
 					local loc = camp.location + dir * d
 					if IsLocationPassable(loc) then
+						loc = X.HighGroundNear(loc, 350)
 						table.insert(EnemyJungleSpots, { location = loc, plant_time_obs = 0, plant_time_sentry = 0 })
 						break
 					end

@@ -370,15 +370,25 @@ local function TowerHPTracker(S, key, tw, t)
 end
 
 -- The carry farms its own lane in the early game: it doesn't leave it to help.
-local function CarryLocked(m, lane)
-	return J.GetPosition(m) == 1 and DotaTime() < 14 * 60 and lane ~= m:GetAssignedLane()
+-- Cores farm their own lane in the early game (carry until 14:00, mid and
+-- offlane until 10:00): they don't leave it to help elsewhere.
+function X.CoreLaneLocked(m)
+	local pos = J.GetPosition(m)
+	return (pos == 1 and DotaTime() < 14 * 60) or ((pos == 2 or pos == 3) and DotaTime() < 10 * 60)
+end
+local function CarryLocked(m, lane, kind, tier)
+	if X.CoreLaneLocked(m) and lane ~= m:GetAssignedLane() then return true end
+	-- The carry keeps farming instead of defending T1/T2 before 30:00, unless
+	-- it's right there.
+	if kind == 'defend' and J.GetPosition(m) == 1 and DotaTime() < 30 * 60 and (tier or 1) <= 2 then return true end
+	return false
 end
 
-local function Candidates(S, loc, exclude, lane)
+local function Candidates(S, loc, exclude, lane, kind, tier)
 	local list = {}
 	for _, m in ipairs(Members()) do
 		if m:IsBot() and m:IsAlive() and J.GetHP(m) > 0.4 and not exclude[m] and not m:IsChanneling()
-		and not CarryLocked(m, lane) then
+		and not (CarryLocked(m, lane, kind, tier) and GetUnitToLocationDistance(m, loc) > 2500) then
 			table.insert(list, { m = m, travel = TravelTime(m, loc) })
 		end
 	end
@@ -390,7 +400,7 @@ end
 local function PickHelpers(S, obj, taken, maxHelpers)
 	local helpers = {}
 	local a, e = obj.allies, obj.enemies
-	for _, c in ipairs(Candidates(S, obj.loc, taken, obj.lane)) do
+	for _, c in ipairs(Candidates(S, obj.loc, taken, obj.lane, obj.kind, obj.tier)) do
 		if #helpers >= maxHelpers then break end
 		if obj.ttd and c.travel > obj.ttd + 5 then break end -- too late to save it
 		local near = GetUnitToLocationDistance(c.m, obj.loc) < 1200
@@ -507,6 +517,31 @@ function X.PushDesire(bot, lane)
 	return 0
 end
 
+-- Our first standing tower on a lane and its tier (nil past T3).
+function X.OwnLaneTower(lane)
+	for tier = 1, 3 do
+		for _, info in ipairs(TOWERS) do
+			if info.lane == lane and info.tier == tier then
+				local tw = GetTower(GetTeam(), info.id)
+				if tw then return tw, tier end
+			end
+		end
+	end
+	return nil, 4
+end
+
+-- The default defend desire, minus what a core shouldn't do: the carry keeps
+-- farming instead of walking across the map for a T1/T2 before 30:00, and no
+-- core leaves its lane for another lane in the early game.
+function X.FilterDefendDesire(bot, lane, desire)
+	if desire <= 0 then return desire end
+	local tw, tier = X.OwnLaneTower(lane)
+	local far = not tw or GetUnitToUnitDistance(bot, tw) > 2500
+	if far and X.CoreLaneLocked(bot) and lane ~= bot:GetAssignedLane() and tier <= 2 then return math.min(desire, 0.1) end
+	if far and J.GetPosition(bot) == 1 and DotaTime() < 30 * 60 and tier <= 2 then return math.min(desire, 0.2) end
+	return desire
+end
+
 -- For the defend wrappers.
 function X.DefendDesire(bot, lane)
 	local a = X.Assignment(bot)
@@ -598,6 +633,40 @@ function X.BestFight(bot, radius)
 	return best, bestEV, bk, bd
 end
 
+-- Supports (and anyone below 60% HP) alone on the enemy half: no ally hero
+-- within 1600, and either 3+ enemies not seen for 5 s or 2+ enemies close.
+function X.LoneDanger(bot)
+	if J.GetPosition(bot) < 4 and J.GetHP(bot) > 0.6 then return false end
+	if DotaTime() < 60 or bot:DistanceFromFountain() < 3000 then return false end
+	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
+	if GetUnitToLocationDistance(bot, enemyFountain) > GetUnitToLocationDistance(bot, J.GetTeamFountain()) - 1500 then return false end
+	for _, a in ipairs(HeroesNear(GetTeam(), bot:GetLocation(), 1600)) do
+		if a ~= bot then return false end
+	end
+	if #HeroesNear(GetOpposingTeam(), bot:GetLocation(), 1600) >= 2 then return true end
+	return MissingEnemies() >= 3
+end
+
+-- Is it safe for `bot` to walk to `loc` (a ward spot) alone? On the enemy half
+-- only when nearly every enemy is visible or an ally is there, and never
+-- where an enemy was just seen.
+function X.SafeSpot(bot, loc)
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+		if IsHeroAlive(pid) then
+			local info = GetHeroLastSeenInfo(pid)
+			local d = info and info[1]
+			if d and d.time_since_seen < 5 and Dist(d.location, loc) < 1400 then return false end
+		end
+	end
+	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
+	local enemySide = Dist(loc, enemyFountain) < Dist(loc, J.GetTeamFountain()) - 1500
+	if not enemySide or J.IsRealInvisible and J.IsRealInvisible(bot) then return true end
+	for _, a in ipairs(HeroesNear(GetTeam(), loc, 1600)) do
+		if a ~= bot then return true end
+	end
+	return MissingEnemies() <= 1
+end
+
 -- For mode_retreat_generic: back off from a fight that costs more than it
 -- brings; commit (spells on the target) to one that clearly pays off.
 function X.FightHint(bot)
@@ -606,6 +675,16 @@ function X.FightHint(bot)
 	if (bot._fightHintT or -1) > t then return bot._fightHint or 0 end
 	bot._fightHintT = t + 0.5
 	bot._fightHint = 0
+	-- A support alone deep on the enemy side while enemies are unaccounted
+	-- for walks back toward the team instead of feeding.
+	if X.LoneDanger(bot) then
+		if not bot._loneLogT or t - bot._loneLogT > 15 then
+			bot._loneLogT = t
+			print('[Fight] '..bot:GetUnitName()..' is alone on the enemy side, falling back to the team')
+		end
+		bot._fightHint = 0.75
+		return bot._fightHint
+	end
 	local target, ev, pk, pd = X.BestFight(bot, 1200)
 	if not target then return 0 end
 	if ev < -10 and pd > 0.55 then
@@ -633,7 +712,7 @@ end
 
 -- Teleport to our building closest to `loc` when that saves a long walk.
 local function TryTP(bot, loc)
-	if J.GetPosition(bot) == 1 and DotaTime() < 14 * 60 then return false end
+	if X.CoreLaneLocked(bot) then return false end
 	if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return false end
 	local slot = bot:FindItemSlot('item_tpscroll')
 	if slot < 0 then return false end

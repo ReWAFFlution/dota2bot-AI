@@ -3,6 +3,7 @@ local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
 local Customize = require(GetScriptDirectory()..'/Customize/general')
 local EarlyGame = require(GetScriptDirectory()..'/FunLib/early_game')
 local MidPlay = require(GetScriptDirectory()..'/FunLib/mid_play')
+local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
 Customize.ThinkLess = Customize.Enable and Customize.ThinkLess or 1
 
 local bot = GetBot()
@@ -58,8 +59,13 @@ local nShrineOfWisdomTeam = TEAM_RADIANT
 --------------------------------------------------------------------
 -- GetDesire  (reference structure, with local additions)
 --------------------------------------------------------------------
+-- Waiting at a spot is fine in the last seconds before runes spawn.
+local function RuneSpawnSoon(t) local sec = t % 60 return sec > 52 or sec < 3 end
+
 function GetDesire()
 	X.InitRune()
+	-- Standing at a rune spot doing nothing: back to the game for a while.
+	if StuckGuard.Blocked(bot, 'rune', BOT_MODE_RUNE, 40, RuneSpawnSoon) then return BOT_MODE_DESIRE_NONE end
 
 	-- Start of the game: bounty runes by position, harass, smoke gank.
 	local nEarlyDesire = EarlyGame.GetDesire(bot)

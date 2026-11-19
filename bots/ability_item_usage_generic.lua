@@ -5853,13 +5853,15 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 
 end
 
--- The carry stays on its lane in the early game: no teleports to help on
--- another lane (home to heal and back to its own lane are fine).
+-- Cores stay on their lane in the early game (carry until 14:00, mid and
+-- offlane until 10:00): no teleports to help on another lane (home to heal and back to its own lane are fine).
 do
 	local ConsiderTpBase = X.ConsiderItemDesire["item_tpscroll"]
 	X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 		local nDesire, hTarget, sType, sMotive = ConsiderTpBase( hItem )
-		if nDesire and nDesire > 0 and J.GetPosition(bot) == 1 and DotaTime() < 14 * 60 then
+		local nPos = J.GetPosition(bot)
+		local bCoreEarly = (nPos == 1 and DotaTime() < 14 * 60) or ((nPos == 2 or nPos == 3) and DotaTime() < 10 * 60)
+		if nDesire and nDesire > 0 and bCoreEarly then
 			local vLoc = hTarget
 			if type(hTarget) == 'table' and hTarget.GetLocation then vLoc = hTarget:GetLocation() end
 			if vLoc and vLoc.x then

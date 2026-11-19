@@ -7,6 +7,8 @@ local X = {}
 local bot = GetBot()
 local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
 local W = require(GetScriptDirectory() ..'/FunLib/aba_ward_utility')
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
+local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
 local Customize = require(GetScriptDirectory()..'/Customize/general')
 Customize.ThinkLess = Customize.Enable and Customize.ThinkLess or 1
 
@@ -20,7 +22,8 @@ local hTargetSpot = nil
 local fLastWardPlantTime = -math.huge
 
 function GetDesire()
-	if J.GetPosition(bot) <= 3 then return false end
+	if J.GetPosition(bot) <= 3 then return BOT_MODE_DESIRE_NONE end
+	if StuckGuard.Blocked(bot, 'ward', BOT_MODE_WARD, 20) then return BOT_MODE_DESIRE_NONE end
 	-- local cacheKey = 'GetWardDesire'..tostring(bot:GetPlayerID())
 	-- local cachedVar = J.Utils.GetCachedVars(cacheKey, 0.6 * (1 + Customize.ThinkLess))
 	-- if DotaTime() > 30 and cachedVar ~= nil then return cachedVar end
@@ -117,6 +120,11 @@ function Think()
 		if X.SpotIsBlocked(hTargetSpot) then return end
 		if ObserverWard and J.CanCastAbility(ObserverWard) then
 			if GetUnitToLocationDistance(bot, hTargetSpot.location) <= nObserverWardCastRange then
+				-- Plant on the highest ground within reach of the spot.
+				if not hTargetSpot.refined then
+					hTargetSpot.refined = true
+					hTargetSpot.location = W.HighGroundNear(hTargetSpot.location, 250)
+				end
 				if ObserverWard:GetName() == 'item_ward_observer' then
 					bot:Action_UseAbilityOnLocation(ObserverWard, hTargetSpot.location)
 				else
@@ -209,7 +217,10 @@ end
 function X.Unblocked(spots)
 	local list = {}
 	for _, spot in pairs(spots or {}) do
-		if (spot.blocked_until or -1) < DotaTime() then table.insert(list, spot) end
+		-- Not blocked, and safe to walk to alone (FunLib/objectives.lua).
+		if (spot.blocked_until or -1) < DotaTime() and Objectives.SafeSpot(bot, spot.location) then
+			table.insert(list, spot)
+		end
 	end
 	return list
 end
