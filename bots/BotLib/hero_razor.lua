@@ -131,7 +131,7 @@ npc_dota_hero_razor
 
 "Ability1"		"razor_plasma_field"
 "Ability2"		"razor_static_link"
-"Ability3"		"razor_unstable_current"
+"Ability3"		"razor_storm_surge"
 "Ability4"		"generic_hidden"
 "Ability5"		"generic_hidden"
 "Ability6"		"razor_eye_of_the_storm"
@@ -158,7 +158,7 @@ modifier_razor_eye_of_the_storm_armor
 
 local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
 local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityE = bot:GetAbilityByName( sAbilityList[3] )
+local abilityE = bot:GetAbilityByName( 'razor_storm_surge' ) or bot:GetAbilityByName( sAbilityList[3] ) -- 7.42: Storm Surge (passive); Unstable Current is an innate
 local abilityR = bot:GetAbilityByName( sAbilityList[6] )
 
 

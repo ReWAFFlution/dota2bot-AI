@@ -130,7 +130,7 @@ npc_dota_hero_sand_king
 
 "Ability1"		"sandking_burrowstrike"
 "Ability2"		"sandking_sand_storm"
-"Ability3"		"sandking_caustic_finale"
+"Ability3"		"sandking_scorpion_strike"
 "Ability4"		"generic_hidden"
 "Ability5"		"generic_hidden"
 "Ability6"		"sandking_epicenter"
@@ -158,8 +158,8 @@ modifier_sand_king_epicenter_slow
 
 local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
 local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityE = bot:GetAbilityByName( sAbilityList[3] )
-local Stinger  = bot:GetAbilityByName('sandking_scorpion_strike')
+-- 7.42: slot 3 is Scorpion Strike (Caustic Finale is an innate)
+local Stinger  = bot:GetAbilityByName('sandking_scorpion_strike') or bot:GetAbilityByName( sAbilityList[3] )
 local abilityR = bot:GetAbilityByName( sAbilityList[6] )
 
 
@@ -503,6 +503,10 @@ function X.ConsiderStinger()
         and not botTarget:HasModifier('modifier_abaddon_borrowed_time')
         and not botTarget:HasModifier('modifier_dazzle_shallow_grave')
         and not botTarget:HasModifier('modifier_necrolyte_reapers_scythe')
+        -- 7.42 Scorpion Strike: 200 cast range + ~250 radius (inner circle hits harder).
+        -- Aim at the target itself and only when it is within reach; before, the
+        -- centre-of-enemies branch could pick a spot far away and walk SK there.
+        and J.IsInRange(bot, botTarget, nCastRange + nRadius)
 		then
             local nInRangeAlly = J.GetNearbyHeroes(botTarget, 1200, true, BOT_MODE_NONE)
             local nInRangeEnemy = J.GetNearbyHeroes(botTarget, 1200, false, BOT_MODE_NONE)
@@ -510,20 +514,6 @@ function X.ConsiderStinger()
             if nInRangeAlly ~= nil and nInRangeEnemy ~= nil
             and #nInRangeAlly >= #nInRangeEnemy
             then
-                nInRangeEnemy = J.GetEnemiesNearLoc(botTarget:GetLocation(), nCastRange + nRadius)
-
-                if nInRangeEnemy ~= nil and #nInRangeEnemy >= 1
-                then
-					if GetUnitToLocationDistance(bot, J.GetCenterOfUnits(nInRangeEnemy)) > nCastRange
-					and GetUnitToLocationDistance(bot, J.GetCenterOfUnits(nInRangeEnemy)) < nCastRange + nRadius
-					then
-						return BOT_ACTION_DESIRE_HIGH, J.Site.GetXUnitsTowardsLocation(bot, J.GetCenterOfUnits(nInRangeEnemy), nCastRange)
-					else
-						return BOT_ACTION_DESIRE_HIGH, J.GetCenterOfUnits(nInRangeEnemy)
-					end
-
-                end
-
 				if J.IsInRange(bot, botTarget, nCastRange + nRadius)
 				and not J.IsInRange(bot, botTarget, nCastRange)
 				then

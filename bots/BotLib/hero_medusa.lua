@@ -24,7 +24,8 @@ local tTalentTreeList = {
 }
 
 local tAllAbilityBuildList = {
-						{2,3,2,1,2,1,2,6,1,1,3,3,3,6,6},--pos1
+						-- 7.42: slot 3 is Gorgon Grasp (Mana Shield is an innate). Snake max, Split Shot, Grasp last.
+						{2,1,2,3,2,6,2,1,1,1,6,3,3,3,6},--pos1
 }
 
 local nAbilityBuildList = J.Skill.GetRandomBuild( tAllAbilityBuildList )
@@ -118,7 +119,7 @@ npc_dota_hero_medusa
 
 "Ability1"		"medusa_split_shot"
 "Ability2"		"medusa_mystic_snake"
-"Ability3"		"medusa_mana_shield"
+"Ability3"		"medusa_gorgon_grasp"
 "Ability4"		"generic_hidden"
 "Ability5"		"generic_hidden"
 "Ability6"		"medusa_stone_gaze"
@@ -142,21 +143,19 @@ modifier_medusa_stone_gaze_stone
 
 --]]
 
-local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
-local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityE = bot:GetAbilityByName( sAbilityList[3] )
-local abilityR = bot:GetAbilityByName( sAbilityList[6] )
+local abilityQ = bot:GetAbilityByName( 'medusa_split_shot' ) or bot:GetAbilityByName( sAbilityList[1] )
+local abilityW = bot:GetAbilityByName( 'medusa_mystic_snake' ) or bot:GetAbilityByName( sAbilityList[2] )
+local abilityR = bot:GetAbilityByName( 'medusa_stone_gaze' ) or bot:GetAbilityByName( sAbilityList[6] )
 local abilityM = nil
-local GorgonGrasp = bot:GetAbilityByName('medusa_gorgon_grasp')
+-- 7.42: slot 3; Mana Shield is an always-on innate now (no toggle to manage)
+local GorgonGrasp = bot:GetAbilityByName('medusa_gorgon_grasp') or bot:GetAbilityByName( sAbilityList[3] )
 
 local castQDesire
 local castWDesire, castWTarget
-local castEDesire
 local castRDesire
 local GorgonGraspDesire, GorgonGraspLocation
 
 local nKeepMana, nMP, nHP, nLV, hEnemyHeroList
-local lastToggleTime = 0
 
 
 function X.SkillsComplement()
@@ -222,11 +221,12 @@ function X.ConsiderGorgonGrasp()
 	local nCastPoint = GorgonGrasp:GetCastPoint()
 	-- local nRadius = GorgonGrasp:GetSpecialValueInt('radius')
 	-- local nRadiusGrow = GorgonGrasp:GetSpecialValueInt('radius_grow')
-	local nDelay = GorgonGrasp:GetSpecialValueInt('delay')
-	-- local nVolleyInterval = GorgonGrasp:GetSpecialValueInt('volley_interval')
+	-- delay (0.8) and root duration (0.8-2.0) are fractional: GetSpecialValueInt read them as 0
+	local nDelay = GorgonGrasp:GetSpecialValueFloat('delay')
+	-- local nVolleyInterval = GorgonGrasp:GetSpecialValueFloat('volley_interval')
 	local nDamage = GorgonGrasp:GetSpecialValueInt('damage')
 	local nDPS = GorgonGrasp:GetSpecialValueInt('damage_pers')
-	local nDuration = GorgonGrasp:GetSpecialValueInt('duration')
+	local nDuration = GorgonGrasp:GetSpecialValueFloat('duration')
 	local botTarget = J.GetProperTarget(bot)
 
 	local tAllyHeroes = bot:GetNearbyHeroes(1600, false, BOT_MODE_NONE)
@@ -245,7 +245,7 @@ function X.ConsiderGorgonGrasp()
 				return BOT_ACTION_DESIRE_HIGH, enemyHero:GetLocation()
 			end
 
-			if J.CanKillTarget(enemyHero, nDamage + nDPS * nDuration, DAMAGE_TYPE_PHYSICAL)
+			if J.CanKillTarget(enemyHero, nDamage + nDPS * nDuration, DAMAGE_TYPE_MAGICAL)
 			and not enemyHero:HasModifier('modifier_abaddon_borrowed_time')
 			and not enemyHero:HasModifier('modifier_dazzle_shallow_grave')
 			and not enemyHero:HasModifier('modifier_enigma_black_hole_pull')
@@ -354,31 +354,6 @@ function X.ConsiderQ()
 		
 end
 
-
-function X.ConsiderE()
-
-	if not abilityE:IsFullyCastable() then return 0 end
-
-	if nHP > 0.8 and nMP < 0.88 and nLV < 15
-	  and J.GetEnemyCount( bot, 1600 ) <= 1
-	  and lastToggleTime + 3.0 < DotaTime()
-	then
-		if abilityE:GetToggleState()
-		then
-			return BOT_ACTION_DESIRE_HIGH
-		end
-	else
-		if not abilityE:GetToggleState()
-		then
-			lastToggleTime = DotaTime()
-			return BOT_ACTION_DESIRE_HIGH
-		end
-	end
-
-	return BOT_ACTION_DESIRE_NONE
-
-
-end
 
 -- Calculate the best target for Mystic Snake
 local function GetBestSnakeTarget(nCastRange, nSnakeJumpRadius, nSnakeJumps)

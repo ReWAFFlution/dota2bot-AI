@@ -100,7 +100,7 @@ npc_dota_hero_drow_ranger
 
 "Ability1"		"drow_ranger_frost_arrows"
 "Ability2"		"drow_ranger_wave_of_silence"
-"Ability3"		"drow_ranger_trueshot"
+"Ability3"		"drow_ranger_multishot"
 "Ability4"		"generic_hidden"
 "Ability5"		"generic_hidden"
 "Ability6"		"drow_ranger_marksmanship"
@@ -126,7 +126,7 @@ modifier_drow_ranger_marksmanship_reduction
 
 local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
 local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityE = bot:GetAbilityByName( sAbilityList[3] )
+local abilityE = bot:GetAbilityByName( 'drow_ranger_multishot' ) or bot:GetAbilityByName( sAbilityList[3] ) -- 7.42: Multishot is slot 3, Trueshot an innate
 local Glacier 	= bot:GetAbilityByName( 'drow_ranger_glacier' )
 local abilityM = nil
 

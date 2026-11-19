@@ -27,10 +27,13 @@ local tTalentTreeList = {
 }
 
 local tAllAbilityBuildList = {
-						{1,3,1,2,1,6,1,3,3,3,6,2,2,2,6},
+						{1,3,1,2,1,6,1,3,3,3,6,2,2,2,6},--pos1/2/3 core: Poison Touch max
+						{3,1,3,2,3,6,3,1,1,1,6,2,2,2,6},--pos4/5 support: Shadow Wave max
 }
 
-local nAbilityBuildList = J.Skill.GetRandomBuild( tAllAbilityBuildList )
+-- 7.42: slot 6 is Nothl Projection (Bad Juju is gone); Weave is an innate.
+local nAbilityBuildList = tAllAbilityBuildList[1]
+if sRole == 'pos_4' or sRole == 'pos_5' then nAbilityBuildList = tAllAbilityBuildList[2] end
 
 local nTalentBuildList = J.Skill.GetTalentBuild(tTalentTreeList[2])
 if sRole == 'pos_1' then nTalentBuildList = J.Skill.GetTalentBuild(tTalentTreeList[1]) end
@@ -150,7 +153,7 @@ npc_dota_hero_dazzle
 "Ability3"		"dazzle_shadow_wave"
 "Ability4"		"generic_hidden"
 "Ability5"		"dazzle_good_juju"
-"Ability6"		"dazzle_bad_juju"
+"Ability6"		"dazzle_nothl_projection"
 "Ability10"		"special_bonus_attack_damage_50"
 "Ability11"		"special_bonus_mp_regen_175"
 "Ability12"		"special_bonus_unique_dazzle_2"
@@ -168,11 +171,10 @@ modifier_dazzle_bad_juju_armor
 
 --]]
 
-local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
-local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityE = bot:GetAbilityByName( sAbilityList[3] )
-local abilityF = bot:GetAbilityByName( sAbilityList[5] )
-local abilityR = bot:GetAbilityByName( sAbilityList[6] )
+-- by name (7.42): the ult is Nothl Projection, there is no Bad Juju / slot-5 ability any more
+local abilityQ = bot:GetAbilityByName( 'dazzle_poison_touch' ) or bot:GetAbilityByName( sAbilityList[1] )
+local abilityW = bot:GetAbilityByName( 'dazzle_shallow_grave' ) or bot:GetAbilityByName( sAbilityList[2] )
+local abilityE = bot:GetAbilityByName( 'dazzle_shadow_wave' ) or bot:GetAbilityByName( sAbilityList[3] )
 local NothlProjection = bot:GetAbilityByName("dazzle_nothl_projection")
 local NothlProjectionEnd = bot:GetAbilityByName("dazzle_nothl_projection_end")
 
@@ -183,8 +185,6 @@ local talent6 = bot:GetAbilityByName( sTalentList[6] )
 local castQDesire, castQTarget
 local castWDesire, castWTarget
 local castEDesire, castETarget
-local castFDesire, castFTarget
-local castRDesire, castRTarget
 local NothlProjectionDesire, NothlProjectionLocation, NothlProjectionEndDesire
 
 local nKeepMana, nMP, nHP, nLV, hEnemyList, hAllyList, botTarget, sMotive
@@ -199,11 +199,9 @@ function X.SkillsComplement()
 	if J.CanNotUseAbility( bot ) or bot:IsInvisible() or isPhysicalBody then return end
 
 	-- Re-fetch ability handles each tick
-	abilityQ = bot:GetAbilityByName( sAbilityList[1] )
-	abilityW = bot:GetAbilityByName( sAbilityList[2] )
-	abilityE = bot:GetAbilityByName( sAbilityList[3] )
-	abilityF = bot:GetAbilityByName( sAbilityList[5] )
-	abilityR = bot:GetAbilityByName( sAbilityList[6] )
+	abilityQ = bot:GetAbilityByName( 'dazzle_poison_touch' ) or bot:GetAbilityByName( sAbilityList[1] )
+	abilityW = bot:GetAbilityByName( 'dazzle_shallow_grave' ) or bot:GetAbilityByName( sAbilityList[2] )
+	abilityE = bot:GetAbilityByName( 'dazzle_shadow_wave' ) or bot:GetAbilityByName( sAbilityList[3] )
 	NothlProjection = bot:GetAbilityByName("dazzle_nothl_projection")
 	NothlProjectionEnd = bot:GetAbilityByName("dazzle_nothl_projection_end")
 
@@ -268,18 +266,6 @@ function X.SkillsComplement()
 		bot:ActionQueue_UseAbilityOnEntity( abilityE, castETarget )
 		return
 	end
-
-	-- castRDesire, castRTarget, sMotive = X.ConsiderR()
-	-- if ( castRDesire > 0 )
-	-- then
-	-- 	J.SetReportMotive( bDebugMode, sMotive )
-
-	-- 	-- J.SetQueuePtToINT( bot, true )
-	-- 	J.SetQueuePtToINT( bot, true )
-
-	-- 	bot:ActionQueue_UseAbility( abilityR )
-	-- 	return
-	-- end
 end
 
 function X.ConsiderNothlProjection()
@@ -358,21 +344,6 @@ function X.ConsiderNothlProjectionEnd()
 		end
 	end
 	return BOT_ACTION_DESIRE_NONE, nil
-end
-
-function X.ConsiderR()
-	if not abilityR:IsFullyCastable() then return 0 end
-	if not abilityQ:IsFullyCastable()
-		and not abilityW:IsFullyCastable()
-		and not abilityE:IsFullyCastable()
-	then
-		local enemyList = J.GetNearbyHeroes(bot, 900, true, BOT_MODE_NONE )
-		if #enemyList >= 1
-		then
-			return BOT_ACTION_DESIRE_HIGH, 'none', "R-refresh"
-		end
-	end
-	return BOT_ACTION_DESIRE_NONE
 end
 
 function X.ConsiderQ()

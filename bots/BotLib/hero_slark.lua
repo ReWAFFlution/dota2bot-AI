@@ -123,7 +123,7 @@ npc_dota_hero_slark
 
 "Ability1"		"slark_dark_pact"
 "Ability2"		"slark_pounce"
-"Ability3"		"slark_essence_shift"
+"Ability3"		"slark_saltwater_shiv"
 "Ability4"		"slark_depth_shroud"
 "Ability5"		"generic_hidden"
 "Ability6"		"slark_shadow_dance"
@@ -158,12 +158,12 @@ modifier_slark_shadow_dance_visual
 
 local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
 local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityE = bot:GetAbilityByName( sAbilityList[3] )
+local abilityE = bot:GetAbilityByName( 'slark_saltwater_shiv' ) or bot:GetAbilityByName( sAbilityList[3] ) -- 7.42: Saltwater Shiv; Essence Shift is an innate
 local abilityR = bot:GetAbilityByName( sAbilityList[6] )
-local abilityAS = bot:GetAbilityByName( sAbilityList[4] )
+local abilityAS = bot:GetAbilityByName( 'slark_depth_shroud' ) or bot:GetAbilityByName( sAbilityList[4] )
 local talent2 = bot:GetAbilityByName( sTalentList[2] )
 local talent6 = bot:GetAbilityByName( sTalentList[6] )
-local SaltwaterShiv = bot:GetAbilityByName('slark_saltwater_shiv')
+local SaltwaterShiv = abilityE
 
 local castQDesire, castQTarget
 local castWDesire, castWTarget

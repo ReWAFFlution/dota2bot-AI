@@ -163,7 +163,7 @@ end
 npc_dota_hero_necrolyte
 
 "Ability1"		"necrolyte_death_pulse"
-"Ability2"		"necrolyte_sadist"
+"Ability2"		"necrolyte_ghost_shroud"
 "Ability3"		"necrolyte_heartstopper_aura"
 "Ability4"		"generic_hidden"
 "Ability5"		"generic_hidden"
@@ -189,8 +189,8 @@ modifier_necrolyte_reapers_scythe_respawn_time
 --]]
 
 local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
-local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityAS = bot:GetAbilityByName( sAbilityList[4] )
+local abilityW = bot:GetAbilityByName( 'necrolyte_ghost_shroud' ) or bot:GetAbilityByName( sAbilityList[2] ) -- 7.42: slot 2 is Ghost Shroud, Sadist an innate
+local abilityAS = bot:GetAbilityByName( 'necrolyte_death_seeker' ) or bot:GetAbilityByName( sAbilityList[4] )
 local abilityR = bot:GetAbilityByName( sAbilityList[6] )
 
 

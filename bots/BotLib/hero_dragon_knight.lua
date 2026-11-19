@@ -158,7 +158,7 @@ npc_dota_hero_dragon_knight
 
 "Ability1"		"dragon_knight_breathe_fire"
 "Ability2"		"dragon_knight_dragon_tail"
-"Ability3"		"dragon_knight_dragon_blood"
+"Ability3"		"dragon_knight_wyrms_wrath"
 "Ability4"		"generic_hidden"
 "Ability5"		"generic_hidden"
 "Ability6"		"dragon_knight_elder_dragon_form"
@@ -184,7 +184,7 @@ modifier_dragon_knight_frost_breath_slow
 --]]
 local BreatheFire = bot:GetAbilityByName('dragon_knight_breathe_fire')
 local DragonTail = bot:GetAbilityByName('dragon_knight_dragon_tail')
--- local WrymsWrath = bot:GetAbilityByName('dragon_knight_dragon_blood')
+-- 7.42: slot 3 is Wyrm's Wrath (passive, nothing to cast); Dragon Blood is an innate.
 local Fireball = bot:GetAbilityByName('dragon_knight_fireball')
 local ElderDragonForm = bot:GetAbilityByName('dragon_knight_elder_dragon_form')
 

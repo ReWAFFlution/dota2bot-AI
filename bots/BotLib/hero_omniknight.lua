@@ -32,7 +32,8 @@ local tTalentTreeList = {
 }
 
 local tAllAbilityBuildList = {
-						{3,1,3,1,3,1,1,3,2,6,6,2,2,2,6},--pos1/2/3 core: E-max
+						-- 7.42: slot 2 Martyr, slot 3 Hammer of Purity (Degen Aura is an innate)
+						{3,1,3,1,3,6,3,1,1,2,6,2,2,2,6},--pos1/2/3 core: Hammer max
 						{3,1,1,2,1,6,1,2,2,2,6,3,3,3,6},--pos4/5 support: Q-max
 }
 
@@ -150,8 +151,8 @@ end
 npc_dota_hero_omniknight
 
 "Ability1"		"omniknight_purification"
-"Ability2"		"omniknight_repel"
-"Ability3"		"omniknight_degen_aura"
+"Ability2"		"omniknight_martyr"
+"Ability3"		"omniknight_hammer_of_purity"
 "Ability4"		"generic_hidden"
 "Ability5"		"generic_hidden"
 "Ability6"		"omniknight_guardian_angel"
@@ -172,18 +173,20 @@ modifier_omniknight_degen_aura_effect
 
 --]]
 
-local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
-local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityE = bot:GetAbilityByName( sAbilityList[3] )
-local abilityR = bot:GetAbilityByName( sAbilityList[6] )
-local abilityAS = bot:GetAbilityByName( sAbilityList[4] )
+-- by name (7.42): W = Martyr (was Repel), E = Hammer of Purity (was Degen Aura, now an innate)
+local function GetOmniAbilities()
+	return bot:GetAbilityByName( 'omniknight_purification' ) or bot:GetAbilityByName( sAbilityList[1] ),
+		bot:GetAbilityByName( 'omniknight_martyr' ) or bot:GetAbilityByName( sAbilityList[2] ),
+		bot:GetAbilityByName( 'omniknight_hammer_of_purity' ) or bot:GetAbilityByName( sAbilityList[3] ),
+		bot:GetAbilityByName( 'omniknight_guardian_angel' ) or bot:GetAbilityByName( sAbilityList[6] )
+end
+local abilityQ, abilityW, abilityE, abilityR = GetOmniAbilities()
 local talent7 = bot:GetAbilityByName( sTalentList[7] )
 
 local castQDesire, castQTarget
 local castWDesire, castWTarget
 local castEDesire, castETarget
 local castRDesire, castRTarget
-local castASDesire, castASTarget
 
 local nKeepMana, nMP, nHP, nLV, hEnemyList, hAllyList, botTarget, sMotive
 local aetherRange = 0
@@ -194,10 +197,14 @@ function X.SkillsComplement()
 	if J.CanNotUseAbility( bot ) or bot:IsInvisible() then return end
 
 	-- Re-fetch ability handles each tick for safety
-	abilityQ = bot:GetAbilityByName( sAbilityList[1] )
-	abilityW = bot:GetAbilityByName( sAbilityList[2] )
-	abilityE = bot:GetAbilityByName( sAbilityList[3] )
-	abilityR = bot:GetAbilityByName( sAbilityList[6] )
+	abilityQ, abilityW, abilityE, abilityR = GetOmniAbilities()
+
+	-- Hammer of Purity costs no mana in 7.42 (13-4s cooldown): keep it on autocast
+	-- so every hit off cooldown is a Hammer (bonus pure damage + heal); ConsiderE still aims it at heroes.
+	if abilityE ~= nil and abilityE:IsTrained() and not abilityE:GetAutoCastState()
+	then
+		abilityE:ToggleAutoCast()
+	end
 
 	-- Cache per-tick variables
 	nKeepMana = 400
@@ -554,7 +561,8 @@ function X.ConsiderW()
 	local nDamage = 0
 	local nDamageType = DAMAGE_TYPE_MAGICAL
 	local nDuration = abilityW:GetSpecialValueInt( "duration" )
-	local nHealHealth = abilityW:GetSpecialValueInt( "hp_regen" ) * nDuration
+	-- Martyr (7.42): basic dispel + hp regen + 60% magic resist for 5s on an ally hero
+	local nHealHealth = abilityW:GetSpecialValueInt( "base_hpregen" ) * nDuration
 --	local nInRangeEnemyList = J.GetAroundEnemyHeroList( nCastRange )
 --	local nInBonusEnemyList = J.GetAroundEnemyHeroList( nCastRange + 200 )
 	local hCastTarget = nil
@@ -564,6 +572,7 @@ function X.ConsiderW()
 	do
 		if J.IsValidHero( npcAlly )
 			and J.IsInRange( bot, npcAlly, nCastRange + 300 )
+			and not npcAlly:HasModifier( 'modifier_omniknight_martyr' )
 			and not npcAlly:HasModifier( 'modifier_omniknight_repel' )
 			and not npcAlly:IsMagicImmune()
 			and not npcAlly:IsInvulnerable()
@@ -647,7 +656,8 @@ function X.ConsiderE()
 	local nCastPoint = abilityE:GetCastPoint()
 	local nManaCost = abilityE:GetManaCost()
 	local nSkillLV = abilityE:GetLevel()
-	local nDamage = 25 * nSkillLV + 25 + bot:GetAttackDamage() * ( 0.5 + nSkillLV * 0.1 )
+	-- Hammer of Purity (7.42): pure base_damage + bonus_damage% of attack damage, range 150 (+75)
+	local nDamage = abilityE:GetSpecialValueInt( 'base_damage' ) + bot:GetAttackDamage() * abilityE:GetSpecialValueInt( 'bonus_damage' ) / 100
 	local nDamageType = DAMAGE_TYPE_PURE
 
 	local allyList =  J.GetNearbyHeroes(bot, 1200, false, BOT_MODE_NONE )
