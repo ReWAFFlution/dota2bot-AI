@@ -168,10 +168,7 @@ local function LotusDesire(bot, S)
 			local claimer = S.poolBy[key]
 			local claimed = claimer and claimer ~= bot and claimer:IsAlive() and (claimer._mapTarget == pool)
 			local range = support and LOTUS_RANGE_SUPPORT or LOTUS_RANGE_ANY
-			-- A far pool only when 2+ lotuses should be waiting (6+ min since we
-			-- last took it).
-			local worthWalk = d < 1500 or math.floor(DotaTime() / LOTUS_PERIOD) - math.floor((S.poolTaken[key] or 0) / LOTUS_PERIOD) >= 2
-			if not claimed and worthWalk and d < range and EnemiesNear(pool:GetLocation(), 700) == 0 and (not bestDist or d < bestDist) then -- an enemy right at the pool
+			if not claimed and d < range and EnemiesNear(pool:GetLocation(), 700) == 0 and (not bestDist or d < bestDist) then -- an enemy right at the pool
 				best, bestDist = pool, d
 			end
 		end
