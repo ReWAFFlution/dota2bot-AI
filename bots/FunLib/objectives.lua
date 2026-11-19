@@ -536,9 +536,11 @@ end
 -- The combat evaluation says leave: a push (or tower hit) waits. Medusa hit a
 -- tower inside MK's arena with his team around because the push desire beat
 -- the retreat hint.
+-- The same when it says fight: heroes first, buildings after (SF hit a T4
+-- he couldn't take while enemies he could kill stood around him).
 function X.CapPushWhenLosing(bot, desire)
 	local c = bot._combat
-	if c and c.retreat and DotaTime() - (bot._fightHintT or -math.huge) < 1.5 then
+	if c and (c.retreat or (c.go and J.IsValidHero(c.target))) and DotaTime() - (bot._fightHintT or -math.huge) < 1.5 then
 		return math.min(desire, 0.3)
 	end
 	return desire
