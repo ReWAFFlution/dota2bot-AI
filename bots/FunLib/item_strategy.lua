@@ -187,11 +187,43 @@ local function AddBottle(hero, pos, list)
 	table.insert(list, at, 'item_bottle')
 end
 
+-- Stratz merges "boots now, Boots of Travel later" into one early Travel
+-- entry: bought literally, the bot got plain boots and then saved 2000 for
+-- the Travel recipe with no item in between. Early Travel becomes the hero's
+-- usual first boots, and Travel moves three big items later.
+local FIRST_BOOTS = { 'item_power_treads', 'item_phase_boots', 'item_arcane_boots', 'item_tranquil_boots' }
+local BOOTS_SET = { item_boots = true, item_power_treads = true, item_phase_boots = true, item_arcane_boots = true,
+	item_tranquil_boots = true, item_guardian_greaves = true, item_boots_of_bearing = true }
+local function FixEarlyTravel(hero, pos, list)
+	for i, it in ipairs(list) do
+		if BOOTS_SET[it] then return end -- already has early boots
+		if it == 'item_travel_boots' then
+			if i > 8 then return end
+			local first, rate = 'item_boots', 19
+			for _, bname in ipairs(FIRST_BOOTS) do
+				local r = X._KnownRate(hero, pos, bname) -- defined further down
+				if r > rate then first, rate = bname, r end
+			end
+			list[i] = first
+			local later, big = #list + 1, 0
+			for j = i + 1, #list do
+				if GetItemCost(list[j]) >= 2000 then
+					big = big + 1
+					if big == 3 then later = j + 1 break end
+				end
+			end
+			table.insert(list, math.min(later, #list + 1), 'item_travel_boots')
+			return
+		end
+	end
+end
+
 function X.GetMetaBuyList(hero, pos)
 	local b = BuildData(hero, pos)
 	if not b then return nil end
 	local list = {}
 	for i, item in ipairs(b.buy) do list[i] = item end
+	FixEarlyTravel(hero, pos, list)
 	AddBottle(hero, pos, list)
 	local okItem, Item = pcall(require, GetScriptDirectory()..'/FunLib/aba_item')
 	return X.FixOrder(list, okItem and Item or nil)
@@ -202,6 +234,7 @@ local function KnownRate(hero, pos, item)
 	local b = BuildData(hero, pos)
 	return (b and b.known[string.gsub(item, '^item_', '')]) or 0
 end
+X._KnownRate = KnownRate
 
 --==============================================================================
 -- Game state snapshot
