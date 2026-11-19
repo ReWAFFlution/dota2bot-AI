@@ -4,6 +4,8 @@
 local BOTS = arg[1]
 dofile(debug.getinfo(1).source:sub(2):gsub('defend.lua$', 'stub.lua'))
 function GetScriptDirectory() return BOTS end
+
+function GetAncient() return { GetLocation = function() return Vector(-7000, -6500) end, IsAlive = function() return true end, GetHealth = function() return 4000 end } end
 SIM_T = 600
 local towerHP = 1800
 local tower = { loc = Vector(-6000, 1800) }

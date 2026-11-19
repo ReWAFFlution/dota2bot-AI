@@ -405,7 +405,7 @@ local function PickHelpers(S, obj, taken, maxHelpers)
 	for _, c in ipairs(Candidates(S, obj.loc, taken, obj.lane, obj.kind, obj.tier)) do
 		if #helpers >= maxHelpers then break end
 		if obj.ttd and c.travel > obj.ttd + 5 then break end -- too late to save it
-		local near = GetUnitToLocationDistance(c.m, obj.loc) < 1200
+		local near = GetUnitToLocationDistance(c.m, obj.loc) < 1200 or obj.ancient
 		local gain = obj.value * (WinChance(a + 1, e) - WinChance(a, e)) + obj.value * WinChance(a + 1, e) * 0.15
 		local cost = X.Rate(c.m) * c.travel / 60 + 2
 		if near or gain > cost then
@@ -432,6 +432,17 @@ local function FindObjectives(S, t)
 					value = X.POINTS.tower[info.tier], allies = #allies, enemies = enemies, enough = 0.75,
 					max = math.min(4, GetNumAlive(GetOpposingTeam()) + 1), name = 'enemy T'..info.tier })
 			end
+		end
+	end
+	-- Our ancient: everyone defends it (a base defense is the last one).
+	local anc = GetAncient(GetTeam())
+	if anc and anc:IsAlive() then
+		local hp = TowerHPTracker(S, 'ancient', anc, t)
+		local enemies = HeroesNear(GetOpposingTeam(), anc:GetLocation(), 1500)
+		if hp.rate > 5 or #enemies > 0 then
+			table.insert(list, { kind = 'defend', lane = LANE_MID, tier = 5, loc = anc:GetLocation(), tower = anc,
+				value = X.POINTS.ancient, allies = #HeroesNear(GetTeam(), anc:GetLocation(), 1500) + 1.5, enemies = #enemies,
+				ttd = 99, enough = 0.99, max = 5, name = 'our ancient', ancient = true })
 		end
 	end
 	-- Our towers under attack.
@@ -466,8 +477,28 @@ local function Assign(S, t)
 		return x.value > y.value
 	end)
 	local taken, newAssign = {}, {}
+	-- Stay with an objective that's still on, unless a new one is worth 1.5x
+	-- more (Dire's defenders ran back and forth between T3 and T4).
+	local active = {}
+	for _, obj in ipairs(objectives) do active[obj.name..obj.lane] = obj end
+	for pid, a in pairs(S.assign) do
+		local still = active[a.name..a.lane]
+		if still and a.untilT > t then
+			local better = false
+			for _, obj in ipairs(objectives) do
+				if obj.value > still.value * 1.5 then better = true end
+			end
+			if not better then
+				for _, m in ipairs(Members()) do
+					if m:GetPlayerID() == pid then taken[m] = true end
+				end
+				a.untilT = t + ASSIGN_TIME
+				newAssign[pid] = a
+			end
+		end
+	end
 	for _, obj in ipairs(objectives) do
-		local losing = obj.kind == 'defend' and obj.enemies > GetNumAlive(GetTeam()) + 1
+		local losing = obj.kind == 'defend' and not obj.ancient and obj.enemies > GetNumAlive(GetTeam()) + 1
 		if not losing then
 			for _, h in ipairs(PickHelpers(S, obj, taken, obj.max)) do
 				taken[h.m] = true
@@ -920,7 +951,8 @@ function X.Combat(bot)
 			for _, a in ipairs(helpers) do if a == bot then mine = true end end
 			if not mine then table.insert(helpers, bot) end
 			local extra = (HeroRolesLib and HeroRolesLib.HasEscape and HeroRolesLib.HasEscape(e:GetUnitName())) and e:GetHealth() * 0.5 or 0
-			local tt = TimeToKill(helpers, e, extra, 0, false, ReadyStuns(helpers))
+			local ourFountainDps = Dist(e:GetLocation(), J.GetTeamFountain()) < 1500 and 900 or 0 -- our fountain hits them
+			local tt = TimeToKill(helpers, e, extra, ourFountainDps, false, ReadyStuns(helpers))
 			if tt < bestT or (tt == bestT and best and e:GetHealth() < best:GetHealth()) then best, bestT = e, tt end
 		end
 	end
@@ -936,6 +968,13 @@ function X.Combat(bot)
 	-- Pushing the win (team plan "finish"): only a real personal danger.
 	local S = TeamPlanState and TeamPlanState[GetTeam()]
 	if S and S.phase == 'finish' and not (ttkThem <= 1.5 and hp < 0.35) then c.retreat = false end
+	-- Last stand: enemies at our ancient. Leaving only when about to die.
+	local ourAnc = GetAncient(GetTeam())
+	if ourAnc and #HeroesNear(GetOpposingTeam(), ourAnc:GetLocation(), 1800) > 0 and Dist(myLoc, ourAnc:GetLocation()) < 3500 then
+		c.lastStand = true
+		c.retreat = ttkThem <= 1.5 and hp < 0.3
+		if not c.retreat and best and not noTarget then c.go = true end
+	end
 	-- No target outside their fountain: nothing to chase.
 	if noTarget then c.go = false end
 	if nearFountain and #enemies > 0 then c.go, c.retreat = false, true end
@@ -972,6 +1011,7 @@ end
 function X.LoneDanger(bot)
 	if J.GetPosition(bot) < 4 and J.GetHP(bot) > 0.6 then return false end
 	if DotaTime() < 60 or bot:DistanceFromFountain() < 3000 then return false end
+	if GetUnitToLocationDistance(bot, GetAncient(GetTeam()):GetLocation()) < 4000 then return false end
 	-- In its own lane during the laning stage: that's where it should be.
 	if J.IsInLaningPhase() and GetUnitToLocationDistance(bot, GetLaneFrontLocation(GetTeam(), bot:GetAssignedLane(), 0)) < 1500 then return false end
 	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
@@ -1017,6 +1057,12 @@ function X.FightHint(bot)
 	local lost = bot._hpHist[1].hp - J.GetHP(bot)
 	local TS = TeamPlanState and TeamPlanState[GetTeam()]
 	local finishing = TS and TS.phase == 'finish' and J.GetHP(bot) > 0.35
+	-- Defending our ancient: hold unless nearly dead.
+	local ourAnc = GetAncient(GetTeam())
+	if ourAnc and J.GetHP(bot) > 0.3 and GetUnitToLocationDistance(bot, ourAnc:GetLocation()) < 3500
+	and #HeroesNear(GetOpposingTeam(), ourAnc:GetLocation(), 1800) > 0 then
+		finishing = true
+	end
 	if lost > 0.3 and J.GetHP(bot) < 0.55 and not finishing then
 		local target = J.GetProperTarget and J.GetProperTarget(bot)
 		local finishing = J.IsValidHero(target) and J.GetHP(target) < 0.2 and GetUnitToUnitDistance(bot, target) < 600

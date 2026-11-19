@@ -2,6 +2,9 @@
 local BOTS = arg[1]
 dofile(debug.getinfo(1).source:sub(2):gsub('combat.lua$', 'stub.lua'))
 function GetScriptDirectory() return BOTS end
+
+local ancientLoc = Vector(-7000, -6500)
+function GetAncient() return { GetLocation = function() return ancientLoc end, IsAlive = function() return true end, GetHealth = function() return 4000 end } end
 SIM_T = 900
 DAMAGE_TYPE_MAGICAL = 2
 local function hero(name, team, loc, hp, dps)
@@ -87,4 +90,11 @@ ultReady = false
 local cAfter = O.Combat(me)
 print(string.format('vs WK: team x%.2f with Reincarnation ready, x%.2f after it', cBefore.teamRatio, cAfter.teamRatio))
 assert(cAfter.teamRatio > cBefore.teamRatio * 1.5)
+-- Last stand: enemies at our ancient; 1v2 we'd normally leave, here we hold.
+me.loc, me.hp = Vector(-6600, -6100), 1500
+allies = { me }
+local a1, a2 = hero('mk', 3, Vector(-6700, -6300), 1800, 300), hero('sf', 3, Vector(-6500, -6400), 1500, 300)
+a1.pid, a2.pid = 5, 6
+enemies = { a1, a2 }
+c = show('1v2 at our ancient') assert(not c.retreat and c.lastStand)
 print('combat ok')
