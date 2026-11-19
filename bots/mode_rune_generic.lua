@@ -106,7 +106,11 @@ function GetDesire()
 	-- (Bristleback ran past a bounty rune: its distance-scaled desire lost to
 	-- push/farm). Not while retreating or fighting.
 	bot._passRune = nil
-	if DotaTime() > 0 and not J.IsRetreating(bot) and not J.IsGoingOnSomeone(bot) and J.GetHP(bot) > 0.3 then
+	-- Right under our feet (350) with no enemy hero within 700: even while
+	-- retreating or fighting (WK backed off past a bounty rune and left it).
+	local nearFree = #J.GetEnemiesNearLoc(bot:GetLocation(), 700) == 0
+	local busy = J.IsRetreating(bot) or J.IsGoingOnSomeone(bot) or J.GetHP(bot) <= 0.3
+	if DotaTime() > 0 and (not busy or nearFree) then
 		for _, r in ipairs({ RUNE_BOUNTY_1, RUNE_BOUNTY_2, RUNE_BOUNTY_3, RUNE_BOUNTY_4, RUNE_POWERUP_1, RUNE_POWERUP_2 }) do
 			bot._runeBan = bot._runeBan or {}
 			if type(r) == 'number' and GetRuneStatus(r) == RUNE_STATUS_AVAILABLE and DotaTime() > (bot._runeBan[r] or -math.huge) then
@@ -120,10 +124,11 @@ function GetDesire()
 				elseif bot._runeAtT then
 					bot._runeAtT[r] = nil
 				end
+				local dist = loc and GetUnitToLocationDistance(bot, loc) or math.huge
 				if DotaTime() > (bot._runeBan[r] or -math.huge)
-				and loc and (loc.x ~= 0 or loc.y ~= 0) and GetUnitToLocationDistance(bot, loc) < 700 then
+				and loc and (loc.x ~= 0 or loc.y ~= 0) and dist < (busy and 350 or 700) then
 					bot._passRune = r
-					return BOT_MODE_DESIRE_VERYHIGH
+					return busy and 0.97 or BOT_MODE_DESIRE_VERYHIGH
 				end
 			end
 		end
