@@ -4107,6 +4107,8 @@ end
 -- 7.41: Refresher Orb only refreshes ABILITIES, not items.
 -- Do not add logic that chains Refresher with item re-use (e.g. BKB).
 X.ConsiderItemDesire["item_refresher"] = function( hItem )
+	-- SF: only as Requiem -> Refresher -> Requiem (hero file).
+	if bot:GetUnitName() == 'npc_dota_hero_nevermore' then return BOT_ACTION_DESIRE_NONE end
 
 	local nCastRange = 1000
 	local sCastType = 'none'

@@ -256,9 +256,54 @@ function X.ConsiderBlinkUlt()
 	return blink, aoe.targetloc, (disables and not bot:IsMagicImmune()) and bkb or nil, aoe.count
 end
 
+-- Refresher right after a Requiem, with the second Requiem queued at once
+-- (SF pressed BKB, Requiem, Refresher and then nothing: the Requiem logic
+-- wanted a team fight again). The generic item logic doesn't use it on SF.
+function X.ConsiderRefresherUlt()
+	local ref = ReadyItem('item_refresher')
+	if not ref or abilityR:GetLevel() == 0 or abilityR:IsFullyCastable() then return nil end
+	if abilityR:GetCooldownTimeRemaining() < abilityR:GetCooldown() - 4 then return nil end -- not the one just cast
+	if bot:GetMana() < abilityR:GetManaCost() + ref:GetManaCost() then return nil end
+	local n = 0
+	for _, e in pairs(J.GetEnemiesNearLoc(bot:GetLocation(), 800)) do
+		if J.IsValidHero(e) and not J.IsSuspiciousIllusion(e) and J.CanCastOnNonMagicImmune(e) then n = n + 1 end
+	end
+	if n == 0 then return nil end
+	return ref
+end
+
+-- An enemy channeling (a teleport, a channeled ult) within 700: the Requiem's
+-- fear breaks it.
+function X.ChannelToBreak()
+	if not abilityR:IsFullyCastable() or bot:GetMana() < abilityR:GetManaCost() then return false end
+	for _, e in pairs(J.GetEnemiesNearLoc(bot:GetLocation(), 700)) do
+		if J.IsValidHero(e) and e:IsChanneling() and J.CanCastOnNonMagicImmune(e) then return true end
+	end
+	return false
+end
+
 function X.SkillsComplement()
 	if bot.invisUltCombo then return end
 	if (bot._blinkUltUntil or -math.huge) > DotaTime() then return end -- combo running
+
+	if not J.CanNotUseAbility(bot) then
+		local ref = X.ConsiderRefresherUlt()
+		if ref then
+			bot:Action_ClearActions(true)
+			bot:ActionQueue_UseAbility(ref)
+			bot:ActionQueue_UseAbility(abilityR)
+			bot._blinkUltUntil = DotaTime() + 2.5
+			print('[Fight] '..bot:GetUnitName()..': Refresher + second Requiem')
+			return
+		end
+		if X.ChannelToBreak() then
+			bot:Action_ClearActions(true)
+			bot:ActionQueue_UseAbility(abilityR)
+			bot._blinkUltUntil = DotaTime() + 2.0
+			print('[Fight] '..bot:GetUnitName()..': Requiem to break a channel')
+			return
+		end
+	end
 
 	if not J.CanNotUseAbility(bot) then
 		local blink, loc, bkb, n = X.ConsiderBlinkUlt()
