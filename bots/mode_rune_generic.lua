@@ -108,9 +108,20 @@ function GetDesire()
 	bot._passRune = nil
 	if DotaTime() > 0 and not J.IsRetreating(bot) and not J.IsGoingOnSomeone(bot) and J.GetHP(bot) > 0.3 then
 		for _, r in ipairs({ RUNE_BOUNTY_1, RUNE_BOUNTY_2, RUNE_BOUNTY_3, RUNE_BOUNTY_4, RUNE_POWERUP_1, RUNE_POWERUP_2 }) do
-			if type(r) == 'number' and GetRuneStatus(r) == RUNE_STATUS_AVAILABLE then
+			bot._runeBan = bot._runeBan or {}
+			if type(r) == 'number' and GetRuneStatus(r) == RUNE_STATUS_AVAILABLE and DotaTime() > (bot._runeBan[r] or -math.huge) then
 				local loc = GetRuneSpawnLocation(r)
-				if loc and (loc.x ~= 0 or loc.y ~= 0) and GetUnitToLocationDistance(bot, loc) < 700 then
+				-- Standing on it 2 s without getting it: the status lags behind
+				-- (Pugna stood at a picked-up bounty spot): leave it for a minute.
+				if loc and GetUnitToLocationDistance(bot, loc) < 250 then
+					bot._runeAtT = bot._runeAtT or {}
+					bot._runeAtT[r] = bot._runeAtT[r] or DotaTime()
+					if DotaTime() - bot._runeAtT[r] > 2 then bot._runeBan[r] = DotaTime() + 60 bot._runeAtT[r] = nil end
+				elseif bot._runeAtT then
+					bot._runeAtT[r] = nil
+				end
+				if DotaTime() > (bot._runeBan[r] or -math.huge)
+				and loc and (loc.x ~= 0 or loc.y ~= 0) and GetUnitToLocationDistance(bot, loc) < 700 then
 					bot._passRune = r
 					return BOT_MODE_DESIRE_VERYHIGH
 				end

@@ -35,7 +35,7 @@ local techies = { IsIllusion = function() return false end, GetUnitName = functi
 local ls = { GetLocation = function() return Vector(600, -4600) end, IsIllusion = function() return false end }
 function GetUnitList(t) if t == UNIT_LIST_ENEMY_HEROES then return { ls } end return { techies } end
 function GetUnitToLocationDistance(u, l) return (u:GetLocation() - l):Length2D() end
-FIGHT_AT = 0.3
+FIGHT_AT = 0.3 -- below 0.6
 local dz = E.GetDesire(techies)
 print('Techies, Lifestealer on the bounty (x0.3): rune desire', dz)
 assert(dz == nil and techies._earlyDone)

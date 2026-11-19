@@ -334,7 +334,7 @@ function X.GetDesire(bot)
 	local holders = RealHeroesNear(rloc, 1100, true)
 	if #holders > 0 and GetUnitToLocationDistance(bot, rloc) < 2500 then
 		local ratio = Objectives.FightAt(rloc, RealHeroesNear(bot:GetLocation(), 1500, false))
-		if ratio < 0.9 then
+		if ratio < 0.6 then -- clearly lost only (both pairs left the bottom bounty at x0.83 / x0.84)
 			bot._earlyDone = true
 			Log(bot, string.format('%d enemies hold rune %d and we lose there (x%.2f): going to lane', #holders, rune, ratio))
 			return nil
