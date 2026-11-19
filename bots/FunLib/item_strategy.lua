@@ -755,7 +755,10 @@ function X.ReviewNext(bot, pos, stack)
 	local bestIdx, bestScore = nil, topScore * 1.25
 	for i = #stack - 1, math.max(1, #stack - 3), -1 do
 		local it = stack[i]
-		if GetItemCost(it) >= 2500 and not (it == 'item_black_king_bar' and MissingInitiation(bot, pos)) then
+		-- Not an item much dearer than the planned one: MK went for Skadi
+		-- (5900, two 2800 orbs) over Desolator (3500) and sat on 2000 gold.
+		if GetItemCost(it) >= 2500 and GetItemCost(it) <= GetItemCost(top) * 1.25
+		and not (it == 'item_black_king_bar' and MissingInitiation(bot, pos)) then
 			local sc = ItemValue.Score(hero, pos, it, minutes, magic)
 			if sc > bestScore then bestIdx, bestScore = i, sc end
 		end

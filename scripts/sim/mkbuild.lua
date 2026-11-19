@@ -29,4 +29,11 @@ for i = #stack, 1, -1 do table.insert(order, (stack[i]:gsub('item_', ''))) end
 print('next items: '..table.concat(order, ', '))
 local function idx(n) for i = #stack, 1, -1 do if stack[i] == n then return #stack - i + 1 end end end
 assert(idx('item_desolator') < idx('item_black_king_bar'))
+-- 20 min, Desolator next, Skadi (much dearer) planned after: no swap.
+SIM_T = 20 * 60
+local st2 = { 'item_monkey_king_bar', 'item_skadi', 'item_desolator' }
+mk.GetItemInSlot = function() return nil end
+S.ReviewNext(mk, 1, st2)
+print('20 min next item: '..st2[#st2])
+assert(st2[#st2] == 'item_desolator', 'jumped to a much dearer item')
 print('mk build ok')
