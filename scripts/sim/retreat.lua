@@ -31,4 +31,21 @@ seen = Vector(-1400, -1400) enemies[1].loc = seen
 print('Lion 1980 away (needs ~3.9 s to reach stun range):', O.SafeToTeleport(bot)) assert(O.SafeToTeleport(bot) == true)
 seen = Vector(-500, -300) enemies[1].loc = seen enemies[1].name = 'npc_dota_hero_sniper'
 print('Sniper (no disable) 580 away:', O.SafeToTeleport(bot)) assert(O.SafeToTeleport(bot) == true)
+-- Largo fleeing to the mid T1 with Bristleback at his side, now a bit
+-- ahead, now a bit behind: the goal stays the tower, every step heads to it.
+bot.loc = Vector(0, 0) bot._retreatGoal = nil
+local flips = 0
+local lastSide
+for i = 1, 8 do
+	SIM_T = SIM_T + 0.5
+	local off = (i % 2 == 0) and Vector(-150, -50) or Vector(100, 150) -- ahead / behind, at his side
+	enemies = { enemy(bot.loc + off, 'npc_dota_hero_bristleback') }
+	local st = O.RetreatStep(bot)
+	local towardTower = ((st - bot.loc).x * -1 + (st - bot.loc).y * -1) > 0
+	if lastSide ~= nil and towardTower ~= lastSide then flips = flips + 1 end
+	lastSide = towardTower
+	bot.loc = bot.loc + (st - bot.loc) * 0.3
+end
+print('Bristleback at the side, 8 steps: direction flips', flips, 'goal', tostring(bot._retreatGoal and bot._retreatGoal.loc))
+assert(flips == 0 and lastSide == true)
 print('retreat ok')

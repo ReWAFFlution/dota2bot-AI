@@ -743,33 +743,64 @@ end
 -- The default retreat walked straight to the fountain past the enemies. The
 -- bot heads for its closest tower that's further from the enemies than it is
 -- (else the fountain), bending away from enemies within 1300.
+-- An enemy cuts us off from `tl` when it's ahead on the way (not the chaser
+-- right behind us) and clearly closer to it than we are.
+local function CutOff(myLoc, tl, enemies)
+	local d = Dist(tl, myLoc)
+	local dir = (tl - myLoc) / math.max(1, d)
+	for _, e in ipairs(enemies) do
+		local el = e:GetLocation()
+		local toE = el - myLoc
+		local de = toE:Length2D()
+		if de > 1 then
+			local ahead = (toE.x * dir.x + toE.y * dir.y) / de
+			if ahead > 0.6 and Dist(el, tl) < d - 400 then return true end
+		end
+	end
+	return false
+end
+
+-- The goal holds for 4 s unless it gets cut off: Largo turned back and forth
+-- with Bristleback hitting him (a chaser at his side made the closest tower
+-- look "blocked" one moment and free the next).
 function X.RetreatStep(bot)
 	local myLoc = bot:GetLocation()
 	local fountain = J.GetTeamFountain()
 	local enemies = HeroesNear(GetOpposingTeam(), myLoc, 1300)
-	local goal, bestD = fountain, math.huge
-	for _, info in ipairs(TOWERS) do
-		local tw = GetTower(GetTeam(), info.id)
-		if tw then
-			local tl = tw:GetLocation()
-			local d = Dist(tl, myLoc)
-			local safer = Dist(tl, fountain) < Dist(myLoc, fountain) + 300
-			for _, e in ipairs(enemies) do
-				if Dist(e:GetLocation(), tl) < d then safer = false end -- they're between us and it
+	local t = DotaTime()
+	local goal
+	local g = bot._retreatGoal
+	if g and t - g.t < 4 and t - (g.lastT or g.t) < 1.5 and not CutOff(myLoc, g.loc, enemies) and Dist(g.loc, myLoc) > 300 then
+		goal = g.loc
+	else
+		local bestD = math.huge
+		goal = fountain
+		for _, info in ipairs(TOWERS) do
+			local tw = GetTower(GetTeam(), info.id)
+			if tw then
+				local tl = tw:GetLocation()
+				local d = Dist(tl, myLoc)
+				local safer = Dist(tl, fountain) < Dist(myLoc, fountain) + 300
+				if safer and d < bestD and d > 300 and not CutOff(myLoc, tl, enemies) then goal, bestD = tl, d end
 			end
-			if safer and d < bestD and d > 300 then goal, bestD = tl, d end
 		end
+		bot._retreatGoal = { loc = goal, t = t }
 	end
+	bot._retreatGoal.lastT = t
 	local dir = goal - myLoc
 	if dir:Length2D() < 1 then return goal end
 	dir = dir / dir:Length2D()
+	-- Bend away from enemies ahead or at the side; a chaser behind pushes
+	-- the same way we go anyway.
 	local away = Vector(0, 0, 0)
 	for _, e in ipairs(enemies) do
 		local v = myLoc - e:GetLocation()
 		local d = v:Length2D()
 		if d > 1 then away = away + v / d * ((1300 - d) / 1300) end
 	end
-	local step = dir + away * 0.8
+	local step = dir + away * 0.6
+	-- Never step back toward the enemies we flee from.
+	if step.x * dir.x + step.y * dir.y < 0.3 * step:Length2D() then step = dir end
 	if step:Length2D() < 0.1 then step = dir end
 	step = step / step:Length2D()
 	local loc = myLoc + step * 500
@@ -1510,6 +1541,11 @@ function X.FightHint(bot)
 	-- kept turning back and taking hits). A fight is dropped early only when
 	-- the bot is about to die.
 	local d = bot._decision
+	-- Still being hit and hurt: the retreat goes on (when it ran out, the
+	-- hunt took Largo back toward Bristleback, who kept hitting him).
+	if d and d.kind == 'retreat' and d.untilT <= t and J.GetHP(bot) < 0.5 and bot:WasRecentlyDamagedByAnyHero(1.5) then
+		d.untilT = t + 2
+	end
 	if d and d.untilT > t then
 		if d.kind == 'retreat' then c.retreat, c.go = true, false
 		elseif d.kind == 'go' and not (ttkThem <= 1.5) then c.go, c.retreat = true, false end

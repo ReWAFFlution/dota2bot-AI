@@ -520,6 +520,8 @@ end
 
 function X.RoamDesire(bot)
 	if not bot:IsBot() then return nil end
+	-- Hurt and being hit: the plan waits, the retreat goes first.
+	if J.GetHP(bot) < 0.5 and bot:WasRecentlyDamagedByAnyHero(2.0) then return nil end
 	local S = X.Update()
 	local p = S.phase
 
