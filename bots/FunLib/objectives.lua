@@ -796,13 +796,34 @@ local function ReadyStuns(units)
 	return n
 end
 
--- Mana that soaks damage (Medusa's Mana Shield: ~2.5 damage per mana).
-local function ShieldHP(victim)
-	if victim:HasModifier('modifier_medusa_mana_shield') or victim:GetUnitName() == 'npc_dota_hero_medusa' then
-		local ok, mana = pcall(function() return victim:GetMana() end)
-		if ok and mana then return mana * 2.5 end
+-- A second life: Wraith King's Reincarnation ready (its cooldown is read when
+-- the engine allows, else assumed ready from level 6) or the Aegis.
+local function ExtraLife(victim)
+	if victim:HasModifier('modifier_aegis_regen') or (victim.FindItemSlot and victim:FindItemSlot('item_aegis') >= 0) then
+		return victim:GetMaxHealth()
+	end
+	if victim:GetUnitName() == 'npc_dota_hero_skeleton_king' then
+		local ready = nil
+		pcall(function()
+			local ab = victim:GetAbilityByName('skeleton_king_reincarnation')
+			if ab then ready = ab:GetLevel() > 0 and ab:GetCooldownTimeRemaining() <= 0 end
+		end)
+		if ready == nil then ready = victim:GetLevel() >= 6 end
+		if ready then return victim:GetMaxHealth() end
 	end
 	return 0
+end
+X.ExtraLife = ExtraLife
+
+-- Mana that soaks damage (Medusa's Mana Shield: ~2.5 damage per mana), plus
+-- a second life.
+local function ShieldHP(victim)
+	local extra = ExtraLife(victim)
+	if victim:HasModifier('modifier_medusa_mana_shield') or victim:GetUnitName() == 'npc_dota_hero_medusa' then
+		local ok, mana = pcall(function() return victim:GetMana() end)
+		if ok and mana then return extra + mana * 2.5 end
+	end
+	return extra
 end
 X.ShieldHP = ShieldHP
 

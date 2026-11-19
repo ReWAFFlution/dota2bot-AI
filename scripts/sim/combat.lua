@@ -73,4 +73,18 @@ me._x = nil
 local cGhosts = O.Combat(me)
 print(string.format('3v2 visible: team x%.2f go=%s | +2 seen nearby: team x%.2f go=%s', cVisible.teamRatio, tostring(cVisible.go), cGhosts.teamRatio, tostring(cGhosts.go)))
 assert(cGhosts.teamRatio < cVisible.teamRatio * 0.6)
+-- Wraith King: with Reincarnation ready he has a second life; once used the
+-- same fight is better for us, not worse.
+seenNear = {}
+allies = { me, hero('mk', 2, Vector(100, 100), 1800, 400), hero('sf', 2, Vector(-100, 50), 1500, 400) }
+local wk = hero('skeleton_king', 3, Vector(500, 0), 2000, 300) wk.pid = 5
+local ultReady = true
+function wk:GetLevel() return 15 end
+function wk:GetAbilityByName() return { GetLevel = function() return 1 end, GetCooldownTimeRemaining = function() return ultReady and 0 or 80 end } end
+enemies = { wk }
+local cBefore = O.Combat(me)
+ultReady = false
+local cAfter = O.Combat(me)
+print(string.format('vs WK: team x%.2f with Reincarnation ready, x%.2f after it', cBefore.teamRatio, cAfter.teamRatio))
+assert(cAfter.teamRatio > cBefore.teamRatio * 1.5)
 print('combat ok')
