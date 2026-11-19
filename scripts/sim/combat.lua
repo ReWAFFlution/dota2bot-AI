@@ -39,4 +39,13 @@ enemies = { medusa }
 c = show('1v1 hurt Medusa, full mana') assert(not c.go)
 medusa.mana = 50
 c = show('1v1 hurt Medusa, drained') assert(c.go)
+-- 4v4 with a clear edge: their combos together would kill one bot in a
+-- second, but they don't all hit the same hero; our group burns theirs faster.
+me.hp = 1500
+allies = { me, hero('mk', 2, Vector(100, 100), 1800, 420), hero('sf', 2, Vector(-100, 50), 1500, 450), hero('nyx', 2, Vector(50, -120), 1300, 300) }
+enemies = { hero('medusa', 3, Vector(600, 0), 1500, 260), hero('pango', 3, Vector(650, 150), 1200, 260),
+	hero('ven', 3, Vector(550, -150), 900, 220), hero('wk', 3, Vector(700, 50), 1700, 260) }
+for _, e in ipairs(enemies) do e.mana = 0 end
+c = show('4v4, our group stronger') print(string.format('team ratio x%.2f', c.teamRatio))
+assert(c.teamRatio > 1.2 and not c.retreat and c.go)
 print('combat ok')

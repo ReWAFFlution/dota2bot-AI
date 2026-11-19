@@ -715,14 +715,15 @@ local function ShieldHP(victim)
 end
 X.ShieldHP = ShieldHP
 
-local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns)
+local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns, share)
 	if #dealers == 0 and (extraDps or 0) == 0 then return 99 end
+	share = share or 1
 	local hp = victim:GetHealth() + (extraHP or 0) + ShieldHP(victim)
 	local regen = 0
 	pcall(function() regen = victim:GetHealthRegen() end)
 	for s = 1, 6 do
 		local window = s + math.min(stuns or 0, 2)
-		if Burst(dealers, victim, window, magicCut) + (extraDps or 0) * s >= hp + regen * s then return s end
+		if Burst(dealers, victim, window, magicCut) * share + (extraDps or 0) * s >= hp + regen * s then return s end
 	end
 	return 99
 end
@@ -737,12 +738,36 @@ function X.Combat(bot)
 	for _, a in ipairs(allies) do if a == bot then hasBot = true end end
 	if not hasBot then table.insert(allies, bot) end
 
-	-- Their time to kill us (they focus the bot here: worst case for it).
+	-- Their time to kill us. They don't all hit the same hero when we're
+	-- several: their damage on the bot is split (1/sqrt of our heroes here).
+	-- Assuming everybody focuses this one bot made every bot in a 4v4 think
+	-- it dies in a second, and the whole team backed off with a big lead.
 	local escape = false
 	for _, n in ipairs(ESCAPES) do if ItemReady(bot, n) then escape = true break end end
 	local bkb = ItemReady(bot, 'item_black_king_bar')
 	local tower = BuildingNear(GetOpposingTeam(), myLoc, 750)
-	local ttkThem = TimeToKill(enemies, bot, escape and bot:GetHealth() * 0.4 or 0, tower and 150 or 0, bkb, ReadyStuns(enemies))
+	local share = 1 / math.sqrt(#allies)
+	local ttkThem = TimeToKill(enemies, bot, escape and bot:GetHealth() * 0.4 or 0, tower and 150 or 0, bkb, ReadyStuns(enemies), share)
+
+	-- Team exchange: how fast each group burns the other's total HP (4 s of
+	-- ready damage, each hero on the average enemy). > 1: we win the fight.
+	local function Power(dealers, victims)
+		local sum = 0
+		for _, d in ipairs(dealers) do
+			local per = 0
+			for _, v in ipairs(victims) do per = per + Burst({ d }, v, 4, false) end
+			sum = sum + per / math.max(1, #victims)
+		end
+		return sum
+	end
+	local function TotalHP(units)
+		local sum = 0
+		for _, u in ipairs(units) do sum = sum + u:GetHealth() + ShieldHP(u) end
+		return math.max(1, sum)
+	end
+	local ourRate = Power(allies, enemies) / TotalHP(enemies)
+	local theirRate = Power(enemies, allies) / TotalHP(allies)
+	local teamRatio = ourRate / math.max(0.0001, theirRate)
 
 	-- Our fastest kill among them.
 	local best, bestT = nil, 99
@@ -759,9 +784,15 @@ function X.Combat(bot)
 	end
 	if not best then best = enemies[1] end
 
-	local c = { target = best, ttkUs = bestT, ttkThem = ttkThem }
-	c.go = bestT <= 4 and bestT < ttkThem and J.GetHP(bot) > 0.3
-	c.retreat = (ttkThem < bestT and ttkThem <= 4) or (ttkThem <= 3 and bestT >= 99)
+	local c = { target = best, ttkUs = bestT, ttkThem = ttkThem, teamRatio = teamRatio }
+	local hp = J.GetHP(bot)
+	local teamWins = teamRatio >= 1.2
+	c.go = J.GetHP(bot) > 0.3 and ((bestT <= 4 and bestT < ttkThem) or (teamWins and bestT <= 6))
+	c.retreat = (ttkThem <= 1.5 and hp < 0.4)
+		or (not teamWins and ((ttkThem < bestT and ttkThem <= 4) or (ttkThem <= 3 and bestT >= 99)))
+	-- Pushing the win (team plan "finish"): only a real personal danger.
+	local S = TeamPlanState and TeamPlanState[GetTeam()]
+	if S and S.phase == 'finish' and not (ttkThem <= 1.5 and hp < 0.35) then c.retreat = false end
 	-- Medusa's health is her mana: low on mana near enemies, step back.
 	if bot:GetUnitName() == 'npc_dota_hero_medusa' and J.GetMP(bot) < 0.25 then
 		c.retreat, c.go = true, false
@@ -829,7 +860,9 @@ function X.FightHint(bot)
 	table.insert(bot._hpHist, { t = t, hp = J.GetHP(bot) })
 	while #bot._hpHist > 1 and t - bot._hpHist[1].t > 1.5 do table.remove(bot._hpHist, 1) end
 	local lost = bot._hpHist[1].hp - J.GetHP(bot)
-	if lost > 0.3 and J.GetHP(bot) < 0.55 then
+	local TS = TeamPlanState and TeamPlanState[GetTeam()]
+	local finishing = TS and TS.phase == 'finish' and J.GetHP(bot) > 0.35
+	if lost > 0.3 and J.GetHP(bot) < 0.55 and not finishing then
 		local target = J.GetProperTarget and J.GetProperTarget(bot)
 		local finishing = J.IsValidHero(target) and J.GetHP(target) < 0.2 and GetUnitToUnitDistance(bot, target) < 600
 		if not finishing then
@@ -847,7 +880,7 @@ function X.FightHint(bot)
 	bot._fightHint = 0
 	-- A support alone deep on the enemy side while enemies are unaccounted
 	-- for walks back toward the team instead of feeding.
-	if X.LoneDanger(bot) then
+	if X.LoneDanger(bot) and not finishing then
 		if not bot._loneLogT or t - bot._loneLogT > 15 then
 			bot._loneLogT = t
 			print('[Fight] '..bot:GetUnitName()..' is alone on the enemy side, falling back to the team')
@@ -867,8 +900,8 @@ function X.FightHint(bot)
 	local function Say(what)
 		if not bot._fightLogT or t - bot._fightLogT > 8 then
 			bot._fightLogT = t
-			print(string.format('[Fight] %s %s %s (we kill in %.1f s, they kill us in %.1f s, value %.0f)',
-				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, ev))
+			print(string.format('[Fight] %s %s %s (we kill in %.1f s, they kill us in %.1f s, team x%.2f, value %.0f)',
+				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, c.teamRatio or 0, ev))
 		end
 	end
 	if c.retreat and not laneCalm then
