@@ -869,9 +869,13 @@ local TP_CHANNEL = 3.0
 local DISABLE_RANGE = 800
 function X.SafeToTeleport(bot)
 	local myLoc = bot:GetLocation()
+	-- Next to our tower their damage is less of a worry, but a disable still
+	-- breaks the channel (Hoodwink teleported at her tower, Legion Commander
+	-- with Duel ready right there, and died).
+	local atTower = false
 	for _, info in ipairs(TOWERS) do
 		local tw = GetTower(GetTeam(), info.id)
-		if tw and Dist(tw:GetLocation(), myLoc) < 500 then return true end
+		if tw and Dist(tw:GetLocation(), myLoc) < 500 then atTower = true end
 	end
 	local immune = bot:HasModifier('modifier_black_king_bar_immune') or (bot.IsMagicImmune and bot:IsMagicImmune())
 	local visible = {}
@@ -892,6 +896,7 @@ function X.SafeToTeleport(bot)
 		end
 	end
 	-- They'd kill us before we're gone.
+	if atTower then return true end
 	local near = HeroesNear(GetOpposingTeam(), myLoc, 1600)
 	if #near > 0 and X._Burst and X._Burst(near, bot, TP_CHANNEL, false) >= bot:GetHealth() then return false end
 	return true

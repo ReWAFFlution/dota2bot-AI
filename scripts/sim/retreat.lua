@@ -48,4 +48,12 @@ for i = 1, 8 do
 end
 print('Bristleback at the side, 8 steps: direction flips', flips, 'goal', tostring(bot._retreatGoal and bot._retreatGoal.loc))
 assert(flips == 0 and lastSide == true)
+-- At our own tower with a disabler (Lion) 500 away: still not safe.
+bot.loc = Vector(-1500, -1300)
+enemies = { enemy(Vector(-1100, -1000), 'npc_dota_hero_lion') }
+seen = Vector(-1100, -1000)
+GetSelectedHeroName = function() return 'npc_dota_hero_lion' end
+local atTower = O.SafeToTeleport(bot)
+print('at our tower, Lion 500 away: safe', atTower)
+assert(atTower == false)
 print('retreat ok')
