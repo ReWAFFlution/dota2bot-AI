@@ -20,7 +20,7 @@ local X = {}
 
 local SCAN_GAP = 10
 local LOTUS_PERIOD = 180
-local LOTUS_RANGE_SUPPORT = 6000
+local LOTUS_RANGE_SUPPORT = 3500
 local LOTUS_RANGE_ANY = 1600
 local WATCHER_RANGE = 1300
 local WATCHER_COOLDOWN = 420 + 120
@@ -115,6 +115,7 @@ end
 
 local function LotusDesire(bot, S)
 	if DotaTime() < LOTUS_PERIOD then return nil end
+	if (bot._lotusGiveUpUntil or -math.huge) > DotaTime() then return nil end
 	local support = J.GetPosition(bot) >= 4
 	local best, bestDist
 	for _, pool in ipairs(S.pools) do
@@ -130,10 +131,14 @@ local function LotusDesire(bot, S)
 		end
 	end
 	if not best then return nil end
-	if bot._mapTarget ~= best then Log(bot:GetUnitName()..' goes for a lotus ('..math.floor(bestDist)..' away)') end
+	if bot._mapTarget ~= best then
+		bot._lotusGoT = DotaTime()
+		Log(bot:GetUnitName()..' goes for a lotus ('..math.floor(bestDist)..' away)')
+	end
 	S.poolBy[Key(best)] = bot
 	bot._mapTarget, bot._mapKind = best, 'lotus'
-	return support and 0.62 or 0.5
+	if bot._mapTarget ~= best or not bot._lotusGoT then bot._lotusGoT = DotaTime() end
+	return 0.75
 end
 
 local function WatcherDesire(bot, S)
@@ -156,9 +161,21 @@ end
 function X.RoamDesire(bot)
 	-- Stuck at a pool/watcher (can't reach it, order ignored): give up for a while.
 	-- Standing in a lotus pool is on purpose.
+	local enemiesClose = #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0
 	if bot._lotusStandT then
-		if DotaTime() - bot._lotusStandT < 12 and #J.GetNearbyHeroes(bot, 1000, true, BOT_MODE_NONE) == 0 then return 0.62 end
+		if DotaTime() - bot._lotusStandT < 12 and not enemiesClose then return 0.75 end
 		bot._lotusStandT, bot._mapTarget = nil, nil
+	end
+	-- On the way to a pool: keep going (other modes kept interrupting the
+	-- walk) for up to 25 s, unless enemies show up or HP gets low.
+	if bot._mapKind == 'lotus' and bot._mapTarget and not bot._mapTarget:IsNull() and bot._lotusGoT
+	and DotaTime() - bot._lotusGoT < 25 and not enemiesClose and J.GetHP(bot) > 0.35 then
+		return 0.75
+	end
+	if bot._lotusGoT and DotaTime() - bot._lotusGoT >= 25 and not bot._lotusStandT then
+		-- Couldn't get there in time: leave the pools alone for a minute.
+		bot._lotusGoT, bot._mapTarget = nil, nil
+		bot._lotusGiveUpUntil = DotaTime() + 60
 	end
 	if StuckGuard.Blocked(bot, 'map', BOT_MODE_ROAM, 90) or (Objectives and Objectives.IsIdle(bot)) then
 		bot._mapTarget, bot._mapUseT = nil, nil
@@ -234,7 +251,7 @@ function X.LotusThink(bot, pool, S, key)
 	if done or d > 400 then
 		S.poolTaken[key] = t
 		Log(bot:GetUnitName()..(bot._lotusGot > 0 and (' picked '..bot._lotusGot..' lotus(es)') or ' got no lotus from the pool'))
-		bot._lotusStandT, bot._mapTarget, bot._mapUseT = nil, nil, nil
+		bot._lotusStandT, bot._mapTarget, bot._mapUseT, bot._lotusGoT = nil, nil, nil, nil
 		return false
 	end
 	return true -- stand still: no order
