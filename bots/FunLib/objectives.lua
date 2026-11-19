@@ -380,6 +380,14 @@ function X.CoreLaneLocked(m)
 end
 local function CarryLocked(m, lane, kind, tier)
 	if X.CoreLaneLocked(m) and lane ~= m:GetAssignedLane() then return true end
+	-- Supports stay with their core in the laning phase (Disruptor left
+	-- Lifestealer at 5:00 to defend T1s on the other lanes), unless that core
+	-- is dead.
+	if J.GetPosition(m) >= 4 and DotaTime() < 10 * 60 and lane ~= m:GetAssignedLane() then
+		for _, c in ipairs(Members()) do
+			if c ~= m and J.GetPosition(c) <= 3 and c:GetAssignedLane() == m:GetAssignedLane() and c:IsAlive() then return true end
+		end
+	end
 	-- The carry keeps farming instead of defending T1/T2 before 30:00, unless
 	-- it's right there.
 	if kind == 'defend' and J.GetPosition(m) == 1 and DotaTime() < 30 * 60 and (tier or 1) <= 2 then return true end
@@ -782,6 +790,7 @@ function X.FilterDefendDesire(bot, lane, desire)
 	if tw and tier <= 2 and not X.TowerThreatened(tw) then return math.min(desire, 0.2) end
 	local far = not tw or GetUnitToUnitDistance(bot, tw) > 2500
 	if far and X.CoreLaneLocked(bot) and lane ~= bot:GetAssignedLane() and tier <= 2 then return math.min(desire, 0.1) end
+	if far and J.GetPosition(bot) >= 4 and DotaTime() < 10 * 60 and lane ~= bot:GetAssignedLane() and tier <= 2 then return math.min(desire, 0.1) end
 	if far and J.GetPosition(bot) == 1 and DotaTime() < 30 * 60 and tier <= 2 then return math.min(desire, 0.2) end
 	return desire
 end

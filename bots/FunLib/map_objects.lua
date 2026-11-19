@@ -186,14 +186,24 @@ local function WatcherDesire(bot, S)
 	return nil
 end
 
+-- Standing in a pool ends after STAND_MAX s whatever else happens. Called
+-- first thing in mode_roam's GetDesire (OD stood in the pool for over a
+-- minute: another roam desire came first, so the time limit below never ran).
+local STAND_MAX = 12
+function X.Expire(bot)
+	if bot._lotusStandT and (DotaTime() - bot._lotusStandT >= STAND_MAX or J.GetHP(bot) <= 0.25) then
+		Log(bot:GetUnitName()..' leaves the lotus pool ('..math.floor(DotaTime() - bot._lotusStandT)..' s there)')
+		bot._lotusStandT, bot._mapTarget, bot._mapUseT, bot._lotusGoT = nil, nil, nil, nil
+		bot._lotusGiveUpUntil = DotaTime() + 30
+		if bot:IsUsingAbility() and not bot:IsChanneling() then bot:Action_ClearActions(true) end
+	end
+end
+
 -- Desire for mode_roam_generic, or nil.
 function X.RoamDesire(bot)
-	-- Stuck at a pool/watcher (can't reach it, order ignored): give up for a while.
+	X.Expire(bot)
 	-- Standing in a lotus pool is on purpose.
-	if bot._lotusStandT then
-		if DotaTime() - bot._lotusStandT < 12 and J.GetHP(bot) > 0.25 then return 0.75 end
-		bot._lotusStandT, bot._mapTarget = nil, nil
-	end
+	if bot._lotusStandT then return 0.75 end
 	-- On the way to a pool: keep going (other modes kept interrupting the
 	-- walk) for up to 25 s, unless enemies show up or HP gets low.
 	-- Keep going unless nearly dead, or (support) its core got in trouble.

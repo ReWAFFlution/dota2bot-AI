@@ -49,4 +49,12 @@ SIM_T = SIM_T + 200 carry.hit = true bot._lotusGiveUpUntil = nil
 local d2 = M.RoamDesire(bot)
 print('carry under attack -> lotus desire', d2)
 assert(d2 == nil)
+-- Stuck standing in the pool while another roam desire comes first: the
+-- time limit still ends it.
+bot._lotusStandT = DotaTime() - 13 bot._mapTarget = {}
+bot.IsUsingAbility = bot.IsUsingAbility or function() return false end
+bot.IsChanneling = bot.IsChanneling or function() return false end
+M.Expire(bot)
+print('13 s in the pool: still standing', tostring(bot._lotusStandT ~= nil))
+assert(bot._lotusStandT == nil and bot._mapTarget == nil)
 print('lotus ok')

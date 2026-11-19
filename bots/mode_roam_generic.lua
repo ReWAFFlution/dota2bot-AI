@@ -104,6 +104,7 @@ function GetDesireHelper()
 		return Clamp(bot:GetActiveModeDesire() + 0.2, 0, 1.1)
 	end
 
+	SafeCall('MapObjects.Expire', MapObjects.Expire, bot)
 	-- Team plan: smoke hunts, regroup after the enemies respawn, pick-offs in defense.
 	bot._roamBy = nil
 	local nTeamDesire = SafeCall('TeamPlan.RoamDesire', TeamPlan.RoamDesire, bot)
