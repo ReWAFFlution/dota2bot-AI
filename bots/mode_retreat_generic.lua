@@ -784,4 +784,17 @@ function X.ConsiderCompleteItem()
     return 0
 end
 
+
+-- Retreat movement (the default one walked straight to the fountain past the
+-- enemies): towards a safe tower or the fountain, bending away from enemies.
+function Think()
+	if J.CanNotUseAction(bot) then return end
+	local ok, loc = pcall(Objectives.RetreatStep, bot)
+	if ok and loc then
+		bot:Action_MoveToLocation(loc)
+	else
+		bot:Action_MoveToLocation(J.GetTeamFountain())
+	end
+end
+
 return X

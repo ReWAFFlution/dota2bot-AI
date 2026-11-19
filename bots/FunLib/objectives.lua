@@ -536,6 +536,66 @@ end
 -- The combat evaluation says leave: a push (or tower hit) waits. Medusa hit a
 -- tower inside MK's arena with his team around because the push desire beat
 -- the retreat hint.
+--------------------------------------------------------------------------------
+-- Retreat: where to step
+--------------------------------------------------------------------------------
+-- The default retreat walked straight to the fountain past the enemies. The
+-- bot heads for its closest tower that's further from the enemies than it is
+-- (else the fountain), bending away from enemies within 1300.
+function X.RetreatStep(bot)
+	local myLoc = bot:GetLocation()
+	local fountain = J.GetTeamFountain()
+	local enemies = HeroesNear(GetOpposingTeam(), myLoc, 1300)
+	local goal, bestD = fountain, math.huge
+	for _, info in ipairs(TOWERS) do
+		local tw = GetTower(GetTeam(), info.id)
+		if tw then
+			local tl = tw:GetLocation()
+			local d = Dist(tl, myLoc)
+			local safer = Dist(tl, fountain) < Dist(myLoc, fountain) + 300
+			for _, e in ipairs(enemies) do
+				if Dist(e:GetLocation(), tl) < d then safer = false end -- they're between us and it
+			end
+			if safer and d < bestD and d > 300 then goal, bestD = tl, d end
+		end
+	end
+	local dir = goal - myLoc
+	if dir:Length2D() < 1 then return goal end
+	dir = dir / dir:Length2D()
+	local away = Vector(0, 0, 0)
+	for _, e in ipairs(enemies) do
+		local v = myLoc - e:GetLocation()
+		local d = v:Length2D()
+		if d > 1 then away = away + v / d * ((1300 - d) / 1300) end
+	end
+	local step = dir + away * 0.8
+	if step:Length2D() < 0.1 then step = dir end
+	step = step / step:Length2D()
+	local loc = myLoc + step * 500
+	if not IsLocationPassable(loc) then loc = myLoc + dir * 500 end
+	return loc
+end
+
+-- Is a teleport home safe now? The channel takes seconds: an enemy seen in
+-- the last 2 s within 1800 (2200 if we were just hit) gets there first. Next
+-- to our own tower it's fine.
+function X.SafeToTeleport(bot)
+	local myLoc = bot:GetLocation()
+	for _, info in ipairs(TOWERS) do
+		local tw = GetTower(GetTeam(), info.id)
+		if tw and Dist(tw:GetLocation(), myLoc) < 500 then return true end
+	end
+	local radius = bot:WasRecentlyDamagedByAnyHero(3.0) and 2200 or 1800
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+		if IsHeroAlive(pid) then
+			local info = GetHeroLastSeenInfo(pid)
+			local d = info and info[1]
+			if d and d.time_since_seen < 2 and Dist(d.location, myLoc) < radius then return false end
+		end
+	end
+	return true
+end
+
 -- The same when it says fight: heroes first, buildings after (SF hit a T4
 -- he couldn't take while enemies he could kill stood around him).
 function X.CapPushWhenLosing(bot, desire)

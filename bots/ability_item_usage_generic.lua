@@ -2,6 +2,7 @@ local X = {}
 local bot = GetBot()
 local SupportSkills = require(GetScriptDirectory()..'/FunLib/support_skills')
 local SafeCall = require(GetScriptDirectory()..'/FunLib/safe_call')
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
 local botName = bot:GetUnitName()
 if bot == nil or bot:IsInvulnerable() or not bot:IsHero() or not string.find(botName, "hero") or bot:IsIllusion() then return end
 if not bot.frameProcessTime then bot.frameProcessTime = 0.1 end
@@ -5862,6 +5863,16 @@ do
 	X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 		local nDesire, hTarget, sType, sMotive = ConsiderTpBase( hItem )
 		local nPos = J.GetPosition(bot)
+		-- Home teleport with enemies close enough to interrupt it: walk away
+		-- instead (SF teleported 3 s after being hit, enemies close, and died).
+		if nDesire and nDesire > 0 then
+			local vLoc = hTarget
+			if type(hTarget) == 'table' and hTarget.GetLocation then vLoc = hTarget:GetLocation() end
+			if vLoc and vLoc.x and J.GetDistance(vLoc, J.GetTeamFountain()) < 2500
+			and not Objectives.SafeToTeleport(bot) then
+				return BOT_ACTION_DESIRE_NONE
+			end
+		end
 		local bCoreEarly = (nPos == 1 and DotaTime() < 14 * 60) or ((nPos == 2 or nPos == 3) and DotaTime() < 10 * 60)
 		if nDesire and nDesire > 0 and bCoreEarly then
 			local vLoc = hTarget
