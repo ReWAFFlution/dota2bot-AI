@@ -154,4 +154,11 @@ allies, enemies = {}, { tb3 }
 local f = O.FightAt(Vector(-2800, 0), clock)
 print(string.format('Clockwerk joining vs a twice-stronger Terrorblade: fight x%.2f', f))
 assert(f < 0.8)
+-- The same Terrorblade against a group of three that comes together.
+local g1 = hero('rattletrap', 2, Vector(-5000, 0), 1300, 150)
+local g2 = hero('witch_doctor', 2, Vector(-5000, 300), 1100, 220)
+local g3 = hero('dragon_knight', 2, Vector(-5000, -300), 1900, 200)
+local fGroup = O.FightAt(Vector(-2800, 0), { g1, g2, g3 })
+print(string.format('vs the same Terrorblade: Clockwerk alone x%.2f, with WD and DK x%.2f', O.FightAt(Vector(-2800, 0), g1), fGroup))
+assert(fGroup >= 1.0)
 print('combat ok')

@@ -399,16 +399,35 @@ local function Candidates(S, loc, exclude, lane, kind, tier)
 end
 
 -- Adds helpers while each one is worth it. Returns the helpers.
+-- Against enemy heroes at the objective: send a group that wins there. The
+-- fastest helpers (teleport counted) are added one by one, up to 3; as soon
+-- as the group wins the fight at the spot (x1.0+, with who is already there)
+-- they all go. If even 3 don't, nobody goes (no feeding one by one).
+local function PickGroup(S, obj, taken)
+	local group, chosen = {}, {}
+	for _, c in ipairs(Candidates(S, obj.loc, taken, obj.lane, obj.kind, obj.tier)) do
+		if #group >= 3 then break end
+		if not (obj.ttd and c.travel > obj.ttd + 5) then -- in time to matter
+			table.insert(group, c.m)
+			table.insert(chosen, { m = c.m, gain = obj.value, cost = X.Rate(c.m) * c.travel / 60 + 2 })
+			local ratio = X.FightAt(obj.loc, group)
+			if ratio >= 1.0 then
+				ObjLog(string.format('%d heroes win at %s lane %d (x%.2f): sending them', #group, obj.name, obj.lane, ratio))
+				return chosen
+			end
+		end
+	end
+	return {}
+end
+
 local function PickHelpers(S, obj, taken, maxHelpers)
+	if not obj.ancient and obj.enemies > 0 then return PickGroup(S, obj, taken) end
 	local helpers = {}
 	local a, e = obj.allies, obj.enemies
 	for _, c in ipairs(Candidates(S, obj.loc, taken, obj.lane, obj.kind, obj.tier)) do
 		if #helpers >= maxHelpers then break end
 		if obj.ttd and c.travel > obj.ttd + 5 then break end -- too late to save it
 		local near = GetUnitToLocationDistance(c.m, obj.loc) < 1200 or obj.ancient
-		-- Not into a fight lost by strength, whatever the head count (Clockwerk
-		-- teleported to defend a T1 against a far stronger Terrorblade).
-		if not obj.ancient and obj.enemies > 0 and X.FightAt(obj.loc, c.m) < 0.8 then break end
 		local gain = obj.value * (WinChance(a + 1, e) - WinChance(a, e)) + obj.value * WinChance(a + 1, e) * 0.15
 		local cost = X.Rate(c.m) * c.travel / 60 + 2
 		if near or gain > cost then
@@ -943,10 +962,12 @@ end
 -- we win). 99 with no enemy there.
 function X.FightAt(loc, extra)
 	local allies = HeroesNear(GetTeam(), loc, 1500)
-	if extra then
+	-- extra: one hero or a list of heroes joining.
+	local extras = (type(extra) == 'table' and extra[1] ~= nil) and extra or (extra and { extra } or {})
+	for _, x in ipairs(extras) do
 		local has = false
-		for _, a in ipairs(allies) do if a == extra then has = true end end
-		if not has then table.insert(allies, extra) end
+		for _, a in ipairs(allies) do if a == x then has = true end end
+		if not has then table.insert(allies, x) end
 	end
 	local enemies = HeroesNear(GetOpposingTeam(), loc, 1500)
 	if #enemies == 0 then return 99 end
