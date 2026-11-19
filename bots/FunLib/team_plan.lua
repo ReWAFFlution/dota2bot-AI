@@ -193,17 +193,26 @@ local function SetPhase(S, phase, why)
 	end
 end
 
+-- Not a hunt into their base: a target within 4500 of their ancient is
+-- off (Bristleback was taken onto Dire's high ground hunting their carry).
+local function InTheirBase(h)
+	local anc = GetAncient(GetOpposingTeam())
+	return anc ~= nil and GetUnitToUnitDistance(h, anc) < 4500
+end
+local function Huntable(h) return h ~= nil and not InTheirBase(h) end
+
 local function PickHuntTarget(group)
 	-- The enemy carry first; the mid when the group has the damage for it.
 	local carry = EnemyAtPosition(1)
+	if carry and not Huntable(carry) then carry = nil end
 	if carry and GroupMargin(group, carry) >= 0.8 then return carry end
 	local mid = EnemyAtPosition(2)
-	if mid and GroupMargin(group, mid) >= 1.0 then return mid end
+	if mid and Huntable(mid) and GroupMargin(group, mid) >= 1.0 then return mid end
 	if carry then return carry end
 	-- Anyone visible that the group can kill.
 	local best, bestM = nil, 1.0
 	for _, h in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
-		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) then
+		if J.IsValidHero(h) and not h:IsIllusion() and not J.IsSuspiciousIllusion(h) and Huntable(h) then
 			local m = GroupMargin(group, h)
 			if m > bestM then best, bestM = h, m end
 		end
@@ -344,7 +353,8 @@ function X.Update()
 
 	SetPhase(S, 'hunt', 'all enemy T1 down')
 	local h = S.hunt
-	if h == nil or t > h.untilT or h.target == nil or h.target:IsNull() or not h.target:IsAlive() or t - h.lastSeen > 8 then
+	if h == nil or t > h.untilT or h.target == nil or h.target:IsNull() or not h.target:IsAlive() or t - h.lastSeen > 8
+	or (h.target:CanBeSeen() and InTheirBase(h.target)) then
 		local target = PickHuntTarget(group)
 		if target then
 			S.hunt = { target = target, startT = t, untilT = t + HUNT_TIMEOUT, lastSeen = t,
@@ -520,8 +530,11 @@ end
 
 function X.RoamDesire(bot)
 	if not bot:IsBot() then return nil end
-	-- Hurt and being hit: the plan waits, the retreat goes first.
+	-- Hurt and being hit, or its own fight check said leave in the last 3 s:
+	-- the plan waits, the retreat goes first.
 	if J.GetHP(bot) < 0.5 and bot:WasRecentlyDamagedByAnyHero(2.0) then return nil end
+	local d = bot._decision
+	if d and d.kind == 'retreat' and d.untilT > DotaTime() - 3 then return nil end
 	local S = X.Update()
 	local p = S.phase
 

@@ -104,6 +104,18 @@ function GetDesireHelper()
 
 	-- Supports don't farm (jungle camps or lanes): pushing, wards and fights
 	-- are their jobs (FunLib/team_plan.lua).
+	-- Not while being chased: hit by a hero in the last 4 s, or low with
+	-- enemies around lately (Bristleback stopped in a camp, low, chased).
+	if bot:WasRecentlyDamagedByAnyHero(4.0) then return BOT_MODE_DESIRE_NONE end
+	if J.GetHP(bot) < 0.4 then
+		for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+			if IsHeroAlive(pid) then
+				local info = GetHeroLastSeenInfo(pid)
+				local d = info and info[1]
+				if d and d.time_since_seen < 5 and GetUnitToLocationDistance(bot, d.location) < 2000 then return BOT_MODE_DESIRE_NONE end
+			end
+		end
+	end
 	-- Supports never farm camps: they push lanes, ward and fight (late game
 	-- too; they went to the jungle after 30:00 instead of pushing).
 	if J.GetPosition(bot) >= 4 then
