@@ -127,7 +127,29 @@ function GetDesire()
     -- Fight value (FunLib/objectives.lua): leave fights that cost more than they bring.
     local ok, hint = pcall(Objectives.FightHint, bot)
     if ok and hint and hint > res then res = hint end
+    -- Laning: a last hit or deny ready right now (in range, dies to one hit)
+    -- goes first unless it's real danger (WK stepped back from one hit of
+    -- Grimstroke and Grimstroke denied the creep).
+    if res > 0.3 and J.IsInLaningPhase() and J.GetHP(bot) > 0.35 and not bot:IsChanneling() then
+        local c = bot._combat
+        local danger = c and c.ttkThem and c.ttkThem <= 2
+        if not danger and LastHitReady() then return 0.3 end
+    end
     return res
+end
+
+function LastHitReady()
+    local dmg = bot:GetAttackDamage()
+    local reach = bot:GetAttackRange() + 100
+    for _, enemy in ipairs({ true, false }) do
+        for _, cr in pairs(bot:GetNearbyLaneCreeps(reach, enemy)) do
+            if J.IsValid(cr) and J.CanBeAttacked(cr) and (enemy or J.GetHP(cr) < 0.5) then
+                local delay = J.GetAttackProDelayTime(bot, cr)
+                if J.WillKillTarget(cr, dmg, DAMAGE_TYPE_PHYSICAL, delay) then return true end
+            end
+        end
+    end
+    return false
 end
 
 function GetDesireHelper()
