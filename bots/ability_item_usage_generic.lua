@@ -3665,7 +3665,8 @@ end
 
 --银月
 X.ConsiderItemDesire["item_moon_shard"] = function( hItem )
-	if bot:GetNetWorth() < 18000 or Utils.CountBackpackEmptySpace(bot) >= 3
+	-- Eat it right away (it used to wait for a full backpack, so it sat unused).
+	if bot:GetNetWorth() < 15000
 	then
 		return BOT_ACTION_DESIRE_NONE
 	end
@@ -5036,6 +5037,21 @@ end
 --TP
 if bot.useProphetTP == nil then bot.useProphetTP = false end
 if bot.ProphetTPLocation == nil then bot.ProphetTPLocation = bot:GetLocation() end
+-- Laning: heroes stay in lane and heal with regen, lotuses and the courier
+-- instead of teleporting home (unless close to dying).
+function X.StayInLaneToHeal()
+	if DotaTime() > 12 * 60 or not J.IsInLaningPhase() then return false end
+	if J.GetHP(bot) < 0.15 then return false end
+	if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return false end
+	for _, name in ipairs({ 'item_flask', 'item_tango', 'item_famango', 'item_great_famango', 'item_greater_famango',
+		'item_bottle', 'item_faerie_fire', 'item_magic_wand', 'item_clarity' }) do
+		local slot = bot:FindItemSlot(name)
+		if slot >= 0 and slot <= 8 then return true end
+	end
+	-- Can buy a salve: the courier brings it.
+	return bot:GetGold() >= GetItemCost('item_flask') and GetItemStockCount('item_flask') >= 1
+end
+
 X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 
 	if nMode == BOT_MODE_RUNE
@@ -5336,6 +5352,7 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 			and not bot:HasModifier( "modifier_item_urn_heal" )
 			and not bot:HasModifier( "modifier_item_spirit_vessel_heal" )
 			and bot:DistanceFromFountain() > nMinTPDistance
+			and not X.StayInLaneToHeal()
 		then
 			tpLoc = J.GetTeamFountain()
 			sCastMotive = '撤退:1'
@@ -5411,6 +5428,7 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 			and not bot:HasModifier( "modifier_bottle_regeneration" )
 			and not bot:HasModifier( "modifier_tango_heal" )
 			and bot:DistanceFromFountain() > nMinTPDistance - 600
+			and not X.StayInLaneToHeal()
 		then
 			tpLoc = J.GetTeamFountain()
 			sCastMotive = '撤退:3'
@@ -5711,6 +5729,7 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 		and not bot:HasModifier( "modifier_arc_warden_tempest_double" )
 	then
 		if	X.CanJuke()
+			and not X.StayInLaneToHeal()
 			and bot:DistanceFromFountain() > nMinTPDistance + 200
 			and nEnemyCount <= 1 and nAllyCount <= 1
 			and J.GetProperTarget( bot ) == nil
@@ -5832,6 +5851,31 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 
 	return BOT_ACTION_DESIRE_NONE
 
+end
+
+-- The carry stays on its lane in the early game: no teleports to help on
+-- another lane (home to heal and back to its own lane are fine).
+do
+	local ConsiderTpBase = X.ConsiderItemDesire["item_tpscroll"]
+	X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
+		local nDesire, hTarget, sType, sMotive = ConsiderTpBase( hItem )
+		if nDesire and nDesire > 0 and J.GetPosition(bot) == 1 and DotaTime() < 14 * 60 then
+			local vLoc = hTarget
+			if type(hTarget) == 'table' and hTarget.GetLocation then vLoc = hTarget:GetLocation() end
+			if vLoc and vLoc.x then
+				local lane = bot:GetAssignedLane()
+				local tTier1 = { [LANE_TOP] = TOWER_TOP_1, [LANE_MID] = TOWER_MID_1, [LANE_BOT] = TOWER_BOT_1 }
+				local hTower = tTier1[lane] and GetTower(GetTeam(), tTier1[lane])
+				local bHome = J.GetDistance(vLoc, J.GetTeamFountain()) < 2500
+				local bOwnLane = J.GetDistance(vLoc, GetLaneFrontLocation(GetTeam(), lane, 0)) < 3000
+					or (hTower ~= nil and J.GetDistance(vLoc, hTower:GetLocation()) < 3000)
+				if not bHome and not bOwnLane then
+					return BOT_ACTION_DESIRE_NONE
+				end
+			end
+		end
+		return nDesire, hTarget, sType, sMotive
+	end
 end
 
 
@@ -6946,9 +6990,11 @@ X.ConsiderItemDesire['item_smoke_of_deceit'] = function(item)
 	local nInRangeEnemy = J.GetNearbyHeroes(bot,nRadius, true, BOT_MODE_NONE)
 	local nInRangeTower = bot:GetNearbyTowers(nRadius, true)
 
-	if DotaTime() < 0 and DotaTime() > -60
-	then
-		return BOT_ACTION_DESIRE_HIGH, hEffectTarget, sCastType, sCastMotive
+	-- Before the horn the smoke belongs to the bounty gank plan
+	-- (FunLib/early_game.lua pops it once the group has gathered). Popping it
+	-- wherever the carrier stands wasted it at our own bounty.
+	if DotaTime() < 30 then
+		return BOT_ACTION_DESIRE_NONE
 	end
 
 	if (nInRangeEnemy ~= nil and #nInRangeEnemy == 0)

@@ -70,6 +70,7 @@ function GetDesireHelper()
 		DidWeGetOutpost = true
 	end
 
+	if (bot.outpostBanUntil or -1) > DotaTime() then return BOT_ACTION_DESIRE_NONE end
 	ClosestOutpost, ClosestOutpostDist = GetClosestOutpost()
 	if ClosestOutpost ~= nil and ClosestOutpostDist < 3000
 	and not IsEnemyCloserToOutpostLoc(ClosestOutpost:GetLocation(), ClosestOutpostDist)
@@ -108,9 +109,22 @@ function Think()
 	then
 		if GetUnitToUnitDistance(bot, ClosestOutpost) > 300
 		then
+			bot.outpostNearSince = nil
 			bot:Action_MoveToLocation(ClosestOutpost:GetLocation())
 			return
 		else
+			-- Capturing is a channel: re-issuing the order every frame cancels it.
+			if bot:IsChanneling() or bot:IsUsingAbility() then return end
+			bot.outpostNearSince = bot.outpostNearSince or DotaTime()
+			if DotaTime() - bot.outpostNearSince > 8 then
+				-- Standing there without capturing: give up on it for a while.
+				print('[Outpost] '..botName..' could not capture '..ClosestOutpost:GetUnitName()..', skipping it')
+				bot.outpostBanUntil = DotaTime() + 180
+				bot.outpostNearSince = nil
+				ClosestOutpost = nil
+				return
+			end
+			hAbilityCapture = bot:GetAbilityByName('ability_capture')
 			if hAbilityCapture then
 				bot:Action_UseAbilityOnEntity(hAbilityCapture, ClosestOutpost)
 			else

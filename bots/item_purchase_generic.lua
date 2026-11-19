@@ -106,6 +106,21 @@ local function _countOwnedEverywhere(unit, itemName)
 	return count
 end
 
+-- How many of each basic item the whole recipe of `itemName` takes, counting
+-- duplicates (Magic Wand: 2 branches). The to-buy list skips what the hero
+-- already owns, so it can't be used for this: with one starting branch it
+-- holds one branch, and the owned branch then "satisfied" it.
+local function _fullBasicCounts(itemName, acc)
+	acc = acc or {}
+	local comps = Item[itemName]
+	if type(comps) == 'table' and #comps > 0 then
+		for _, c in ipairs(comps) do _fullBasicCounts(c, acc) end
+	else
+		acc[itemName] = (acc[itemName] or 0) + 1
+	end
+	return acc
+end
+
 local function _buildRequiredCounts(list)
 	local m = {}
 	for _, n in ipairs(list) do
@@ -787,8 +802,7 @@ function ItemPurchaseThink()
 	-- Init Healing Items in Lane; works for now
 	if J.IsInLaningPhase()
 	then
-		if botLevel < 6
-		and bot:IsAlive()
+		if bot:IsAlive()
 		and botCourierValue == 0
 		and bot:FindItemSlot('item_flask') < 0
 		and bot:FindItemSlot('item_tango') < 0
@@ -802,9 +816,20 @@ function ItemPurchaseThink()
 		and not bot:HasModifier('modifier_warlock_shadow_word')
 		and not IsThereHealingInStash(bot)
 		and Item.GetEmptyInventoryAmount(bot) >= 1
-		and J.GetHP(bot) < 0.5
+		and J.GetHP(bot) < 0.55
 		then
 			local partner = J.GetLanePartner(bot)
+			-- Simple rule first: a salve (or tangos if none in stock) keeps the
+			-- hero in lane instead of walking/teleporting home.
+			if Item.GetItemCharges(bot, 'item_flask') <= 0 and botGold >= GetItemCost('item_flask') and GetItemStockCount('item_flask') >= 1 then
+				bot:ActionImmediate_PurchaseItem('item_flask')
+				print('[Items] '..botName..' buys a salve to stay in lane')
+				partner = nil
+				return
+			elseif Item.GetItemCharges(bot, 'item_tango') <= 0 and botGold >= GetItemCost('item_tango') then
+				bot:ActionImmediate_PurchaseItem('item_tango')
+				return
+			end
 
 			if bot:GetHealthRegen() <= 10
 			then
@@ -874,31 +899,42 @@ function ItemPurchaseThink()
 	end
 
 	-- Observer and Sentry Wards
-	if J.GetPosition(bot) == 4 and DotaTime() > 300 and botWorth < 25000
+	-- Supports keep the map lit: both buy observers, sentries after 5 min.
+	if J.GetPosition(bot) >= 4 and botWorth < 30000 and currentTime > buyWardTime + 2
+	and botCourierValue == 0
 	then
-		local wardType = 'item_ward_sentry'
-
-		if GetItemStockCount(wardType) > 1
-		and botGold >= GetItemCost(wardType)
-		and Item.GetEmptyInventoryAmount(bot) >= 2
-		and Item.GetItemCharges(bot, wardType) < 1
-		and botCourierValue == 0
-		then
-			bot:ActionImmediate_PurchaseItem(wardType)
+		local function WardCharges(name)
+			local n = Item.GetItemCharges(bot, name)
+			local disp = bot:FindItemSlot('item_ward_dispenser')
+			if disp >= 0 then
+				local d = bot:GetItemInSlot(disp)
+				local ok, c = pcall(function()
+					if name == 'item_ward_observer' then return d:GetCurrentCharges() end
+					return d:GetSecondaryCharges()
+				end)
+				if ok and c then n = n + c end
+			end
+			return n
 		end
-	end
-
-	if J.GetPosition(bot) == 5 and botWorth < 25000
-	then
-		local wardType = 'item_ward_observer'
-
-		if GetItemStockCount(wardType) > 1
-		and botGold >= GetItemCost(wardType)
-		and Item.GetEmptyInventoryAmount(bot) >= 2
-		and Item.GetItemCharges(bot, wardType) < 2
-		and botCourierValue == 0
+		local function CanHold(name)
+			return Item.GetEmptyInventoryAmount(bot) >= 1 or bot:FindItemSlot(name) >= 0 or bot:FindItemSlot('item_ward_dispenser') >= 0
+		end
+		local nObsWanted = J.GetPosition(bot) == 5 and 3 or 2
+		local nSentryWanted = currentTime > 300 and (J.GetPosition(bot) == 4 and 2 or 1) or 0
+		if GetItemStockCount('item_ward_observer') >= 1
+		and botGold >= GetItemCost('item_ward_observer')
+		and WardCharges('item_ward_observer') < nObsWanted
+		and CanHold('item_ward_observer')
 		then
-			bot:ActionImmediate_PurchaseItem(wardType)
+			bot:ActionImmediate_PurchaseItem('item_ward_observer')
+			buyWardTime = currentTime
+		elseif GetItemStockCount('item_ward_sentry') >= 1
+		and botGold >= GetItemCost('item_ward_sentry') + 100
+		and WardCharges('item_ward_sentry') < nSentryWanted
+		and CanHold('item_ward_sentry')
+		then
+			bot:ActionImmediate_PurchaseItem('item_ward_sentry')
+			buyWardTime = currentTime
 		end
 	end
 
@@ -1036,7 +1072,7 @@ function ItemPurchaseThink()
 	-- Move wards to backpack when not actively warding to free up a main slot.
 	-- Move them back to main inventory when entering ward mode.
 	if J.GetPosition(bot) >= 4 and currentTime > (bot._lastWardSwapTime or 0) + 3 then
-		local bIsWarding = botMode == BOT_MODE_WARD
+		local bIsWarding = botMode == BOT_MODE_WARD or (bot._wardWantedUntil or -99) > currentTime
 		local tWardNames = { 'item_ward_observer', 'item_ward_sentry', 'item_ward_dispenser' }
 
 		for _, wardName in ipairs(tWardNames) do
@@ -1054,8 +1090,9 @@ function ItemPurchaseThink()
 							end
 						end
 					end
-				else
-					-- Move ward from main inventory (0-5) to backpack if backpack has space
+				elseif false then
+					-- Disabled: hiding wards in the backpack put them on a 6 s
+					-- cooldown every time the ward mode wanted to plant them.
 					if wardSlot >= 0 and wardSlot <= 5 then
 						for bpSlot = 6, 8 do
 							local bpItem = bot:GetItemInSlot(bpSlot)
@@ -1120,6 +1157,39 @@ function ItemPurchaseThink()
 		bot.fullInvCheck = currentTime
 	end
 
+	-- Late game with a full inventory: sell the cheapest filler item so the
+	-- next big item (or Moon Shard / Blessing) has room. Meta builds have no
+	-- sell list, so without this the inventory stayed full of wands/bracers.
+	if botWorth > 14000 and currentTime > (bot._fillerSellT or -99) + 2
+	and (botDistanceFromFountain <= 400 or bot:DistanceFromSecretShop() <= 200)
+	and Item.GetEmptyInventoryAmount(bot) == 0
+	and (botGold >= 2000 or (bot.currBuyingItemInPurchaseList ~= nil and GetItemCost(bot.currBuyingItemInPurchaseList) >= 2000))
+	then
+		bot._fillerSellT = currentTime
+		local tKeep = { item_tpscroll = true, item_ward_observer = true, item_ward_sentry = true, item_ward_dispenser = true,
+			item_dust = true, item_smoke_of_deceit = true, item_gem = true, item_rapier = true, item_aegis = true,
+			item_cheese = true, item_refresher_shard = true, item_moon_shard = true, item_aghanims_shard = true,
+			item_famango = true, item_great_famango = true, item_greater_famango = true }
+		local sellSlot, sellCost = nil, 2200
+		for slot = 0, 8 do
+			local it = bot:GetItemInSlot(slot)
+			if it ~= nil then
+				local name = it:GetName()
+				local cost = GetItemCost(name)
+				local isBoots = string.find(name, 'boots') or string.find(name, 'treads') or string.find(name, 'greaves')
+				local needed = bot.currBuyingRequiredCounts and bot.currBuyingRequiredCounts[name]
+				if not tKeep[name] and not isBoots and not needed and not string.find(name, 'token')
+				and cost < sellCost then
+					sellSlot, sellCost = slot, cost
+				end
+			end
+		end
+		if sellSlot ~= nil then
+			print('[Items] '..botName..' sells '..bot:GetItemInSlot(sellSlot):GetName()..' to make room')
+			bot:ActionImmediate_SellItem(bot:GetItemInSlot(sellSlot))
+		end
+	end
+
 	--出售过渡装备
 	local countEmptyBackpack = Utils.CountBackpackEmptySpace(bot)
 	if currentTime > bot.sell_time + 0.5
@@ -1178,6 +1248,7 @@ function ItemPurchaseThink()
 	and bot.currBuyingItemInPurchaseList == nil and #bot.currBuyingBasicItemList == 0
 	then
 		ItemStrategy.Think(bot, J.GetPosition(bot), bot.purchaseListInReverseOrder)
+		if ItemStrategy.LateGame then ItemStrategy.LateGame(bot, J.GetPosition(bot), bot.purchaseListInReverseOrder) end
 	end
 
 	if #bot.purchaseListInReverseOrder == 0 then
@@ -1217,7 +1288,52 @@ function ItemPurchaseThink()
 			return
 		end
 
+		-- One pair of upgraded boots is enough (Axe built two Phase Boots).
+		local tBootUpgrades = { item_phase_boots = true, item_power_treads = true, item_arcane_boots = true, item_tranquil_boots = true }
+		while #bot.purchaseListInReverseOrder > 0 and tBootUpgrades[bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder]] do
+			local bHasUpgrade = false
+			for slot = 0, 16 do
+				local it = bot:GetItemInSlot(slot)
+				if it ~= nil and (tBootUpgrades[it:GetName()] or it:GetName() == 'item_guardian_greaves'
+					or it:GetName() == 'item_travel_boots' or it:GetName() == 'item_travel_boots_2' or it:GetName() == 'item_boots_of_bearing') then
+					bHasUpgrade = true
+				end
+			end
+			if not bHasUpgrade then break end
+			print('[Items] '..botName..' already has boots, skipping '..bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder])
+			bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder] = nil
+		end
+		if #bot.purchaseListInReverseOrder == 0 then
+			_resetCurrentTarget()
+			bot:SetNextItemPurchaseValue(0)
+			return
+		end
+
+		-- A big item the hero already owns (or finished earlier) isn't bought
+		-- again (WK bought two Phase Boots in a row).
+		while #bot.purchaseListInReverseOrder > 0 do
+			local nextItem = bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder]
+			local owned = bot:FindItemSlot(nextItem) >= 0 or (bot.completedItems and bot.completedItems[nextItem])
+			if GetItemCost(nextItem) >= 1000 and owned and nextItem ~= 'item_aghanims_shard' then
+				print('[Items] '..botName..' already has '..nextItem..', skipping it')
+				bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder] = nil
+			else
+				break
+			end
+		end
+		if #bot.purchaseListInReverseOrder == 0 then
+			_resetCurrentTarget()
+			bot:SetNextItemPurchaseValue(0)
+			return
+		end
+
+		bot.rebuildCount = 0
+		bot.countInvCheck = 0
 		bot.currBuyingItemInPurchaseList = bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder]
+		-- Item.GetBasicItems keeps "the last skipped owned item" on the bot to
+		-- handle doubled components; left over from an earlier item it made an
+		-- owned Sange get bought again for Kaya and Sange.
+		bot.sLastRepeatItem = nil
 		local basicItemTable = Item.GetBasicItems( { bot.currBuyingItemInPurchaseList } )
 		-- original behavior: reverse-half interleave to spread purchases
 		for i = 1, math.ceil( #basicItemTable / 2 )
@@ -1225,9 +1341,21 @@ function ItemPurchaseThink()
 			bot.currBuyingBasicItemList[i] = basicItemTable[#basicItemTable-i+1]
 			bot.currBuyingBasicItemList[#basicItemTable-i+1] = basicItemTable[i]
 		end
+		-- Stat components first, the recipe last (the list is bought from the
+		-- end): the hero gets the stats early and the gold isn't stuck in a recipe.
+		do
+			local recipes, others = {}, {}
+			for _, name in ipairs(bot.currBuyingBasicItemList) do
+				if string.find(name, 'item_recipe_') then table.insert(recipes, name) else table.insert(others, name) end
+			end
+			local ordered = {}
+			for _, name in ipairs(recipes) do table.insert(ordered, name) end
+			for _, name in ipairs(others) do table.insert(ordered, name) end
+			bot.currBuyingBasicItemList = ordered
+		end
 		bot.currBuyingBasicItemRefList = Utils.Deepcopy(bot.currBuyingBasicItemList)
 		-- build the required counts map for dedupe and re-buy-missing
-		bot.currBuyingRequiredCounts = _buildRequiredCounts(bot.currBuyingBasicItemRefList)
+		bot.currBuyingRequiredCounts = _fullBasicCounts(bot.currBuyingItemInPurchaseList)
 		-- proactively drop already-satisfied components to avoid overbuying
 		_popIfNoLongerNeeded()
 	end
@@ -1242,9 +1370,13 @@ function ItemPurchaseThink()
 				and Item.GetItemTotalWorthInSlots(Utils.GetLoneDruid(bot).bear) < 28000
 				and Item.IsItemInTargetHero(bot.currBuyingItemInPurchaseList, Utils.GetLoneDruid(bot).bear)
 			)
-			or bot.countInvCheck > (GetGameMode() == GAMEMODE_ARDM and 30 or 3 * 60) -- ARDM: 30s timeout, normal: 3min
+			or bot.countInvCheck > 30 -- can't assemble it: move on
 		then
 			-- skip it and continue next
+			if Item.IsItemInHero( bot.currBuyingItemInPurchaseList ) then
+				bot.completedItems = bot.completedItems or {}
+				bot.completedItems[bot.currBuyingItemInPurchaseList] = true
+			end
 			bot.countInvCheck = 0
 			_resetCurrentTarget()
 			bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder] = nil
@@ -1259,14 +1391,15 @@ function ItemPurchaseThink()
 						bot.currBuyingBasicItemList[#bot.currBuyingBasicItemList+1] = value
 					end
 				end
-				-- refresh counts after rebuild
-				bot.currBuyingRequiredCounts = _buildRequiredCounts(bot.currBuyingBasicItemList)
+				-- Count against the full recipe: a wand missing its second branch
+				-- needs 2 branches, not 1 (the owned branch used to satisfy it).
+				bot.currBuyingRequiredCounts = _fullBasicCounts(bot.currBuyingItemInPurchaseList)
 				_popIfNoLongerNeeded()
-			else
-				-- and can't finish even with lots of gold
-				if botGold > GetItemCost(bot.currBuyingItemInPurchaseList) * 2 and botGold >= 2000 then
-					bot.countInvCheck = bot.countInvCheck + 1
-				end
+				print('[Items] '..botName..' rebuilding '..tostring(bot.currBuyingItemInPurchaseList)..', missing: '..table.concat(bot.currBuyingBasicItemList, ', '))
+			elseif botCourierValue == 0 and botStashValue == 0 then
+				-- Can't finish it: give up after a while instead of blocking
+				-- every later purchase.
+				bot.countInvCheck = bot.countInvCheck + 1
 			end
 		end
 	elseif #bot.currBuyingBasicItemList > 0

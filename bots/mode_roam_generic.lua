@@ -1,5 +1,8 @@
 local J = require( GetScriptDirectory()..'/FunLib/jmz_func')
 local Customize = require( GetScriptDirectory()..'/Customize/general' )
+local MidPlay = require(GetScriptDirectory()..'/FunLib/mid_play')
+local TeamPlan = require(GetScriptDirectory()..'/FunLib/team_plan')
+local MapObjects = require(GetScriptDirectory()..'/FunLib/map_objects')
 
 local bot = GetBot()
 local botName = bot:GetUnitName()
@@ -100,6 +103,19 @@ function GetDesireHelper()
 		return Clamp(bot:GetActiveModeDesire() + 0.2, 0, 1.1)
 	end
 
+	-- Team plan: smoke hunts, regroup after the enemies respawn, pick-offs in defense.
+	bot._roamBy = nil
+	local nTeamDesire = TeamPlan.RoamDesire(bot)
+	if nTeamDesire then return nTeamDesire end
+
+	-- Mid: rune ganks, ganks after the enemy mid tower falls, safe farming.
+	local nMidDesire = MidPlay.RoamDesire(bot)
+	if nMidDesire then return nMidDesire end
+
+	-- Lotus pools and watchers.
+	local nMapDesire = MapObjects.RoamDesire(bot)
+	if nMapDesire then bot._roamBy = 'map' return nMapDesire end
+
 	-- unit special abilities
 	local specialRoaming = ConsiderHeroSpecificRoaming[botName]
 	if specialRoaming then
@@ -143,6 +159,10 @@ function Think()
 	if J.Utils.IsBotThinkingMeaningfulAction(bot, Customize.ThinkLess, "roam") then return end
 
 	nInRangeEnemy = bot:GetNearbyHeroes(1200, true, BOT_MODE_NONE)
+
+	if TeamPlan.RoamThink(bot) then return end
+	if MidPlay.RoamThink(bot) then return end
+	if bot._roamBy == 'map' and MapObjects.RoamThink(bot) then return end
 
 	ThinkIndividualRoaming() -- unit special abilities
 	ThinkGeneralRoaming() -- general items or conditions.

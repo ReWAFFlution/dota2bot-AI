@@ -7,5 +7,11 @@ if bot:IsInvulnerable() or not bot:IsHero() or not string.find(botName, "hero") 
 	return
 end
 
-function GetDesire() return Defend.GetDefendDesire(bot, LANE_MID) end
-function Think() Defend.DefendThink(bot, LANE_MID) end
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
+
+-- Objectives: bots assigned by the score system come to defend.
+function GetDesire() return math.max(Defend.GetDefendDesire(bot, LANE_MID), Objectives.DefendDesire(bot, LANE_MID)) end
+function Think()
+	if Objectives.DefendThink(bot, LANE_MID) then return end -- fight under the tower / hold behind it
+	Defend.DefendThink(bot, LANE_MID)
+end

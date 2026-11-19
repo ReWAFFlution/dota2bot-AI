@@ -160,11 +160,39 @@ function X.FixOrder(list, Item)
 	return list
 end
 
+-- Mid heroes buy a Bottle (water runes refill it) unless the hero doesn't
+-- play that way. Stratz rates are low for many mids, so it's added here.
+local NO_BOTTLE = { invoker = true, huskar = true, viper = true, meepo = true, arc_warden = true, alchemist = true,
+	lone_druid = true, medusa = true, razor = true, dragon_knight = true, broodmother = true, necrolyte = true,
+	obsidian_destroyer = true, templar_assassin = true, sniper = true, terrorblade = true, ursa = true, slark = true,
+	skeleton_king = true, juggernaut = true, morphling = true, troll_warlord = true, faceless_void = true }
+local LANE_START = { item_tango = true, item_branches = true, item_quelling_blade = true, item_circlet = true,
+	item_faerie_fire = true, item_magic_stick = true, item_gauntlets = true, item_slippers = true, item_mantle = true,
+	item_blood_grenade = true, item_flask = true, item_clarity = true, item_enchanted_mango = true,
+	item_magic_wand = true, item_bracer = true, item_wraith_band = true, item_null_talisman = true,
+	item_double_branches = true, item_double_tango = true }
+
+local function AddBottle(hero, pos, list)
+	if pos ~= 2 or NO_BOTTLE[string.gsub(hero, '^npc_dota_hero_', '')] then return end
+	-- Intelligence mids with a big mana pool regenerate on their own (OD).
+	local r = HeroRoles and HeroRoles.HeroRolesMap and (HeroRoles.HeroRolesMap[hero] or HeroRoles.HeroRolesMap[(string.gsub(hero, '^npc_dota_hero_', ''))])
+	if r then
+		if r.carry and r.carry >= 3 and (r.nuker or 0) <= 1 then return end -- right-click carries on mid
+	end
+	for _, it in ipairs(list) do if it == 'item_bottle' then return end end
+	local at = #list + 1
+	for i, it in ipairs(list) do
+		if not LANE_START[it] then at = i break end
+	end
+	table.insert(list, at, 'item_bottle')
+end
+
 function X.GetMetaBuyList(hero, pos)
 	local b = BuildData(hero, pos)
 	if not b then return nil end
 	local list = {}
 	for i, item in ipairs(b.buy) do list[i] = item end
+	AddBottle(hero, pos, list)
 	local okItem, Item = pcall(require, GetScriptDirectory()..'/FunLib/aba_item')
 	return X.FixOrder(list, okItem and Item or nil)
 end
@@ -567,6 +595,109 @@ function X.Think(bot, pos, stack)
 				return -- one change per evaluation; the next one may see a new state
 			end
 		end
+	end
+end
+
+--==============================================================================
+-- Late game: the meta build is done, keep spending
+--==============================================================================
+-- Stratz buy phases end around 30-35 minutes, so a finished build left bots
+-- with 20k+ unspent. Order: Aghanim's Shard, Scepter (if the hero buys it),
+-- Moon Shard (cores), Aghanim's Blessing, then the hero's own late items
+-- from Stratz (by purchase rate), then a role list.
+
+local LATE_BY_ROLE = {
+	[1] = { 'item_butterfly', 'item_satanic', 'item_greater_crit', 'item_skadi', 'item_abyssal_blade',
+	        'item_monkey_king_bar', 'item_disperser', 'item_heart', 'item_refresher', 'item_travel_boots' },
+	[2] = { 'item_sheepstick', 'item_refresher', 'item_octarine_core', 'item_shivas_guard', 'item_bloodthorn',
+	        'item_skadi', 'item_heart', 'item_arcane_blink', 'item_travel_boots', 'item_satanic' },
+	[3] = { 'item_heart', 'item_shivas_guard', 'item_assault', 'item_refresher', 'item_overwhelming_blink',
+	        'item_abyssal_blade', 'item_lotus_orb', 'item_travel_boots', 'item_satanic' },
+	[4] = { 'item_travel_boots', 'item_aeon_disk', 'item_sheepstick', 'item_octarine_core', 'item_refresher',
+	        'item_shivas_guard', 'item_lotus_orb', 'item_heart' },
+	[5] = { 'item_travel_boots', 'item_aeon_disk', 'item_sheepstick', 'item_octarine_core', 'item_refresher',
+	        'item_shivas_guard', 'item_lotus_orb', 'item_heart' },
+}
+local NOT_LATE = {}
+for _, n in ipairs({ 'aghanims_shard', 'ultimate_scepter', 'ultimate_scepter_2', 'moon_shard', 'boots',
+	'travel_boots_2', 'power_treads', 'phase_boots', 'arcane_boots', 'tranquil_boots', 'hand_of_midas',
+	'magic_wand', 'bracer', 'wraith_band', 'null_talisman', 'soul_ring', 'infused_raindrop', 'urn_of_shadows',
+	'vanguard', 'buckler', 'ring_of_basilius', 'pers', 'oblivion_staff', 'sange', 'yasha', 'kaya', 'maelstrom',
+	'lesser_crit', 'dragon_lance', 'echo_sabre', 'ogre_axe', 'blade_of_alacrity', 'staff_of_wizardry' }) do NOT_LATE[n] = true end
+
+local okItemLib, ItemLib = pcall(require, GetScriptDirectory()..'/FunLib/aba_item')
+if not okItemLib then ItemLib = nil end
+
+-- Owned, or already built into an owned item (Kaya inside Kaya and Sange).
+local function Has(bot, item)
+	if bot:FindItemSlot(item) >= 0 then return true end
+	if not ItemLib then return false end
+	for i = 0, 16 do
+		local it = bot:GetItemInSlot(i)
+		if it and ComponentsOf(ItemLib, it:GetName())[item] then return true end
+	end
+	return false
+end
+
+local function BigItemsCount(bot)
+	local n = 0
+	for i = 0, 8 do
+		local it = bot:GetItemInSlot(i)
+		if it and GetItemCost(it:GetName()) >= 2000 then n = n + 1 end
+	end
+	return n
+end
+
+function X.NextLateItem(bot, pos)
+	local hero = bot:GetUnitName()
+	if not bot:HasModifier('modifier_item_aghanims_shard') and not Has(bot, 'item_aghanims_shard')
+	and bot.hasBuyShard ~= false -- false: already saving up for it
+	and DotaTime() > 15 * 60 then
+		return 'item_aghanims_shard'
+	end
+	if not bot:HasScepter() and KnownRate(hero, pos, 'item_ultimate_scepter') >= 10 then
+		return 'item_ultimate_scepter'
+	end
+	if pos <= 3 and not bot:HasModifier('modifier_item_moon_shard_consumed') and not Has(bot, 'item_moon_shard')
+	and bot:GetNetWorth() > 18000 then
+		return 'item_moon_shard'
+	end
+	if not bot:HasModifier('modifier_item_ultimate_scepter_consumed') and bot:GetNetWorth() > 22000
+	and (bot:HasScepter() or KnownRate(hero, pos, 'item_ultimate_scepter_2') >= 3) then
+		return 'item_ultimate_scepter_2'
+	end
+	-- Six big items: nothing left to add (selling for upgrades isn't planned).
+	if BigItemsCount(bot) >= 6 then return nil end
+
+	local b = BuildData(hero, pos)
+	if b and b.known then
+		local list = {}
+		for name, rate in pairs(b.known) do
+			local item = 'item_'..name
+			if rate >= 6 and not NOT_LATE[name] and GetItemCost(item) >= 2000 and not Has(bot, item)
+			and not (TEAM_UNIQUE[item] and AllyHasItem(bot, item)) then
+				table.insert(list, { item = item, rate = rate })
+			end
+		end
+		table.sort(list, function(x, y) return x.rate > y.rate end)
+		if list[1] then return list[1].item end
+	end
+	for _, item in ipairs(LATE_BY_ROLE[pos] or LATE_BY_ROLE[1]) do
+		if not Has(bot, item) and not (TEAM_UNIQUE[item] and AllyHasItem(bot, item)) then return item end
+	end
+	return nil
+end
+
+-- Called by item_purchase_generic when the purchase list is empty.
+function X.LateGame(bot, pos, stack)
+	if bot.bUserItemBuild or not pos or #stack > 0 then return end
+	local now = DotaTime()
+	if now < 20 * 60 or (bot._lateNext or -1) > now then return end
+	bot._lateNext = now + 5
+	local item = X.NextLateItem(bot, pos)
+	if item then
+		table.insert(stack, item)
+		Log(bot, '+'..item..' (late game, the build is finished)')
 	end
 end
 

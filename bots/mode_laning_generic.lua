@@ -1,5 +1,6 @@
 local Utils = require( GetScriptDirectory()..'/FunLib/utils')
 local J = require( GetScriptDirectory()..'/FunLib/jmz_func')
+local LanePlay = require(GetScriptDirectory()..'/FunLib/lane_play')
 
 local Version      = require(GetScriptDirectory()..'/FunLib/version')
 local Localization = require(GetScriptDirectory()..'/FunLib/localization')
@@ -58,6 +59,10 @@ function GetDesire()
 
 	if GetGameMode() == 23 then currentTime = currentTime * 1.65 end
 	if currentTime < 0 then return BOT_ACTION_DESIRE_NONE end
+
+	-- Harass windows: spells on the lane enemies (supports trade freely,
+	-- cores between last hits).
+	LanePlay.Harass(bot)
 
 	-- if DotaTime() > 20 and DotaTime() - skipLaningState.lastCheckTime < skipLaningState.checkGap then
 	-- 	if skipLaningState.count > 6 then
@@ -172,7 +177,12 @@ function GetBestDenyCreep(hCreepList)
 	return nil
 end
 
-if local_mode_laning_generic or (J.GetPosition(bot) == 1 and J.IsPosxHuman(5)) then
+if not local_mode_laning_generic and LanePlay.UseSupportThink(bot) then
+	-- Supports: harass, deny, leave last hits to the core, pull.
+	function Think()
+		LanePlay.SupportThink(bot)
+	end
+elseif local_mode_laning_generic or (J.GetPosition(bot) == 1 and J.IsPosxHuman(5)) then
 	function Think()
 		local hitCreep, moveToCreep = GetBestLastHitCreep(nEnemyCreeps)
 		if J.IsValid(hitCreep) then

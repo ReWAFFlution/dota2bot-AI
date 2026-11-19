@@ -1541,6 +1541,9 @@ function J.IsGoingOnSomeone( bot )
 
 	local mode = bot:GetActiveMode()
 
+	-- Short fight windows set by FunLib/early_game.lua and FunLib/mid_play.lua.
+	if bot.forceFightUntil and bot.forceFightUntil > DotaTime() then return true end
+
 	return mode == BOT_MODE_ROAM
 		or mode == BOT_MODE_TEAM_ROAM
 		or mode == BOT_MODE_GANK

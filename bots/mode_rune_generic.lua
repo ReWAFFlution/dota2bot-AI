@@ -1,6 +1,8 @@
 local X = {}
 local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
 local Customize = require(GetScriptDirectory()..'/Customize/general')
+local EarlyGame = require(GetScriptDirectory()..'/FunLib/early_game')
+local MidPlay = require(GetScriptDirectory()..'/FunLib/mid_play')
 Customize.ThinkLess = Customize.Enable and Customize.ThinkLess or 1
 
 local bot = GetBot()
@@ -58,6 +60,10 @@ local nShrineOfWisdomTeam = TEAM_RADIANT
 --------------------------------------------------------------------
 function GetDesire()
 	X.InitRune()
+
+	-- Start of the game: bounty runes by position, harass, smoke gank.
+	local nEarlyDesire = EarlyGame.GetDesire(bot)
+	if nEarlyDesire then return nEarlyDesire end
 
 	if (DotaTime() > 2 * 60 and DotaTime() < 6 * 60 and GetUnitToLocationDistance(bot, GetRuneSpawnLocation(RUNE_POWERUP_2)) < 80) then
 		return BOT_MODE_DESIRE_NONE
@@ -193,6 +199,10 @@ function GetDesire()
 				end
 			else
 				-- Power rune / water rune
+				-- Mid priority: water runes after a cleared wave, power runes from 6:00.
+				local nMidDesire = MidPlay.PowerRuneDesire(bot, rune.location, rune.status, rune.type, rune.distance, botHP, botMP, bBottle)
+				if nMidDesire ~= nil then return nMidDesire end
+
 				if rune.status == RUNE_STATUS_AVAILABLE then
 					if X.IsEnemyPickRune(rune.location) then return BOT_MODE_DESIRE_NONE end
 
@@ -247,6 +257,8 @@ end
 --------------------------------------------------------------------
 local fNextMovementTime = -math.huge
 function Think()
+	if EarlyGame.Think(bot) then return end
+
 	if bot:IsInvulnerable() and bot:DistanceFromFountain() < 500 then
 		bot:Action_MoveToLocation(bot:GetLocation() + RandomVector(500))
 		return

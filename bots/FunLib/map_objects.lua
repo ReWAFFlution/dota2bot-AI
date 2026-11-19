@@ -1,0 +1,240 @@
+-- Lotus pools and watchers (lanterns).
+--
+-- Names come from the game's scripts/npc/npc_units.txt and npc_abilities.txt:
+--   npc_dota_lotus_pool + hero ability ability_pluck_lotus (channel 1 s, range 400)
+--   npc_dota_lantern    + hero ability ability_lamp_use    (channel 1 s, range 200,
+--                         active 420 s, then 120 s inactive)
+-- Both units are "buildings" (UnitRelationshipClass BUILDING) on the neutral
+-- team, so they must not be filtered out with IsBuilding(), and a used lantern
+-- doesn't change team: we remember when we lit it.
+--
+-- Lotus: one grows in each pool every 3 minutes (they pile up). The closest
+-- support goes for it; ability_item_usage_generic then eats it or gives it to
+-- a core (ConsiderHealingLotus).
+
+local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
+
+local X = {}
+
+local SCAN_GAP = 10
+local LOTUS_PERIOD = 180
+local LOTUS_RANGE_SUPPORT = 6000
+local LOTUS_RANGE_ANY = 1600
+local WATCHER_RANGE = 1300
+local WATCHER_COOLDOWN = 420 + 120
+local USE_TIMEOUT = 7
+
+local function Log(msg) print('[Map] '..msg) end
+
+MapObjectsState = MapObjectsState or {}
+local function State()
+	local team = GetTeam()
+	if not MapObjectsState[team] then
+		MapObjectsState[team] = { scanT = -999, pools = {}, watchers = {}, poolTaken = {}, poolBy = {},
+			watcherUsed = {}, watcherBan = {}, logged = false }
+	end
+	return MapObjectsState[team]
+end
+
+local function Key(u)
+	local l = u:GetLocation()
+	return math.floor(l.x / 100)..':'..math.floor(l.y / 100)
+end
+
+local function ModifierNames(u)
+	local list = {}
+	local ok = pcall(function()
+		for i = 0, u:NumModifiers() - 1 do
+			table.insert(list, tostring(u:GetModifierName(i))..'x'..tostring(u:GetModifierStackCount(i)))
+		end
+	end)
+	return ok and table.concat(list, ', ') or '?'
+end
+
+-- Lotuses waiting in the pool, when the pool's modifier tells (nil if unknown).
+local function LotusCount(pool)
+	local count
+	pcall(function()
+		for i = 0, pool:NumModifiers() - 1 do
+			local n = string.lower(tostring(pool:GetModifierName(i)))
+			if string.find(n, 'lotus') then
+				local c = pool:GetModifierStackCount(i)
+				if c and c >= 0 then count = math.max(count or 0, c) end
+			end
+		end
+	end)
+	return count
+end
+
+local function Scan(S)
+	if DotaTime() < S.scanT + SCAN_GAP then return end
+	S.scanT = DotaTime()
+	S.pools, S.watchers = {}, {}
+	for _, u in pairs(GetUnitList(UNIT_LIST_ALL)) do
+		if u and not u:IsNull() then
+			local n = string.lower(u:GetUnitName() or '')
+			if string.find(n, 'lotus_pool') then table.insert(S.pools, u)
+			elseif string.find(n, 'lantern') then table.insert(S.watchers, u) end
+		end
+	end
+	if not S.logged and DotaTime() > 5 then
+		S.logged = true
+		Log(#S.pools..' lotus pools, '..#S.watchers..' watchers')
+		if S.pools[1] then Log('lotus pool modifiers: '..ModifierNames(S.pools[1])) end
+		if S.watchers[1] then Log('watcher modifiers: '..ModifierNames(S.watchers[1])) end
+	end
+end
+
+local function EnemiesNear(loc, r)
+	local n = 0
+	for _, h in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+		if J.IsValidHero(h) and not h:IsIllusion() and GetUnitToLocationDistance(h, loc) < r then n = n + 1 end
+	end
+	return n
+end
+
+local function Calm(bot)
+	return J.GetHP(bot) > 0.35
+		and not bot:WasRecentlyDamagedByAnyHero(3)
+		and not J.IsGoingOnSomeone(bot)
+		and not J.IsRetreating(bot)
+		and #J.GetNearbyHeroes(bot, 1000, true, BOT_MODE_NONE) == 0
+end
+
+local function PoolHasLotus(S, pool)
+	local c = LotusCount(pool)
+	if c ~= nil then return c > 0 end
+	-- Unknown: assume a new one after each 3-minute mark since our last pick.
+	local last = S.poolTaken[Key(pool)] or 0
+	return math.floor(DotaTime() / LOTUS_PERIOD) > math.floor(last / LOTUS_PERIOD)
+end
+
+local function LotusDesire(bot, S)
+	if DotaTime() < LOTUS_PERIOD then return nil end
+	local support = J.GetPosition(bot) >= 4
+	local best, bestDist
+	for _, pool in ipairs(S.pools) do
+		if pool and not pool:IsNull() and PoolHasLotus(S, pool) then
+			local key = Key(pool)
+			local d = GetUnitToUnitDistance(bot, pool)
+			local claimer = S.poolBy[key]
+			local claimed = claimer and claimer ~= bot and claimer:IsAlive() and (claimer._mapTarget == pool)
+			local range = support and LOTUS_RANGE_SUPPORT or LOTUS_RANGE_ANY
+			if not claimed and d < range and EnemiesNear(pool:GetLocation(), 1300) == 0 and (not bestDist or d < bestDist) then
+				best, bestDist = pool, d
+			end
+		end
+	end
+	if not best then return nil end
+	if bot._mapTarget ~= best then Log(bot:GetUnitName()..' goes for a lotus ('..math.floor(bestDist)..' away)') end
+	S.poolBy[Key(best)] = bot
+	bot._mapTarget, bot._mapKind = best, 'lotus'
+	return support and 0.62 or 0.5
+end
+
+local function WatcherDesire(bot, S)
+	for _, w in ipairs(S.watchers) do
+		if w and not w:IsNull() then
+			local key = Key(w)
+			if DotaTime() > (S.watcherUsed[key] or -9999) + WATCHER_COOLDOWN
+			and DotaTime() > (S.watcherBan[key] or -1)
+			and GetUnitToUnitDistance(bot, w) < WATCHER_RANGE
+			and EnemiesNear(w:GetLocation(), 1300) == 0 then
+				bot._mapTarget, bot._mapKind = w, 'watcher'
+				return 0.5
+			end
+		end
+	end
+	return nil
+end
+
+-- Desire for mode_roam_generic, or nil.
+function X.RoamDesire(bot)
+	if DotaTime() < 0 or not Calm(bot) then bot._mapTarget, bot._mapUseT = nil, nil return nil end
+	local S = State()
+	Scan(S)
+	if bot._mapTarget and not bot._mapTarget:IsNull() and bot._mapUseT and DotaTime() < bot._mapUseT + USE_TIMEOUT then
+		return 0.62
+	end
+	bot._mapUseT = nil
+	return LotusDesire(bot, S) or WatcherDesire(bot, S)
+end
+
+function X.RoamThink(bot)
+	local u, kind = bot._mapTarget, bot._mapKind
+	if not u or u:IsNull() then return false end
+	local S = State()
+	local key = Key(u)
+	if bot:IsChanneling() then bot._mapChanneled = true return true end
+	if bot:IsUsingAbility() then return true end
+
+	-- Walk into the pool (the lotus is picked standing in it) / up to the lamp.
+	-- If the hero can't get closer (the pool's hull), cast from where it is.
+	local reach = kind == 'lotus' and 90 or 150
+	local d = GetUnitToUnitDistance(bot, u)
+	if d > reach and not bot._mapUseT then
+		if not bot._mapApproach or d < bot._mapApproach.d - 20 then
+			bot._mapApproach = { d = d, t = DotaTime() }
+		end
+		if DotaTime() - bot._mapApproach.t < 2 or d > 350 then
+			bot:Action_MoveToLocation(u:GetLocation())
+			return true
+		end
+	end
+	bot._mapApproach = nil
+
+	local t = DotaTime()
+	if bot._mapUseT and (t > bot._mapUseT + USE_TIMEOUT or bot._mapChanneled) then
+		if kind == 'lotus' then
+			S.poolTaken[key] = t
+			if not bot._mapChanneled then Log(bot:GetUnitName()..' could not pick the lotus') end
+		elseif bot._mapChanneled then
+			S.watcherUsed[key] = t
+		else
+			S.watcherBan[key] = t + 180
+			Log(bot:GetUnitName()..' could not activate the watcher')
+		end
+		if bot._mapChanneled then Log(bot:GetUnitName()..(kind == 'lotus' and ' picked a lotus' or ' activated a watcher')) end
+		bot._mapTarget, bot._mapUseT, bot._mapChanneled, bot._mapLogged = nil, nil, nil, nil
+		return false
+	end
+
+	if not bot._mapUseT then
+		bot._mapUseT, bot._mapChanneled = t, false
+		Log(bot:GetUnitName()..(kind == 'lotus' and ' picks a lotus' or ' activates a watcher'))
+	end
+	-- Several ways to give the order, one after another (which one the engine
+	-- accepts for bots isn't documented): the hidden ability by name, the same
+	-- ability found by scanning the hero's slots, then a right-click on the unit.
+	local name = kind == 'lotus' and 'ability_pluck_lotus' or 'ability_lamp_use'
+	local ability = bot:GetAbilityByName(name)
+	if not ability then
+		for i = 0, 35 do
+			local ab = bot:GetAbilityInSlot(i)
+			if ab and not ab:IsNull() then
+				local n = ab:GetName()
+				if (kind == 'lotus' and (string.find(n, 'pluck') or string.find(n, 'lotus') or string.find(n, 'famango')))
+				or (kind ~= 'lotus' and (string.find(n, 'lamp') or string.find(n, 'lantern'))) then
+					ability = ab
+					break
+				end
+			end
+		end
+	end
+	local step = math.floor((t - bot._mapUseT) / 1.2) % 4
+	if not bot._mapLogged then
+		bot._mapLogged = true
+		Log(string.format('%s: %s found=%s castable=%s dist=%d', bot:GetUnitName(), name, tostring(ability and ability:GetName()),
+			tostring(ability and ability:IsFullyCastable()), math.floor(GetUnitToUnitDistance(bot, u))))
+	end
+	if ability and step < 2 then
+		bot:Action_UseAbilityOnEntity(ability, u)
+	elseif step == 2 then
+		bot:Action_AttackUnit(u, true)
+	else
+		bot:Action_MoveToUnit(u)
+	end
+	return true
+end
+
+return X

@@ -490,7 +490,54 @@ function X.GetAvailabeObserverWardSpots(bot)
 		end
 	end
 
+	-- Enemy jungle: from 5 min, an observer by each enemy camp (toward the
+	-- river) shows who farms there and where ganks come from.
+	if DotaTime() > 5 * 60 then
+		for _, spot in ipairs(X.GetEnemyJungleWardSpots()) do
+			if not X.IsOtherWardClose(spot.location, 'npc_dota_observer_wards', nVisionRadius * 1.5, true, false)
+			and not X.IsThereEnemySentry(spot.location, 1100)
+			and (spot.plant_time_obs == 0 or (DotaTime() > spot.plant_time_obs + 360))
+			and not X.IsNearEnemyTower(spot.location, 1200)
+			then
+				table.insert(availableSpots, spot)
+			end
+		end
+	end
+
 	return availableSpots
+end
+
+local EnemyJungleSpots = nil
+function X.GetEnemyJungleWardSpots()
+	if EnemyJungleSpots then return EnemyJungleSpots end
+	EnemyJungleSpots = {}
+	local camps = GetNeutralSpawners and GetNeutralSpawners() or {}
+	for _, camp in pairs(camps) do
+		if camp and camp.location and camp.team ~= GetTeam() and camp.type ~= 'ancient' then
+			-- Step from the camp toward the map centre (river side) until passable.
+			local dir = (Vector(0, 0, 0) - camp.location)
+			dir.z = 0
+			if dir:Length2D() > 1 then
+				dir = dir / dir:Length2D()
+				for _, d in ipairs({ 450, 300, 600, 150 }) do
+					local loc = camp.location + dir * d
+					if IsLocationPassable(loc) then
+						table.insert(EnemyJungleSpots, { location = loc, plant_time_obs = 0, plant_time_sentry = 0 })
+						break
+					end
+				end
+			end
+		end
+	end
+	return EnemyJungleSpots
+end
+
+function X.IsNearEnemyTower(vLocation, nRadius)
+	for _, id in ipairs(nTowerList) do
+		local t = GetTower(GetOpposingTeam(), id)
+		if t ~= nil and J.GetDistance(t:GetLocation(), vLocation) < nRadius then return true end
+	end
+	return false
 end
 
 function X.GetClosestObserverWardSpot(bot, spots)

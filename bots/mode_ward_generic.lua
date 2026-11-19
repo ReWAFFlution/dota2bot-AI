@@ -42,7 +42,10 @@ function GetDesireHelper()
         return BOT_MODE_DESIRE_NONE
     end
 
-    for i = 0, 5 do
+    -- Wards wait in the backpack between plants (item_purchase_generic moves
+    -- them there), so look at slots 0-8; Think brings them to the main bar.
+    ObserverWard, SentryWard = nil, nil
+    for i = 0, 8 do
         local hItem = bot:GetItemInSlot(i)
         if hItem then
             local sItemName = hItem:GetName()
@@ -52,25 +55,34 @@ function GetDesireHelper()
             end
         end
     end
+    -- Wards held for a while: walk further to use them.
+    local bHasWard = false
+    for i = 0, 8 do
+        local it = bot:GetItemInSlot(i)
+        if it and (it:GetName() == 'item_ward_observer' or it:GetName() == 'item_ward_sentry' or it:GetName() == 'item_ward_dispenser') then bHasWard = true end
+    end
+    if bHasWard then bot._wardHeldSince = bot._wardHeldSince or DotaTime() else bot._wardHeldSince = nil end
+    local nWardRange = DotaTime() > 10 * 60 and 5000 or 3200
+    if bot._wardHeldSince and DotaTime() - bot._wardHeldSince > 45 then nWardRange = 9000 end
 
     -- Observer
-    if J.CanCastAbility(ObserverWard) then
+    if X.WardReady(ObserverWard) then
         local hAvailabeObserverWardSpots = W.GetAvailabeObserverWardSpots(bot)
-        hTargetSpot = W.GetClosestObserverWardSpot(bot, hAvailabeObserverWardSpots)
+        hTargetSpot = W.GetClosestObserverWardSpot(bot, X.Unblocked(hAvailabeObserverWardSpots))
 		if hTargetSpot and (not X.IsEnemyCloserToWardLocation(hTargetSpot.location) or J.IsRealInvisible(bot)) then
 			if DotaTime() < 0 and DotaTime() > (J.IsModeTurbo() and -45 or -60) then
 				return BOT_MODE_DESIRE_ABSOLUTE
 			end
 
 			if DotaTime() > fLastWardPlantTime + 1.0 then
-				if GetUnitToLocationDistance(bot, hTargetSpot.location) <= 3200 then
+				if GetUnitToLocationDistance(bot, hTargetSpot.location) <= nWardRange then
 					return BOT_MODE_DESIRE_VERYHIGH
 				end
 			end
 		end
     end
 
-	for i = 0, 5 do
+	for i = 0, 8 do
         local hItem = bot:GetItemInSlot(i)
         if hItem then
             local sItemName = hItem:GetName()
@@ -82,9 +94,9 @@ function GetDesireHelper()
     end
 
     -- Sentry
-    if J.CanCastAbility(SentryWard) then
+    if X.WardReady(SentryWard) then
         local hPossibleSentryWardSpots = W.GetPossibleSentryWardSpots(bot)
-        hTargetSpot = W.GetClosestSentryWardSpot(bot, hPossibleSentryWardSpots)
+        hTargetSpot = W.GetClosestSentryWardSpot(bot, X.Unblocked(hPossibleSentryWardSpots))
 		if hTargetSpot and (not X.IsEnemyCloserToWardLocation(hTargetSpot.location) or J.IsRealInvisible(bot)) then
 			if DotaTime() > fLastWardPlantTime + 1.0 then
 				if GetUnitToLocationDistance(bot, hTargetSpot.location) <= 3200 then
@@ -101,6 +113,8 @@ function Think()
 	if J.CanNotUseAction(bot) then return end
 	if J.Utils.IsBotThinkingMeaningfulAction(bot, Customize.ThinkLess, "ward") then return end
 	if hTargetSpot then
+		if X.BringWardToMainSlot(ObserverWard) or X.BringWardToMainSlot(SentryWard) then return end
+		if X.SpotIsBlocked(hTargetSpot) then return end
 		if ObserverWard and J.CanCastAbility(ObserverWard) then
 			if GetUnitToLocationDistance(bot, hTargetSpot.location) <= nObserverWardCastRange then
 				if ObserverWard:GetName() == 'item_ward_observer' then
@@ -148,6 +162,79 @@ function Think()
 			end
 		end
 	end
+end
+
+-- A ward that can be planted now, or once it's moved out of the backpack.
+function X.WardReady(hItem)
+	if hItem == nil or hItem:IsNull() then return false end
+	local slot = bot:FindItemSlot(hItem:GetName())
+	if slot >= 6 and slot <= 8 then return hItem:GetCurrentCharges() > 0 or hItem:GetName() == 'item_ward_dispenser' end
+	return J.CanCastAbility(hItem)
+end
+
+-- Swap a backpack ward into the main bar (with the cheapest item if it's full).
+-- Returns true when it swapped this frame.
+function X.BringWardToMainSlot(hItem)
+	if hItem == nil or hItem:IsNull() then return false end
+	local slot = bot:FindItemSlot(hItem:GetName())
+	if slot < 6 or slot > 8 then return false end
+	local target, cheapest = nil, math.huge
+	for i = 0, 5 do
+		local it = bot:GetItemInSlot(i)
+		if it == nil then target = i break end
+		local cost = GetItemCost(it:GetName())
+		if cost < cheapest then target, cheapest = i, cost end
+	end
+	if target then
+		bot:ActionImmediate_SwapItems(slot, target)
+		bot._wardWantedUntil = DotaTime() + 10 -- item_purchase: don't move it back
+		return true
+	end
+	return false
+end
+
+-- A ward that doesn't land within a few seconds at the spot (the spot is
+-- taken by a watcher, a building or a tree): skip the spot for 6 minutes.
+local tWardTry = nil
+local function WardCharges()
+	local n = 0
+	for i = 0, 8 do
+		local it = bot:GetItemInSlot(i)
+		if it and (it:GetName() == 'item_ward_observer' or it:GetName() == 'item_ward_sentry' or it:GetName() == 'item_ward_dispenser') then
+			n = n + it:GetCurrentCharges()
+		end
+	end
+	return n
+end
+function X.Unblocked(spots)
+	local list = {}
+	for _, spot in pairs(spots or {}) do
+		if (spot.blocked_until or -1) < DotaTime() then table.insert(list, spot) end
+	end
+	return list
+end
+function X.SpotIsBlocked(spot)
+	local now, charges = DotaTime(), WardCharges()
+	-- Only time real attempts: in cast range with a ward ready to cast (a ward
+	-- just moved out of the backpack is on cooldown for a few seconds, and that
+	-- used to "block" every spot in turn until none was left).
+	local ready = (ObserverWard and J.CanCastAbility(ObserverWard)) or (SentryWard and J.CanCastAbility(SentryWard))
+	if GetUnitToLocationDistance(bot, spot.location) > 550 or not ready then
+		tWardTry = nil
+		return false
+	end
+	if tWardTry == nil or tWardTry.spot ~= spot or charges < tWardTry.charges then
+		tWardTry = { spot = spot, t = now, charges = charges }
+		return false
+	end
+	if now > tWardTry.t + 3 then
+		print('[Ward] '..bot:GetUnitName()..string.format(' cannot ward at (%d, %d), skipping the spot', spot.location.x, spot.location.y))
+		spot.blocked_until = now + 240
+		tWardTry = nil
+		hTargetSpot = nil
+		return true
+	end
+	return false
 end
 
 function X.IsSuitableToWard()

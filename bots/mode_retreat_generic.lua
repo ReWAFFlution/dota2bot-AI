@@ -1,3 +1,4 @@
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
 local X = {}
 
 local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
@@ -123,6 +124,9 @@ function GetDesire()
     -- if DotaTime() > 30 and cachedVar ~= nil then return cachedVar end
     local res = GetDesireHelper()
     -- J.Utils.SetCachedVars(cacheKey, res)
+    -- Fight value (FunLib/objectives.lua): leave fights that cost more than they bring.
+    local ok, hint = pcall(Objectives.FightHint, bot)
+    if ok and hint and hint > res then res = hint end
     return res
 end
 
