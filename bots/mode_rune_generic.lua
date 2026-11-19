@@ -102,6 +102,22 @@ function GetDesire()
 		end
 	end
 
+	-- A rune right on the way (within 700): take it, it's two seconds
+	-- (Bristleback ran past a bounty rune: its distance-scaled desire lost to
+	-- push/farm). Not while retreating or fighting.
+	bot._passRune = nil
+	if DotaTime() > 0 and not J.IsRetreating(bot) and not J.IsGoingOnSomeone(bot) and J.GetHP(bot) > 0.3 then
+		for _, r in ipairs({ RUNE_BOUNTY_1, RUNE_BOUNTY_2, RUNE_BOUNTY_3, RUNE_BOUNTY_4, RUNE_POWERUP_1, RUNE_POWERUP_2 }) do
+			if type(r) == 'number' and GetRuneStatus(r) == RUNE_STATUS_AVAILABLE then
+				local loc = GetRuneSpawnLocation(r)
+				if loc and (loc.x ~= 0 or loc.y ~= 0) and GetUnitToLocationDistance(bot, loc) < 700 then
+					bot._passRune = r
+					return BOT_MODE_DESIRE_VERYHIGH
+				end
+			end
+		end
+	end
+
 	-- Wisdom Rune
 	if bot:GetLevel() < 30 then
 		nShrineOfWisdomTime = X.GetCurrentWisdomTime()
@@ -272,6 +288,13 @@ function Think()
 	if J.CanNotUseAction(bot)
 	or bot:GetCurrentActionType() == BOT_ACTION_TYPE_PICK_UP_RUNE
 	then
+		return
+	end
+
+	-- The rune on the way (see GetDesire).
+	if bot._passRune then
+		local loc = GetRuneSpawnLocation(bot._passRune)
+		if GetUnitToLocationDistance(bot, loc) > 250 then bot:Action_MoveToLocation(loc) else bot:Action_PickUpRune(bot._passRune) end
 		return
 	end
 
