@@ -344,6 +344,20 @@ local function TrackModes(S)
 				r.dead = r.dead + 1
 			else
 				local name = MODE_NAMES[m:GetActiveMode()] or tostring(m:GetActiveMode())
+				-- A mode with no name (Pugna stood 55% of the time in "28"): once
+				-- per bot, where it is and what is next to it.
+				if not MODE_NAMES[m:GetActiveMode()] and not r.unknownLogged then
+					r.unknownLogged = true
+					local near, nd = '-', 500
+					for _, u in pairs(GetUnitList(UNIT_LIST_ALL)) do
+						if u and not u:IsNull() and u ~= m and not u:IsHero() then
+							local d = GetUnitToUnitDistance(m, u)
+							if d < nd then near, nd = u:GetUnitName(), d end
+						end
+					end
+					local loc = m:GetLocation()
+					print(string.format('[Diag] %s in mode %s at (%d, %d), next to %s', m:GetUnitName(), name, loc.x, loc.y, tostring(near)))
+				end
 				r.counts[name] = (r.counts[name] or 0) + 1
 				local loc = m:GetLocation()
 				local busy = m:GetAttackTarget() ~= nil or m:IsChanneling() or m:IsUsingAbility() or m:IsCastingAbility()
