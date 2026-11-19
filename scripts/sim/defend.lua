@@ -52,4 +52,9 @@ for i = 1, 3 do SIM_T = SIM_T + 1 towerHP = towerHP - 60 O.Update() end
 local d2 = O.FilterDefendDesire(medusa, LANE_TOP, 0.7)
 print('tower losing HP: desire', d2)
 assert(d2 == 0.7)
+-- The exchange there says get out (a strong carry came): retreat wins.
+medusa._combat = { retreat = true } medusa._fightHintT = SIM_T
+local d3 = O.FilterDefendDesire(medusa, LANE_TOP, 0.7)
+print('losing the fight there: desire', d3, 'assigned', O.DefendDesire(medusa, LANE_TOP))
+assert(d3 <= 0.3 and O.DefendDesire(medusa, LANE_TOP) == 0)
 print('defend ok')

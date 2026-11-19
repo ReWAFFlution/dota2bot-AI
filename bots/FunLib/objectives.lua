@@ -519,6 +519,29 @@ local function Assign(S, t)
 			end
 		end
 	end
+	-- A kept group must still win where it's going (Clockwerk and Gyro kept
+	-- walking to a T2 where Terrorblade had come): otherwise it's dropped, and
+	-- a new winning group (or nobody) is picked below.
+	for _, obj in ipairs(objectives) do
+		if not obj.ancient and obj.enemies > 0 then
+			local group, pids = {}, {}
+			for _, m in ipairs(Members()) do
+				local a = newAssign[m:GetPlayerID()]
+				if a and a.name == obj.name and a.lane == obj.lane then
+					table.insert(group, m) table.insert(pids, m:GetPlayerID())
+				end
+			end
+			if #group > 0 then
+				local ratio = X.FightAt(obj.loc, group)
+				if ratio < 0.8 then
+					ObjLog(string.format('%d heroes lose at %s lane %d (x%.2f): calling them off', #group, obj.name, obj.lane, ratio))
+					for i, m in ipairs(group) do taken[m] = nil newAssign[pids[i]] = nil end
+					S.dropped = S.dropped or {}
+					for _, pid in ipairs(pids) do S.dropped[pid] = obj.name..obj.lane end
+				end
+			end
+		end
+	end
 	for _, obj in ipairs(objectives) do
 		local losing = obj.kind == 'defend' and not obj.ancient and obj.enemies > GetNumAlive(GetTeam()) + 1
 		if not losing then
@@ -530,18 +553,19 @@ local function Assign(S, t)
 					ObjLog(string.format('%s -> %s %s (gain %.0f vs cost %.0f)', h.m:GetUnitName(),
 						obj.kind == 'push' and 'push' or 'defend', obj.name..' lane '..obj.lane, h.gain, h.cost))
 				end
-				newAssign[pid] = { kind = obj.kind, lane = obj.lane, loc = obj.loc, tower = obj.tower, name = obj.name, untilT = t + ASSIGN_TIME }
+				newAssign[pid] = { kind = obj.kind, lane = obj.lane, tier = obj.tier, loc = obj.loc, tower = obj.tower, name = obj.name, untilT = t + ASSIGN_TIME }
 			end
 		end
 	end
 	-- Keep a recent assignment a little longer (no flip-flopping).
 	for pid, a in pairs(S.assign) do
-		if not newAssign[pid] and a.untilT > t then
+		if not newAssign[pid] and a.untilT > t and not (S.dropped and S.dropped[pid] == a.name..a.lane) then
 			local tw = a.kind == 'defend' and a.tower
 			if not tw or (not tw:IsNull() and tw:IsAlive()) then newAssign[pid] = a end
 		end
 	end
 	S.assign = newAssign
+	S.dropped = nil
 end
 
 function X.Update()
@@ -712,7 +736,7 @@ end
 -- For the push wrappers: max with the normal desire.
 function X.PushDesire(bot, lane)
 	local a = X.Assignment(bot)
-	if a and a.kind == 'push' and a.lane == lane then return 0.82 end
+	if a and a.kind == 'push' and a.lane == lane and not X.LosingHere(bot) then return 0.82 end
 	return 0
 end
 
@@ -747,6 +771,8 @@ end
 function X.FilterDefendDesire(bot, lane, desire)
 	if desire <= 0 then return desire end
 	local tw, tier = X.OwnLaneTower(lane)
+	-- Losing the exchange here: retreat wins over a T1-T3 defense.
+	if tier <= 3 and X.LosingHere(bot) then return math.min(desire, 0.3) end
 	-- Nobody hits the tower: no standing guard at T1/T2.
 	if tw and tier <= 2 and not X.TowerThreatened(tw) then return math.min(desire, 0.2) end
 	local far = not tw or GetUnitToUnitDistance(bot, tw) > 2500
@@ -758,8 +784,17 @@ end
 -- For the defend wrappers.
 function X.DefendDesire(bot, lane)
 	local a = X.Assignment(bot)
-	if a and a.kind == 'defend' and a.lane == lane then return 0.88 end
+	if a and a.kind == 'defend' and a.lane == lane then
+		if a.tier ~= 5 and X.LosingHere(bot) then return 0 end
+		return 0.88
+	end
 	return 0
+end
+
+-- The exchange here (X.Combat) says get out: no objective keeps the bot in.
+function X.LosingHere(bot)
+	local c = bot._combat
+	return c ~= nil and c.retreat == true and DotaTime() - (bot._fightHintT or -math.huge) < 1.5
 end
 
 --------------------------------------------------------------------------------
@@ -1347,7 +1382,7 @@ function X.DefendThink(bot, lane)
 
 	local target, low = nil, math.huge
 	for _, e in ipairs(enemies) do
-		local inTower = Dist(e:GetLocation(), tloc) < 750
+		local inTower = Dist(e:GetLocation(), tloc) < 750 and not X.LosingHere(bot)
 		if J.CanBeAttacked(e) and (strong or inTower) and e:GetHealth() < low then target, low = e, e:GetHealth() end
 	end
 	if target then
