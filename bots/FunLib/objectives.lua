@@ -592,8 +592,13 @@ local function Assign(S, t)
 	-- more (Dire's defenders ran back and forth between T3 and T4).
 	local active = {}
 	for _, obj in ipairs(objectives) do active[obj.name..obj.lane] = obj end
+	local aliveById = {}
+	for _, m in ipairs(Members()) do aliveById[m:GetPlayerID()] = m:IsAlive() end
 	for pid, a in pairs(S.assign) do
 		local still = active[a.name..a.lane]
+		-- A dead hero's assignment ends (SF respawned, teleported to a T2 from
+		-- before his death and stood there doing nothing).
+		if aliveById[pid] == false then still = nil a.untilT = -math.huge end
 		if still and a.untilT > t then
 			local better = false
 			for _, obj in ipairs(objectives) do
@@ -909,6 +914,9 @@ function X.DefendDesire(bot, lane)
 	local a = X.Assignment(bot)
 	if a and a.kind == 'defend' and a.lane == lane then
 		if a.tier ~= 5 and X.LosingHere(bot) then return 0 end
+		-- Nothing to defend there any more: no standing guard.
+		if a.tier ~= 5 and a.tower and not a.tower:IsNull() and not X.TowerThreatened(a.tower)
+		and #HeroesNear(GetOpposingTeam(), a.tower:GetLocation(), 1600) == 0 then return 0 end
 		return 0.88
 	end
 	return 0
