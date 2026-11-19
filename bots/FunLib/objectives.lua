@@ -58,6 +58,17 @@ local function Stat(fn, pid)
 end
 
 ObjectivesState = ObjectivesState or {}
+-- Last hits and denies: the hero's own counters (GetHeroLastHits(pid)
+-- returned 0 for everybody).
+function X.LastHits(m)
+	local lh, dn = 0, 0
+	pcall(function() lh = m:GetLastHits() or 0 end)
+	pcall(function() dn = m:GetDenies() or 0 end)
+	if lh == 0 then lh = Stat(GetHeroLastHits, m:GetPlayerID()) end
+	if dn == 0 then dn = Stat(GetHeroDenies, m:GetPlayerID()) end
+	return lh, dn
+end
+
 local function State()
 	local team = GetTeam()
 	local S = ObjectivesState[team]
@@ -137,7 +148,7 @@ local function ScoreHeroes(S, t)
 		local pid = m:GetPlayerID()
 		local e = BotEntry(S, m)
 		local k, d, a = Stat(GetHeroKills, pid), Stat(GetHeroDeaths, pid), Stat(GetHeroAssists, pid)
-		local lh, dn = Stat(GetHeroLastHits, pid), Stat(GetHeroDenies, pid)
+		local lh, dn = X.LastHits(m)
 		if k > e.kills then Add(S, m, (k - e.kills) * X.POINTS.kill, 'kill') end
 		if a > e.assists then Add(S, m, (a - e.assists) * X.POINTS.assist, 'assist') end
 		if d > e.deaths then Add(S, m, (d - e.deaths) * (X.POINTS.death + X.POINTS.deathPerMinute * t / 60), 'death') end
@@ -379,7 +390,7 @@ local function Scoreboard(S, t)
 		local pid = m:GetPlayerID()
 		table.insert(rows, string.format('%s%s pos%d L%d cs %d/%d nw %d (%d/min) kda %d/%d/%d',
 			string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''), m:IsBot() and '' or ' (human)', J.GetPosition(m), m:GetLevel(),
-			Stat(GetHeroLastHits, pid), Stat(GetHeroDenies, pid), m:GetNetWorth(), math.floor(m:GetNetWorth() / mins),
+			select(1, X.LastHits(m)), select(2, X.LastHits(m)), m:GetNetWorth(), math.floor(m:GetNetWorth() / mins),
 			Stat(GetHeroKills, pid), Stat(GetHeroDeaths, pid), Stat(GetHeroAssists, pid)))
 	end
 	pcall(ModeReport, S, t)
