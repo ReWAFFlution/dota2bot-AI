@@ -307,9 +307,15 @@ function X.Update()
 		for _, m in ipairs(gathered) do avgHP = avgHP + J.GetHP(m) end
 		avgHP = #gathered > 0 and avgHP / #gathered or 0
 		local towerGone = S.siegeLane and not EnemyTowerAlive(S.siegeLane, { T2, T3 })
-		if #gathered < math.min(SIEGE_MIN_GROUP - 1, math.max(2, enemyAlive)) or avgHP < 0.4 or allyAlive < enemyAlive then
+		local failing = #gathered < math.min(SIEGE_MIN_GROUP - 1, math.max(2, enemyAlive)) or avgHP < 0.4 or allyAlive < enemyAlive
+		-- A failure has to last 5 s (heroes stepping in and out of 2500 of the
+		-- group flipped hunt/siege 7 times in 3 minutes); then 30 s without a
+		-- new siege.
+		if failing then S.siegeFailT = S.siegeFailT or t else S.siegeFailT = nil end
+		if failing and t - S.siegeFailT >= 5 then
 			SetPhase(S, 'hunt', 'siege failed')
-			S.hunt = nil
+			S.hunt, S.siegeFailT = nil, nil
+			S.noSiegeUntil = t + 30
 		elseif towerGone or t - S.phaseT > 90 then
 			S.siegeLane = ClosestEnemyT2Lane(center)
 			S.phaseT = t
@@ -318,7 +324,8 @@ function X.Update()
 		return S
 	end
 
-	if #gathered >= math.max(3, math.min(SIEGE_MIN_GROUP, enemyAlive)) and cores >= 1 and allyAlive >= enemyAlive then
+	if #gathered >= math.max(3, math.min(SIEGE_MIN_GROUP, enemyAlive)) and cores >= 1 and allyAlive >= enemyAlive
+	and t >= (S.noSiegeUntil or -math.huge) then
 		S.siegeLane = ClosestEnemyT2Lane(center)
 		if S.siegeLane then
 			SetPhase(S, 'siege', 'a core joined, pushing lane '..S.siegeLane)

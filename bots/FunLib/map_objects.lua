@@ -154,7 +154,10 @@ local function LotusDesire(bot, S)
 			local claimer = S.poolBy[key]
 			local claimed = claimer and claimer ~= bot and claimer:IsAlive() and (claimer._mapTarget == pool)
 			local range = support and LOTUS_RANGE_SUPPORT or LOTUS_RANGE_ANY
-			if not claimed and d < range and EnemiesNear(pool:GetLocation(), 700) == 0 and (not bestDist or d < bestDist) then -- an enemy right at the pool
+			-- A far pool only when 2+ lotuses should be waiting (6+ min since we
+			-- last took it).
+			local worthWalk = d < 1500 or math.floor(DotaTime() / LOTUS_PERIOD) - math.floor((S.poolTaken[key] or 0) / LOTUS_PERIOD) >= 2
+			if not claimed and worthWalk and d < range and EnemiesNear(pool:GetLocation(), 700) == 0 and (not bestDist or d < bestDist) then -- an enemy right at the pool
 				best, bestDist = pool, d
 			end
 		end
@@ -212,8 +215,12 @@ function X.RoamDesire(bot)
 	and (J.GetPosition(bot) < 4 or LaneCoreSafe(bot)) then
 		return J.GetPosition(bot) >= 4 and 0.75 or 0.5
 	end
-	if bot._lotusGoT and DotaTime() - bot._lotusGoT >= 25 and not bot._lotusStandT then
-		-- Couldn't get there in time: leave the pools alone for a minute.
+	if bot._lotusGoT and not bot._lotusStandT then
+		-- The trip ended without getting there (too slow, or its core needed it):
+		-- leave the pools alone for a minute (76 trips, 20 arrivals in a game:
+		-- they kept turning back and starting again).
+		local why = DotaTime() - bot._lotusGoT >= 25 and 'too slow' or 'called back'
+		Log(bot:GetUnitName()..' gives up the lotus ('..why..')')
 		bot._lotusGoT, bot._mapTarget = nil, nil
 		bot._lotusGiveUpUntil = DotaTime() + 60
 	end
