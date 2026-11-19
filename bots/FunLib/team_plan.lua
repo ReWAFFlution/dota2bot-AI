@@ -177,7 +177,16 @@ local function HuntGroup()
 	return g, disablers
 end
 
+-- Hunt, siege and spread hold for 15 s at least (the plan flipped between
+-- them every few seconds, sending the team to a new spot each time); finish,
+-- defend and regroup start at once.
+local PHASE_HOLD = 15
+local QUICK = { finish = true, defend = true, regroup = true }
 local function SetPhase(S, phase, why)
+	if S.phase ~= phase and not QUICK[phase] and S.phase and not QUICK[S.phase] and S.phase ~= 'laning'
+	and DotaTime() - (S.phaseT or -math.huge) < PHASE_HOLD then
+		return
+	end
 	if S.phase ~= phase then
 		Log('phase '..(S.phase or '-')..' -> '..phase..(why and (' ('..why..')') or ''))
 		S.phase, S.phaseT = phase, DotaTime()
@@ -515,7 +524,9 @@ function X.RoamDesire(bot)
 	local p = S.phase
 
 	if p == 'regroup' then
-		if GetUnitToLocationDistance(bot, J.GetEnemyFountain()) < 7000 then
+		-- Only the heroes deep on their side walk back; the others keep
+		-- farming and pushing (the whole team walked back at every respawn).
+		if GetUnitToLocationDistance(bot, J.GetEnemyFountain()) < 5000 then
 			bot._teamAction = 'regroup'
 			return BOT_MODE_DESIRE_VERYHIGH
 		end
@@ -612,13 +623,17 @@ local function ThinkHunt(bot, S)
 	local targetLoc = (target:CanBeSeen() and target:GetLocation()) or h.lastLoc or target:GetLocation()
 	local center = GroupCenter(group) or bot:GetLocation()
 
-	-- 1) Gather close to each other, then smoke.
+	-- 1) Gather close to each other, then smoke. The spot is fixed when the
+	-- hunt starts (walking to a group centre that moves with everyone made
+	-- them circle around one spot for a minute), and the wait is short.
 	if h.state == 'gather' then
+		h.gatherLoc = h.gatherLoc or center
+		center = h.gatherLoc
 		local spread = 0
 		for _, m in ipairs(group) do
 			if m:IsAlive() then spread = math.max(spread, GetUnitToLocationDistance(m, center)) end
 		end
-		if spread < 600 or DotaTime() - h.startT > 20 then
+		if spread < 700 or DotaTime() - h.startT > 10 then
 			-- Whoever carries the smoke pops it; go without it if nobody has one.
 			if UseItem(bot, 'item_smoke_of_deceit') then
 				Log(bot:GetUnitName()..' smokes the group')
@@ -629,7 +644,7 @@ local function ThinkHunt(bot, S)
 			for _, m in ipairs(group) do
 				if m:IsAlive() and m:FindItemSlot('item_smoke_of_deceit') >= 0 then anySmoke = true end
 			end
-			if not anySmoke or DotaTime() - h.startT > 40 then h.state = 'move' end
+			if not anySmoke or DotaTime() - h.startT > 15 then h.state = 'move' end
 		end
 		bot:Action_MoveToLocation(center)
 		return
