@@ -319,6 +319,18 @@ local function Scoreboard(S, t)
 		table.insert(parts, string.format('%s %d (%.1f/min)', string.gsub(e.name, 'npc_dota_hero_', ''), math.floor(e.score), X.Rate(m)))
 	end
 	Log(string.format('%d:%02d team %d: %d | %s', math.floor(t / 60), math.floor(t % 60), GetTeam(), math.floor(S.team), table.concat(parts, ', ')))
+	-- How each hero plays, to compare with high-rank games: last hits and
+	-- denies, gold and networth per minute, level, kills/deaths/assists.
+	local mins = math.max(1, t / 60)
+	local rows = {}
+	for _, m in ipairs(Members()) do
+		local pid = m:GetPlayerID()
+		table.insert(rows, string.format('%s%s pos%d L%d cs %d/%d nw %d (%d/min) kda %d/%d/%d',
+			string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''), m:IsBot() and '' or ' (human)', J.GetPosition(m), m:GetLevel(),
+			Stat(GetHeroLastHits, pid), Stat(GetHeroDenies, pid), m:GetNetWorth(), math.floor(m:GetNetWorth() / mins),
+			Stat(GetHeroKills, pid), Stat(GetHeroDeaths, pid), Stat(GetHeroAssists, pid)))
+	end
+	Log(string.format('stats %d:%02d team %d: %s', math.floor(t / 60), math.floor(t % 60), GetTeam(), table.concat(rows, ' | ')))
 end
 
 --------------------------------------------------------------------------------
