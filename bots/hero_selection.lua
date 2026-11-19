@@ -45,6 +45,7 @@ if not okMetaDraft then MetaDraft = nil end
 HeroPositionMap = HeroPositionMap.GetHeroPositions()
 
 if GAMEMODE_TURBO == nil then GAMEMODE_TURBO = 23 end
+if GAMEMODE_CD == nil then GAMEMODE_CD = 16 end
 
 --==============================================================================
 -- Game Modes notes
@@ -372,7 +373,7 @@ function X.IsBannedHero( sHero )
 	if not sHero then return true end
 
 	-- CM bans enforced by engine
-	if (GetGameMode() == GAMEMODE_CM or GetGameMode() == GAMEMODE_REVERSE_CM) and IsCMBannedHero(sHero) then
+	if (GetGameMode() == GAMEMODE_CM or GetGameMode() == GAMEMODE_REVERSE_CM or GetGameMode() == GAMEMODE_CD) and IsCMBannedHero(sHero) then
 		return true
 	end
 
@@ -1036,7 +1037,10 @@ end
 local function CMFree(list)
 	local out = {}
 	for _, h in ipairs(list) do
-		if not CMTaken(h) and h ~= 'npc_dota_hero_techies' then table.insert(out, h) end
+		if not CMTaken(h) and h ~= 'npc_dota_hero_techies'
+		and not (CaptainMode.IsTried and CaptainMode.IsTried(h)) then -- not in the CD pool
+			table.insert(out, h)
+		end
 	end
 	return out
 end
@@ -1372,7 +1376,7 @@ end
 --==============================================================================
 
 function Think()
-	if GetGameMode() == GAMEMODE_CM or GetGameMode() == GAMEMODE_REVERSE_CM then
+	if GetGameMode() == GAMEMODE_CM or GetGameMode() == GAMEMODE_REVERSE_CM or GetGameMode() == GAMEMODE_CD then
 		CaptainMode.CaptainModeLogic(SupportedHeroes);
 		CaptainMode.AddToList();
 	elseif GetGameMode() == GAMEMODE_1V1MID then
@@ -1470,7 +1474,7 @@ function UpdateLaneAssignments()
 		return OneVoneLaneAssignment
 	end
 
-	if GetGameMode() == GAMEMODE_CM or GetGameMode() == GAMEMODE_REVERSE_CM then
+	if GetGameMode() == GAMEMODE_CM or GetGameMode() == GAMEMODE_REVERSE_CM or GetGameMode() == GAMEMODE_CD then
 		tLaneAssignList[team] = CaptainMode.CMLaneAssignment(Role.RoleAssignment, userSwitchedRole)
 	end
 

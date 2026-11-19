@@ -64,15 +64,20 @@ export function CaptainModeLogic(SupportedHeroes: HeroName[]) {
     }
 
     const state = GetHeroPickState();
-    if (state === HeroPickState.CmCaptainPick) {
+    // Captains Draft has its own states (CdBan1-6, CdSelect1-10, CdPick).
+    const isBan = (state >= HeroPickState.CmBan1 && state <= 20) || (state >= HeroPickState.CdBan1 && state <= HeroPickState.CdBan6);
+    const isSelect =
+        (state >= HeroPickState.CmSelect1 && state <= HeroPickState.CmSelect10) || (state >= HeroPickState.CdSelect1 && state <= HeroPickState.CdSelect10);
+    CheckPending();
+    if (state === HeroPickState.CmCaptainPick || state === HeroPickState.CdCaptainPick) {
         PickCaptain();
-    } else if (state >= HeroPickState.CmBan1 && state <= 20 && GetCMPhaseTimeRemaining() <= NeededTime) {
+    } else if (isBan && GetCMPhaseTimeRemaining() <= NeededTime) {
         BansHero();
         NeededTime = 0;
-    } else if (state >= HeroPickState.CmSelect1 && state <= HeroPickState.CmSelect10 && GetCMPhaseTimeRemaining() <= NeededTime) {
+    } else if (isSelect && GetCMPhaseTimeRemaining() <= NeededTime) {
         PicksHero();
         NeededTime = 0;
-    } else if (state === HeroPickState.CmPick) {
+    } else if (state === HeroPickState.CmPick || state === HeroPickState.CdPick) {
         SelectsHero();
     }
 }
@@ -115,6 +120,35 @@ export function GetFirstBot(): number | null {
 }
 
 // Ban hero function
+// A ban/pick is only counted once the game shows it. In Captains Draft only
+// the draft's hero pool can be taken, and bots aren't told which heroes are
+// in it: a hero the game didn't accept is marked unavailable and the next
+// candidate is tried on the next frame.
+type PendingType = { kind: "ban" | "pick"; hero: HeroName; role?: string; team?: string; t: number };
+let Pending: PendingType | undefined = undefined;
+
+function CheckPending() {
+    if (Pending === undefined) {
+        return;
+    }
+    const done = Pending.kind === "ban" ? IsCMBannedHero(Pending.hero) : IsCMPickedHero(GetTeam(), Pending.hero);
+    if (done) {
+        if (Pending.kind === "pick") {
+            PairsHeroNameNRole[Pending.team!][Pending.hero] = Pending.role!;
+            PickCycle = PickCycle + 1;
+        }
+        Pending = undefined;
+    } else if (GameTime() - Pending.t > 0.6) {
+        UnavailableHeroes.push(Pending.hero);
+        print(Pending.hero + " was not accepted (not in the draft pool?), trying another");
+        Pending = undefined;
+    }
+}
+
+export function IsTried(hero: string): boolean {
+    return IsUnavailableHero(hero);
+}
+
 // Draft hooks set by hero_selection.lua (meta/counter draft); undefined -> random.
 type DraftHooksType = { ban?: () => HeroName | undefined; pick?: (pos: number) => HeroName | undefined };
 let DraftHooks: DraftHooksType | undefined = undefined;
@@ -138,9 +172,13 @@ function BansHero() {
     if (!IsPlayerBot(GetCMCaptain()) || !IsPlayerInHeroSelectionControl(GetCMCaptain())) {
         return;
     }
+    if (Pending !== undefined) {
+        return;
+    }
     const BannedHero = HookedHero("ban") ?? RandomHero();
     print(BannedHero + " is banned");
     CMBanHero(BannedHero);
+    Pending = { kind: "ban", hero: BannedHero, t: GameTime() };
     BanCycle = BanCycle + 1;
 }
 
@@ -155,12 +193,14 @@ function PicksHero() {
     // support, carry), the random role-fitting hero otherwise.
     const CycleRole = ["offlaner", "support", "midlaner", "support", "carry"];
     const CyclePos = [3, 5, 2, 4, 1];
+    if (Pending !== undefined) {
+        return;
+    }
     const drafted = PickCycle <= 5 ? HookedHero("pick", CyclePos[PickCycle - 1]) : undefined;
     if (drafted !== undefined) {
-        PairsHeroNameNRole[sTeamName][drafted] = CycleRole[PickCycle - 1];
         print(drafted + " is picked (draft)");
         CMPickHero(drafted);
-        PickCycle = PickCycle + 1;
+        Pending = { kind: "pick", hero: drafted, role: CycleRole[PickCycle - 1], team: sTeamName, t: GameTime() };
         return;
     }
     let PickedHero = RandomHero() as HeroName;
@@ -193,7 +233,7 @@ function PicksHero() {
 
     print(PickedHero + " is picked");
     CMPickHero(PickedHero);
-    PickCycle = PickCycle + 1;
+    Pending = { kind: "pick", hero: PickedHero, role: PairsHeroNameNRole[sTeamName][PickedHero], team: sTeamName, t: GameTime() };
 }
 
 // Add to list human picked heroes

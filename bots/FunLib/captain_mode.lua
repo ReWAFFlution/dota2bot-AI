@@ -79,7 +79,7 @@ local function __TS__ArraySplice(self, ...)
 end
 -- End of Lua Library inline imports
 local ____exports = {}
-local BansHero, PicksHero, AlreadyInTable, IsUnavailableHero, RandomHero, WasHumansDonePicking, SelectsHero, GetTeamSelectedHeroes, UpdateSelectedHeroes, FillLaneAssignmentTable, UnImplementedHeroes, ListPickedHeroes, AllHeroesSelected, BanCycle, PickCycle, UnavailableHeroes, HeroLanes, allBotHeroes, humanPick, RoleAssignment
+local CheckPending, BansHero, PicksHero, AlreadyInTable, IsUnavailableHero, RandomHero, WasHumansDonePicking, SelectsHero, GetTeamSelectedHeroes, UpdateSelectedHeroes, FillLaneAssignmentTable, UnImplementedHeroes, ListPickedHeroes, AllHeroesSelected, BanCycle, PickCycle, UnavailableHeroes, HeroLanes, allBotHeroes, humanPick, RoleAssignment
 local ____dota = require(GetScriptDirectory().."/ts_libs/dota/index")
 local GameState = ____dota.GameState
 local HeroPickState = ____dota.HeroPickState
@@ -121,6 +121,31 @@ function ____exports.GetFirstBot()
     end
     return BotId
 end
+-- A ban/pick is only counted once the game shows it. In Captains Draft only
+-- the draft's hero pool can be taken, and bots aren't told which heroes are
+-- in it: a hero the game didn't accept is marked unavailable and the next
+-- candidate is tried on the next frame.
+local Pending = nil
+function CheckPending()
+    if not Pending then
+        return
+    end
+    local done = Pending.kind == "ban" and IsCMBannedHero(Pending.hero) or (Pending.kind ~= "ban" and IsCMPickedHero(GetTeam(), Pending.hero))
+    if done then
+        if Pending.kind == "pick" then
+            ____exports.PairsHeroNameNRole[Pending.team][Pending.hero] = Pending.role
+            PickCycle = PickCycle + 1
+        end
+        Pending = nil
+    elseif GameTime() - Pending.t > 0.6 then
+        UnavailableHeroes[#UnavailableHeroes + 1] = Pending.hero
+        print(Pending.hero .. " was not accepted (not in the draft pool?), trying another")
+        Pending = nil
+    end
+end
+function ____exports.IsTried(hero)
+    return IsUnavailableHero(hero)
+end
 -- Draft hooks set by hero_selection.lua (meta/counter draft); nil -> random.
 local DraftHooks = nil
 function ____exports.SetDraftHooks(hooks)
@@ -140,9 +165,13 @@ function BansHero()
     if not IsPlayerBot(GetCMCaptain()) or not IsPlayerInHeroSelectionControl(GetCMCaptain()) then
         return
     end
+    if Pending then
+        return
+    end
     local BannedHero = HookedHero("ban") or RandomHero()
     print(BannedHero .. " is banned")
     CMBanHero(BannedHero)
+    Pending = {kind = "ban", hero = BannedHero, t = GameTime()}
     BanCycle = BanCycle + 1
 end
 function PicksHero()
@@ -154,12 +183,14 @@ function PicksHero()
     -- support, carry), the random role-fitting hero otherwise.
     local CycleRole = {"offlaner", "support", "midlaner", "support", "carry"}
     local CyclePos = {3, 5, 2, 4, 1}
+    if Pending then
+        return
+    end
     local drafted = PickCycle <= 5 and HookedHero("pick", CyclePos[PickCycle]) or nil
     if drafted then
-        ____exports.PairsHeroNameNRole[sTeamName][drafted] = CycleRole[PickCycle]
         print(drafted .. " is picked (draft)")
         CMPickHero(drafted)
-        PickCycle = PickCycle + 1
+        Pending = {kind = "pick", hero = drafted, role = CycleRole[PickCycle], team = sTeamName, t = GameTime()}
         return
     end
     local PickedHero = RandomHero()
@@ -191,7 +222,8 @@ function PicksHero()
     end
     print(PickedHero .. " is picked")
     CMPickHero(PickedHero)
-    PickCycle = PickCycle + 1
+    local roleNow = ____exports.PairsHeroNameNRole[sTeamName][PickedHero]
+    Pending = {kind = "pick", hero = PickedHero, role = roleNow, team = sTeamName, t = GameTime()}
 end
 function AlreadyInTable(hero_name)
     for ____, h in ipairs(humanPick) do
@@ -379,15 +411,19 @@ function ____exports.CaptainModeLogic(SupportedHeroes)
         NeededTime = 25
     end
     local state = GetHeroPickState()
-    if state == HeroPickState.CmCaptainPick then
+    -- Captains Draft has its own states (CdBan1-6, CdSelect1-10, CdPick).
+    local isBan = (state >= HeroPickState.CmBan1 and state <= 20) or (state >= HeroPickState.CdBan1 and state <= HeroPickState.CdBan6)
+    local isSelect = (state >= HeroPickState.CmSelect1 and state <= HeroPickState.CmSelect10) or (state >= HeroPickState.CdSelect1 and state <= HeroPickState.CdSelect10)
+    CheckPending()
+    if state == HeroPickState.CmCaptainPick or state == HeroPickState.CdCaptainPick then
         ____exports.PickCaptain()
-    elseif state >= HeroPickState.CmBan1 and state <= 20 and GetCMPhaseTimeRemaining() <= NeededTime then
+    elseif isBan and GetCMPhaseTimeRemaining() <= NeededTime then
         BansHero()
         NeededTime = 0
-    elseif state >= HeroPickState.CmSelect1 and state <= HeroPickState.CmSelect10 and GetCMPhaseTimeRemaining() <= NeededTime then
+    elseif isSelect and GetCMPhaseTimeRemaining() <= NeededTime then
         PicksHero()
         NeededTime = 0
-    elseif state == HeroPickState.CmPick then
+    elseif state == HeroPickState.CmPick or state == HeroPickState.CdPick then
         SelectsHero()
     end
 end
