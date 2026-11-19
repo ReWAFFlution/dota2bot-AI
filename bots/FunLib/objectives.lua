@@ -1378,7 +1378,9 @@ function X.Combat(bot)
 	if nearFountain and #enemies > 0 then c.go, c.retreat = false, true end
 	-- An enemy right next to us: decide (fight or leave), never keep farming
 	-- creeps in between (MK hit creeps with enemies around in their base).
-	if not c.go and not c.retreat then
+	-- (Not in the laning stage: the enemy laners are always that close, and
+	-- the cores kept walking out of their lane every ten seconds.)
+	if not c.go and not c.retreat and not J.IsInLaningPhase() then
 		local close = false
 		for _, e in ipairs(enemies) do if Dist(e:GetLocation(), myLoc) < 900 then close = true end end
 		if close then

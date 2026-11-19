@@ -124,7 +124,7 @@ function GetDesireHelper()
 
 	-- Early exits first (cheap checks before expensive queries)
     if not bAlive
-	or J.IsInLaningPhase()
+	or (J.IsInLaningPhase() and J.GetPosition(bot) >= 4)
 	or (J.IsDoingRoshan(bot) and bNotClone)
 	or (J.IsDoingTormentor(bot) and bNotClone)
     or DotaTime() < 50
@@ -186,6 +186,13 @@ function GetDesireHelper()
 	end
 	
 	availableCamp = J.Role['availableCampTable'];
+
+	-- Laning stage: only a camp between waves (cores), else the lane.
+	if J.IsInLaningPhase() then
+		local camp = FarmPlan.BetweenWaves(bot, availableCamp)
+		if camp then preferedCamp = camp return 0.5 end
+		return BOT_MODE_DESIRE_NONE
+	end
 
     local nEnemyHeroes = J.GetEnemiesNearLoc(bot:GetLocation(), 1600)
     if #nEnemyHeroes > 0 then

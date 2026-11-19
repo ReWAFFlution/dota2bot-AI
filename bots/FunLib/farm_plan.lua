@@ -106,4 +106,42 @@ function X.BestCamp(bot, list, fallback)
 	return fallback(bot, own)
 end
 
+-- In the laning stage, a core takes a camp of its own jungle between waves
+-- (pro carries clear the nearby camp as soon as their wave is dead, then
+-- come back for the next one): no enemy lane creeps around, HP over 50%,
+-- a safe camp in our jungle within reach, walk + clear in 30 s or less (hits only, spells make it faster). Once
+-- taken, the camp is kept for up to 25 s so it gets cleared.
+local WAVE_FARM_FROM = { [1] = 4 * 60, [2] = 6 * 60, [3] = 6 * 60 }
+function X.BetweenWaves(bot, list)
+	local pos = J.GetPosition(bot)
+	local from = WAVE_FARM_FROM[pos]
+	if not from or DotaTime() < from or not list or #list == 0 then return nil end
+	if J.GetHP(bot) < 0.5 then bot._waveCamp = nil return nil end
+	local t = DotaTime()
+	local w = bot._waveCamp
+	if w and t - w.t < 25 then
+		for _, entry in ipairs(list) do
+			if entry.idx == w.idx and entry.cattr and X.IsSafe(bot, entry.cattr) then return entry end
+		end
+	end
+	bot._waveCamp = nil
+	if #bot:GetNearbyLaneCreeps(1300, true) > 0 then return nil end -- the wave is still there
+	local best, bestRate
+	for _, entry in ipairs(list) do
+		local camp = entry.cattr
+		if camp and camp.location and camp.team == GetTeam() and camp.type ~= 'ancient' and X.IsSafe(bot, camp)
+		and GetUnitToLocationDistance(bot, camp.location) < 2500 then
+			local rate = X.CampRate(bot, camp)
+			local gold = (GOLD[camp.type or 'medium'] or 80) * (1 + DotaTime() / 3600)
+			local secs = rate > 0 and gold / rate - 2 or 99 -- walk + clear
+			if secs <= 30 and (not bestRate or rate > bestRate) then best, bestRate = entry, rate end
+		end
+	end
+	if best then
+		bot._waveCamp = { idx = best.idx, t = t }
+		print(string.format('[Farm] %s clears a %s camp between waves (%.1f gold/s)', bot:GetUnitName(), tostring(best.cattr.type), bestRate))
+	end
+	return best
+end
+
 return X

@@ -30,7 +30,7 @@ function GetTower() return nil end function GetTeamMember(i) return allies[i] en
 local seenNear = {}
 function GetTeamPlayers(t) return t == 3 and { 5, 6, 7, 8 } or { 0 } end function IsHeroAlive() return true end
 function GetHeroLastSeenInfo(pid) if seenNear[pid] then return { { time_since_seen = 2, location = Vector(800, 0) } } end return { { time_since_seen = 1, location = Vector(9000, 9000) } } end
-local J = { IsValidHero = function(h) return h ~= nil end, CanBeAttacked = function() return true end, GetHP = function(u) return u.hp / 2000 end,
+local J = { IsInLaningPhase = function() return false end, IsValidHero = function(h) return h ~= nil end, CanBeAttacked = function() return true end, GetHP = function(u) return u.hp / 2000 end,
 	GetMP = function() return 0.8 end, IsSuspiciousIllusion = function() return false end, GetPosition = function() return 1 end,
 	GetEnemyFountain = function() return Vector(7000, 7000) end, GetTeamFountain = function() return Vector(-7000, -7000) end }
 function require(p) if p:find('jmz_func') then return J end if p:find('roles_map') then return { IsDisabler = function(n) return DISABLERS and DISABLERS[n] == true end, HasEscape = function() return false end } end end
