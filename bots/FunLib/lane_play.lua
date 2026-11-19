@@ -116,6 +116,13 @@ end
 
 -- Share of our HP the enemies around could take in ~2 s (their tower too).
 function X.TradeRisk(bot, enemies)
+	-- The exchange decides first: when they can't kill us within 4 s, or we
+	-- kill first, there's nothing to fear (WK wouldn't walk up to his creeps
+	-- next to a Legion Commander who was no threat to him).
+	if Objectives and Objectives.Combat and #enemies > 0 then
+		local c = Objectives.Combat(bot)
+		if c and (c.ttkThem > 4 or c.ttkUs <= c.ttkThem) then return 0 end
+	end
 	local dmg = 0
 	for _, e in ipairs(enemies) do
 		local ok, d = pcall(function() return e:GetEstimatedDamageToTarget(true, bot, 2.0, DAMAGE_TYPE_ALL) end)

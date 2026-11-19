@@ -3,6 +3,7 @@ if GetBot():IsInvulnerable() or not GetBot():IsHero() or not string.find(GetBot(
 end
 
 local Utils = require( GetScriptDirectory()..'/FunLib/utils' )
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
 local FarmPlan = require(GetScriptDirectory()..'/FunLib/farm_plan') -- safe camp with the best gold/s
 local Version = require(GetScriptDirectory()..'/FunLib/version')
 local Localization = require( GetScriptDirectory()..'/FunLib/localization' )
@@ -210,12 +211,16 @@ function GetDesireHelper()
 
     local nEnemyHeroes = J.GetEnemiesNearLoc(bot:GetLocation(), 1600)
     if #nEnemyHeroes > 0 then
-		if not bWeAreStronger then
-			return BOT_MODE_DESIRE_NONE
-		end
+		-- Who kills whom (FunLib/objectives.lua) instead of "are we stronger"
+		-- by heads and levels: farm on unless they can kill us within 4 s
+		-- and we don't kill first (WK stayed off his creeps next to a weak LC).
+		local c = Objectives.Combat(bot)
+		if c and c.retreat then return BOT_MODE_DESIRE_NONE end
+		if c and c.ttkThem <= 4 and c.ttkUs > c.ttkThem then return BOT_MODE_DESIRE_NONE end
+		if not c and not bWeAreStronger then return BOT_MODE_DESIRE_NONE end
 
 		for _, enemy in ipairs(nEnemyHeroes) do
-			if J.IsValidHero(enemy) and enemy:GetAttackTarget() == bot then
+			if J.IsValidHero(enemy) and enemy:GetAttackTarget() == bot and J.GetHP(bot) < 0.5 then
 				return BOT_MODE_DESIRE_NONE
 			end
 		end
