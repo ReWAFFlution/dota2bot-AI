@@ -36,4 +36,23 @@ mk.GetItemInSlot = function() return nil end
 S.ReviewNext(mk, 1, st2)
 print('20 min next item: '..st2[#st2])
 assert(st2[#st2] == 'item_desolator', 'jumped to a much dearer item')
+-- Juggernaut (pos 1) at 16:00 against a Wraith King seen with Radiance:
+-- MKB gets planned (true strike against the blind).
+SIM_T = 16 * 60
+names = { [5] = 'npc_dota_hero_skeleton_king', [6] = 'npc_dota_hero_lina' }
+GetSelectedHeroName = function(pid) return pid == 0 and 'npc_dota_hero_juggernaut' or names[pid] end
+local wk = { }
+function wk:IsNull() return false end function wk:IsAlive() return true end function wk:IsIllusion() return false end
+function wk:GetUnitName() return 'npc_dota_hero_skeleton_king' end function wk:FindItemSlot(n) return n == 'item_radiance' and 0 or -1 end
+GetUnitList = function() return { wk } end
+local S2 = dofile(BOTS..'/FunLib/item_strategy.lua')
+local jug = { inv = {} }
+function jug:GetUnitName() return 'npc_dota_hero_juggernaut' end function jug:FindItemSlot(n) return self.inv[n] and 0 or -1 end
+function jug:GetNetWorth() return 9000 end function jug:GetItemInSlot() return nil end function jug:HasModifier() return false end
+function jug:GetPlayerID() return 0 end
+local st3 = { 'item_butterfly', 'item_abyssal_blade', 'item_skadi' }
+for i = 1, 12 do SIM_T = SIM_T + 4 S2.Think(jug, 1, st3) end
+local has = false for _, it in ipairs(st3) do if it == 'item_monkey_king_bar' or it == 'item_bloodthorn' then has = true end end
+print('Juggernaut vs Radiance WK: '..table.concat(st3, ', '))
+assert(has, 'no true strike vs Radiance')
 print('mk build ok')

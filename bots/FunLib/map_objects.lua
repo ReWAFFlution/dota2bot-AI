@@ -68,6 +68,19 @@ local function LotusCount(pool)
 	return count
 end
 
+-- The 10 watchers (npc_dota_lantern) of the 7.42 map, from maps/dota.vpk:
+-- they give vision once captured, so no observer ward next to one.
+X.LANTERNS = {
+	Vector(7918, -1524), Vector(-6464, 6656), Vector(2718, -657), Vector(-3484, 34), Vector(1032, -4260),
+	Vector(6528, -6592), Vector(768, -7648), Vector(-671, 7130), Vector(-1527, 3926), Vector(-7808, 1056),
+}
+function X.NearLantern(loc, r)
+	for _, l in ipairs(X.LANTERNS) do
+		if (l - loc):Length2D() < (r or 800) then return true end
+	end
+	return false
+end
+
 local function Scan(S)
 	if DotaTime() < S.scanT + SCAN_GAP then return end
 	S.scanT = DotaTime()
@@ -175,6 +188,9 @@ local function LotusDesire(bot, S)
 end
 
 local function WatcherDesire(bot, S)
+	-- Supports only: a core's time is worth more (Juggernaut walked back and
+	-- forth between his camps and a watcher).
+	if J.GetPosition(bot) < 4 then return nil end
 	for _, w in ipairs(S.watchers) do
 		if w and not w:IsNull() then
 			local key = Key(w)

@@ -1410,6 +1410,25 @@ X.ConsiderItemDesire["item_black_king_bar"] = function( hItem )
 end
 
 
+-- BKB only in a real fight: hit by a hero in the last 2 s, rooted/silenced,
+-- or going in on 2+ real enemy heroes. SF popped it while farming a camp.
+do
+	local ConsiderBkbBase = X.ConsiderItemDesire["item_black_king_bar"]
+	X.ConsiderItemDesire["item_black_king_bar"] = function( hItem )
+		local nDesire, hTarget, sType, sMotive = ConsiderBkbBase( hItem )
+		if nDesire and nDesire > 0 then
+			local real = 0
+			for _, e in pairs(J.GetNearbyHeroes(bot, 900, true, BOT_MODE_NONE)) do
+				if J.IsValidHero(e) and not J.IsSuspiciousIllusion(e) then real = real + 1 end
+			end
+			local inFight = bot:WasRecentlyDamagedByAnyHero(2.0) or bot:IsRooted() or bot:IsSilenced()
+				or (real >= 2 and J.IsGoingOnSomeone(bot))
+			if not inFight or real == 0 then return BOT_ACTION_DESIRE_NONE end
+		end
+		return nDesire, hTarget, sType, sMotive
+	end
+end
+
 --刃甲
 X.ConsiderItemDesire["item_blade_mail"] = function( hItem )
 

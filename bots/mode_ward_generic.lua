@@ -7,6 +7,8 @@ local X = {}
 local bot = GetBot()
 local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
 local W = require(GetScriptDirectory() ..'/FunLib/aba_ward_utility')
+local okMapObjects, MapObjects = pcall(require, GetScriptDirectory()..'/FunLib/map_objects')
+if not okMapObjects then MapObjects = nil end
 local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
 local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
 local Customize = require(GetScriptDirectory()..'/Customize/general')
@@ -218,7 +220,9 @@ function X.Unblocked(spots)
 	local list = {}
 	for _, spot in pairs(spots or {}) do
 		-- Not blocked, and safe to walk to alone (FunLib/objectives.lua).
-		if (spot.blocked_until or -math.huge) < DotaTime() and Objectives.SafeSpot(bot, spot.location) then
+		-- Not next to a watcher either: it gives vision there already.
+		if (spot.blocked_until or -math.huge) < DotaTime() and Objectives.SafeSpot(bot, spot.location)
+		and not (MapObjects and MapObjects.NearLantern and spot.location and MapObjects.NearLantern(spot.location, 800)) then
 			table.insert(list, spot)
 		end
 	end

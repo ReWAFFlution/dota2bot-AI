@@ -440,7 +440,43 @@ local okStatsE, StatsE = pcall(require, GetScriptDirectory()..'/FunLib/item_stat
 if not okStatsE then StatsE = nil end
 local MANA_DEPENDENT = { npc_dota_hero_medusa = true, npc_dota_hero_storm_spirit = true }
 
+-- Evasion and miss chance on their side (Radiance blinds, Butterfly,
+-- Halberd, evasive heroes): true strike for physical cores. Item holders are
+-- remembered when seen.
+local EVASION_ITEMS = { 'item_radiance', 'item_butterfly', 'item_heavens_halberd', 'item_solar_crest' }
+local EVASION_HEROES = { npc_dota_hero_phantom_assassin = true, npc_dota_hero_windrunner = true, npc_dota_hero_brewmaster = true }
+local evasionSeen = {}
+local function EvasionOnTheirSide(S)
+	pcall(function()
+		for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+			if e and not e:IsNull() and e:IsAlive() and not e:IsIllusion() then
+				for _, it in ipairs(EVASION_ITEMS) do
+					if e:FindItemSlot(it) >= 0 then evasionSeen[e:GetUnitName()] = it end
+				end
+			end
+		end
+	end)
+	for _, e in ipairs(S.enemies) do
+		if EVASION_HEROES[e] or evasionSeen[e] then return e, evasionSeen[e] or 'evasion' end
+	end
+	return nil
+end
+
 local RULES = {
+	-- True strike (MKB) against evasion / Radiance blind, physical cores.
+	{ name = 'anti_evasion', minute = 15, urgent = 'after_core',
+	  when = function(S)
+		if not S.core then return false end
+		if not (S.pos == 1 or S.physical) then return false end
+		return EvasionOnTheirSide(S) ~= nil
+	  end,
+	  pick = function(S, bot, stack)
+		if OwnsOrPlans(bot, {}, 'item_monkey_king_bar') or OwnsOrPlans(bot, {}, 'item_bloodthorn') then return nil end
+		local who, what = EvasionOnTheirSide(S)
+		local item = Choose(S, bot, stack, { 'item_monkey_king_bar', 'item_bloodthorn' }, 'item_monkey_king_bar', 10)
+		return item, 'true strike against '..tostring(what)..' on '..string.gsub(tostring(who), 'npc_dota_hero_', '')
+	  end },
+
 	-- Mana burn against mana-dependent heroes, for agility melee cores.
 	{ name = 'anti_mana', minute = 5, urgent = 'after_core',
 	  when = function(S)
