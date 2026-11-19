@@ -41,6 +41,25 @@ local defaultTeams = {
     }}
 }
 
+-- Russian meme name pool
+defaultTeams = {
+    {name = "丰", players = {
+        "Джек Подрочитель", "Усама Бен Лаваш", "Барак Обама",
+        "Билли Херрингтон", "Мистер Попперс",
+        "Шрек Суальный", "Головач Лена", "Секс Инструктор", "Пожилой Пажилой",
+        "Отчим в Деле", "Дед Инсайд 2009", "Сын Маминой Подруги",
+        "Батя в Здании", "Кринж Лорд", "Пивной Барон", "Скуф на Выезде",
+        "Мамкин Киберспортсмен", "Хлебушек с Маслом", "Джонни Додепп"
+    }},
+    {name = "ʎ", players = {
+        "Стив Футджобс", "Егор Вкредит", "Дмитрий Накиев", "Тарас Вульва",
+        "Король Минета", "Мамут Рахал", "ЧпокиНатор", "Пол Кружки Пива",
+        "Елисей Поля", "Попаданец в Очко", "Мастер Шифу без Штанов",
+        "Капитан Залупа", "Лорд Вагинатор", "Трахтенберг", "Сергей Пупкин", "Владимир Пиздюк", "Александр Сосискин",
+        "Супер Сус", "Влад А4 Листа", "Опасный Поцык", "Доктор Дью"
+    }}
+}
+
 -- 古代神话故事主题 Teams
 local ancientChineseStoryTeams = {
     -- 阴司鬼神
@@ -93,9 +112,6 @@ local ancientChineseStoryTeams = {
     }}
 }
 
--- 随机使用古代神话故事主题 Teams
-defaultTeams = RandomInt(1, 2) >= 2 and ancientChineseStoryTeams or defaultTeams
-
 local function generateTeam(overrides)
     local playerList = { }
     local overriddenNames = { }
@@ -105,7 +121,7 @@ local function generateTeam(overrides)
     -- ensure a team can only pick from certain team names.
     until randomNum % 2 == GetTeam() - 2 and (defaultTeams[randomNum].name ~= 'ADD' or defaultTeams[randomNum].name ~= '上古')
     -- print('randomNum='..tostring(randomNum)..', team name='..tostring(defaultTeams[randomNum].name)..', for team='..tostring(GetTeam()))
-    playerList = Utils.MergeLists(defaultTeams[randomNum].players, defaultTeams[#defaultTeams].players)
+    playerList = Utils.MergeLists(defaultTeams[randomNum].players, {})
     if overrides and #overrides > 0 then
         for i = 1, #overrides do
             if overrides[i] and overrides[i] ~= 'Random' then
