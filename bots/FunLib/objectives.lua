@@ -901,6 +901,19 @@ function X.FilterDefendDesire(bot, lane, desire)
 	if desire <= 0 then return desire end
 	local tw, tier = X.OwnLaneTower(lane)
 	if tier <= 3 and X.IsIdle(bot) then return math.min(desire, 0.2) end
+	-- Nothing comes at a T3 or the base: no standing guard there either (Dire
+	-- stood at its mid T3 with nobody attacking it instead of farming and
+	-- pushing out the waves).
+	if tw and tier == 3 and not X.TowerThreatened(tw) and #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 2500) == 0 then
+		return math.min(desire, 0.1)
+	end
+	if not tw then
+		local anc = GetAncient(GetTeam())
+		local h = State().hp and State().hp['ancient']
+		if anc and #HeroesNear(GetOpposingTeam(), anc:GetLocation(), 3500) == 0 and not (h and h.rate > 5) then
+			return math.min(desire, 0.1)
+		end
+	end
 	-- Losing the exchange here: retreat wins over a T1-T3 defense.
 	if tier <= 3 and X.LosingHere(bot) then return math.min(desire, 0.3) end
 	-- Nobody hits the tower: no standing guard at T1/T2.
