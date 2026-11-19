@@ -24,7 +24,8 @@ local tTalentTreeList = {
 }
 
 local tAllAbilityBuildList = {
-						{2,3,2,3,2,6,2,3,3,1,1,6,1,1,6},
+						-- 7.42: Enfeeble is slot 1, Nightmare slot 3 (swapped): same order by ability.
+						{2,1,2,1,2,6,2,1,1,3,3,6,3,3,6},
 }
 
 local nAbilityBuildList = J.Skill.GetRandomBuild( tAllAbilityBuildList )
@@ -175,9 +176,9 @@ modifier_bane_fiends_grip_self
 
 --]]
 
-local abilityQ = bot:GetAbilityByName( sAbilityList[1] )
+local abilityQ = bot:GetAbilityByName( 'bane_nightmare' ) or bot:GetAbilityByName( sAbilityList[1] ) -- by name: 7.42 swapped the slots
 local abilityW = bot:GetAbilityByName( sAbilityList[2] )
-local abilityE = bot:GetAbilityByName( sAbilityList[3] )
+local abilityE = bot:GetAbilityByName( 'bane_enfeeble' ) or bot:GetAbilityByName( sAbilityList[3] )
 local abilityR = bot:GetAbilityByName( sAbilityList[6] )
 local talent4 = bot:GetAbilityByName( sTalentList[4] )
 local talent7 = bot:GetAbilityByName( sTalentList[7] )
