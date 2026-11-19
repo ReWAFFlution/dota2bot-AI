@@ -11,6 +11,8 @@
 -- goes first; a carry on a big farm rate only comes when it really matters.
 
 local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
+local okRolesLib, HeroRolesLib = pcall(require, GetScriptDirectory()..'/FunLib/aba_hero_roles_map')
+if not okRolesLib then HeroRolesLib = nil end
 
 local X = {}
 
@@ -638,6 +640,103 @@ function X.FightValue(bot, target)
 	return ev, pKill, pDeath
 end
 
+--------------------------------------------------------------------------------
+-- Combat: time to kill, both ways (the bot's "chess" evaluation)
+--------------------------------------------------------------------------------
+-- The engine's GetEstimatedDamageToTarget(true, ...) counts only what's ready
+-- now: spells off cooldown with the mana for them, items, attacks. From it:
+--   ttkUs(target): first second (1..6) when our heroes near the target
+--     out-damage its HP (x1.5 if it has an escape), one second sooner per ready
+--     stun among them;
+--   ttkThem(bot): the same for the enemies near the bot (plus their tower);
+--     the bot's ready escape (Blink, Force Staff, Glimmer...) adds 40% to its
+--     HP, a ready BKB cuts their magic damage.
+-- Go when we kill first within 4 s; retreat when they kill us first, or
+-- within 3 s while we can't kill anyone.
+
+local ESCAPES = { 'item_blink', 'item_overwhelming_blink', 'item_swift_blink', 'item_arcane_blink', 'item_force_staff',
+	'item_hurricane_pike', 'item_glimmer_cape', 'item_ghost', 'item_cyclone', 'item_wind_waker', 'item_manta' }
+
+local function ItemReady(u, name)
+	local slot = u:FindItemSlot(name)
+	if slot < 0 or slot > 5 then return false end
+	local it = u:GetItemInSlot(slot)
+	return it ~= nil and it:IsFullyCastable()
+end
+
+local function Burst(dealers, victim, secs, magicCut)
+	local d = 0
+	for _, u in ipairs(dealers) do
+		local ok, v = pcall(function() return u:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_ALL) end)
+		if ok and v then
+			if magicCut then
+				local ok2, mag = pcall(function() return u:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_MAGICAL) end)
+				if ok2 and mag then v = v - mag * 0.75 end
+			end
+			d = d + math.max(0, v)
+		end
+	end
+	return d
+end
+
+local function ReadyStuns(units)
+	local n = 0
+	for _, u in ipairs(units) do
+		if HeroRolesLib and HeroRolesLib.IsDisabler and HeroRolesLib.IsDisabler(u:GetUnitName()) and J.GetMP(u) > 0.2 then n = n + 1 end
+	end
+	return n
+end
+
+local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns)
+	if #dealers == 0 and (extraDps or 0) == 0 then return 99 end
+	local hp = victim:GetHealth() + (extraHP or 0)
+	local regen = 0
+	pcall(function() regen = victim:GetHealthRegen() end)
+	for s = 1, 6 do
+		local window = s + math.min(stuns or 0, 2)
+		if Burst(dealers, victim, window, magicCut) + (extraDps or 0) * s >= hp + regen * s then return s end
+	end
+	return 99
+end
+
+function X.Combat(bot)
+	if not bot:IsAlive() then return nil end
+	local myLoc = bot:GetLocation()
+	local enemies = HeroesNear(GetOpposingTeam(), myLoc, 1400)
+	if #enemies == 0 then return nil end
+	local allies = HeroesNear(GetTeam(), myLoc, 1400)
+	local hasBot = false
+	for _, a in ipairs(allies) do if a == bot then hasBot = true end end
+	if not hasBot then table.insert(allies, bot) end
+
+	-- Their time to kill us (they focus the bot here: worst case for it).
+	local escape = false
+	for _, n in ipairs(ESCAPES) do if ItemReady(bot, n) then escape = true break end end
+	local bkb = ItemReady(bot, 'item_black_king_bar')
+	local tower = BuildingNear(GetOpposingTeam(), myLoc, 750)
+	local ttkThem = TimeToKill(enemies, bot, escape and bot:GetHealth() * 0.4 or 0, tower and 150 or 0, bkb, ReadyStuns(enemies))
+
+	-- Our fastest kill among them.
+	local best, bestT = nil, 99
+	for _, e in ipairs(enemies) do
+		if J.CanBeAttacked(e) then
+			local helpers = HeroesNear(GetTeam(), e:GetLocation(), 1300)
+			local mine = false
+			for _, a in ipairs(helpers) do if a == bot then mine = true end end
+			if not mine then table.insert(helpers, bot) end
+			local extra = (HeroRolesLib and HeroRolesLib.HasEscape and HeroRolesLib.HasEscape(e:GetUnitName())) and e:GetHealth() * 0.5 or 0
+			local tt = TimeToKill(helpers, e, extra, 0, false, ReadyStuns(helpers))
+			if tt < bestT or (tt == bestT and best and e:GetHealth() < best:GetHealth()) then best, bestT = e, tt end
+		end
+	end
+	if not best then best = enemies[1] end
+
+	local c = { target = best, ttkUs = bestT, ttkThem = ttkThem }
+	c.go = bestT <= 4 and bestT < ttkThem and J.GetHP(bot) > 0.3
+	c.retreat = (ttkThem < bestT and ttkThem <= 4) or (ttkThem <= 3 and bestT >= 99)
+	return c
+end
+
 -- Best enemy to fight around the bot: highest EV.
 function X.BestFight(bot, radius)
 	local best, bestEV, bk, bd = nil, -math.huge, 0, 0
@@ -724,26 +823,28 @@ function X.FightHint(bot)
 		bot._fightHint = 0.75
 		return bot._fightHint
 	end
-	local target, ev, pk, pd = X.BestFight(bot, 1200)
-	if not target then return 0 end
-	local lowHP = J.GetHP(bot) < 0.4
+	-- Exchange: who kills whom first (X.Combat), then the long-term value.
+	local c = X.Combat(bot)
+	bot._combat = c
+	if not c then return 0 end
+	local target, ttkUs, ttkThem = c.target, c.ttkUs, c.ttkThem
+	local ev = X.FightValue(bot, target)
 	-- In lane, enemies standing nearby is normal: back off only when they're
-	-- actually hitting us (melee cores were too scared to last hit).
-	local laneCalm = J.IsInLaningPhase() and not bot:WasRecentlyDamagedByAnyHero(2.0) and J.GetHP(bot) > 0.5
-	if not laneCalm and ((ev < -5 and pd > 0.45) or (lowHP and ev < 0 and pd > 0.3)) then
-		if not bot._fightLogT or t - bot._fightLogT > 10 then
+	-- actually hitting us or could kill us very fast.
+	local laneCalm = J.IsInLaningPhase() and not bot:WasRecentlyDamagedByAnyHero(2.0) and J.GetHP(bot) > 0.5 and ttkThem > 3
+	local function Say(what)
+		if not bot._fightLogT or t - bot._fightLogT > 8 then
 			bot._fightLogT = t
-			print(string.format('[Fight] %s backs off from %s (value %.0f, kill %.0f%%, death %.0f%%)',
-				bot:GetUnitName(), target:GetUnitName(), ev, pk * 100, pd * 100))
+			print(string.format('[Fight] %s %s %s (we kill in %.1f s, they kill us in %.1f s, value %.0f)',
+				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, ev))
 		end
-		bot._fightHint = 0.8
-	elseif ev > 15 and pk > 0.7 and pd < 0.35 and J.GetHP(bot) > 0.45 then
-		if not bot._fightLogT or t - bot._fightLogT > 10 then
-			bot._fightLogT = t
-			print(string.format('[Fight] %s goes for %s (value %.0f, kill %.0f%%, death %.0f%%)',
-				bot:GetUnitName(), target:GetUnitName(), ev, pk * 100, pd * 100))
-		end
-		bot.forceFightUntil = t + 1.5
+	end
+	if c.retreat and not laneCalm then
+		Say('backs off from')
+		bot._fightHint = ttkThem < 2.5 and 0.95 or 0.8
+	elseif c.go and ev > -5 then
+		Say('goes for')
+		bot.forceFightUntil = t + 2.0 -- spells on the target
 		bot:SetTarget(target)
 	end
 	return bot._fightHint

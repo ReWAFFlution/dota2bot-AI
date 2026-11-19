@@ -358,6 +358,8 @@ function X.SupportFightToJoin(bot)
 		if m and m ~= bot and m:IsAlive() and GetUnitToUnitDistance(bot, m) < 4500 then
 			local enemies = RealEnemiesNear(m:GetLocation(), 1200)
 			local fighting = #enemies > 0 and (m:WasRecentlyDamagedByAnyHero(2.0) or J.IsGoingOnSomeone(m))
+			-- Not into a fight the ally itself is leaving (lost by the numbers).
+			if m._combat and m._combat.retreat then fighting = false end
 			if fighting and (not bestD or GetUnitToUnitDistance(bot, m) < bestD) then
 				best, bestD = m, GetUnitToUnitDistance(bot, m)
 			end
@@ -522,6 +524,16 @@ function X.RoamDesire(bot)
 			end
 		end
 		return nil
+	end
+
+	-- The combat evaluation says we kill first (FunLib/objectives.lua
+	-- X.Combat, updated by the retreat mode's fight hint): commit.
+	local c = bot._combat
+	if c and c.go and J.IsValidHero(c.target) and DotaTime() - (bot._fightHintT or -99) < 1.5
+	and (not J.IsInLaningPhase() or c.ttkUs <= 3) then
+		bot._teamAction = 'pickoff'
+		bot._teamTarget = c.target
+		return 0.85
 	end
 
 	if p == 'hunt' and S.hunt and X.InGroup(bot) then
