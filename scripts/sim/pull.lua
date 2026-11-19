@@ -24,7 +24,12 @@ function bot:Action_MoveToLocation(l) local d = l - self.loc local n = d:Length2
 function bot:Action_AttackUnit(u) table.insert(log, 'attack '..u.name) end
 function bot:SetTarget() end function bot:IsIllusion() return false end function bot:GetPlayerID() return 4 end
 function GetUnitList() return {} end
-local J = { GetPosition = function() return 5 end, IsValidHero = function(h) return h ~= nil end, IsValid = function(h) return h ~= nil end,
+-- Our carry farms the lane next to the support.
+local carry = { loc = Vector(5300, -5900), alive = true }
+function carry:GetLocation() return self.loc end function carry:IsAlive() return self.alive end
+function carry:GetAssignedLane() return LANE_BOT end
+function GetTeamMember(i) if i == 1 then return carry end if i == 5 then return bot end end
+local J = { GetPosition = function(u) return u == carry and 1 or 5 end, IsValidHero = function(h) return h ~= nil end, IsValid = function(h) return h ~= nil end,
 	GetHP = function() return 0.9 end, CanBeAttacked = function() return true end, CanNotUseAction = function() return false end,
 	GetTeamFountain = function() return Vector(-7000, -7000) end, WillKillTarget = function() return false end,
 	GetAttackProDelayTime = function() return 0.3 end, IsSuspiciousIllusion = function() return false end }
@@ -44,3 +49,18 @@ local d = (wave.loc - Vector(3500, -4500)):Length2D()
 print(string.format('aggro at %.1f, wave %.0f from camp at the end', aggroAt or -1, d))
 assert(aggroAt, 'never pulled')
 print('pull ok')
+
+-- The carry is dead: the support plays the lane (last hits next to the wave).
+carry.alive = false
+bot._pull, bot._pullNext = nil, 1e9
+local enemyCreep = { loc = bot.loc + Vector(200, 0), name = 'enemy creep' }
+function enemyCreep:GetLocation() return self.loc end function enemyCreep:GetHealth() return 30 end
+bot.GetNearbyLaneCreeps = function(self, r, enemy) if enemy then return { enemyCreep } end return {} end
+J.WillKillTarget = function() return true end
+J.GetHP = function() return 0.9 end
+function bot:FindItemSlot() return -1 end
+log = {}
+L.SupportThink(bot)
+print('no core in lane ->', log[#log])
+assert(log[#log] == 'attack enemy creep', 'support should last hit without the core')
+print('solo lane ok')

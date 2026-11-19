@@ -304,6 +304,21 @@ local function BestLastHit(bot)
 	return nil
 end
 
+-- Is an allied core (pos 1-3) of this lane alive and in it (within 2500 of
+-- the bot, or of our wave)?
+function X.LaneCoreHere(bot)
+	local lane = bot:GetAssignedLane()
+	local front = GetLaneFrontLocation(GetTeam(), lane, 0)
+	for i = 1, 5 do
+		local m = GetTeamMember(i)
+		if m and m ~= bot and m:IsAlive() and J.GetPosition(m) <= 3 and m:GetAssignedLane() == lane
+		and (GetUnitToUnitDistance(m, bot) < 2500 or GetUnitToLocationDistance(m, front) < 2500) then
+			return true
+		end
+	end
+	return false
+end
+
 function X.SupportThink(bot)
 	if J.CanNotUseAction(bot) then return end
 	local t = DotaTime()
@@ -315,6 +330,13 @@ function X.SupportThink(bot)
 		Log(bot, 'wave is at the enemy tower, going to pull')
 	end
 	if bot._pull and ThinkPull(bot) then return end
+
+	-- Our core is dead or away from the lane: play the lane as the core does
+	-- (last hits next to the wave, harass), instead of waiting at the tower.
+	if not X.LaneCoreHere(bot) and J.GetHP(bot) > 0.4 then
+		X.CoreThink(bot)
+		return
+	end
 
 	-- Harass window: right-click the target (spells come from the hero file).
 	local target = bot._harassTarget
@@ -338,8 +360,8 @@ function X.SupportThink(bot)
 		return
 	end
 
-	-- Last hits belong to the core.
-	if not CoreAllyNear(bot, 1000) then
+	-- Last hits belong to the core while it's in the lane.
+	if not X.LaneCoreHere(bot) then
 		local lh = BestLastHit(bot)
 		if lh then
 			bot:Action_AttackUnit(lh, true)
@@ -392,7 +414,8 @@ function X.CoreThink(bot)
 	local lane = bot:GetAssignedLane()
 	local range = bot:GetAttackRange()
 	local dmg = bot:GetAttackDamage()
-	if bot:GetItemSlotType(bot:FindItemSlot('item_quelling_blade')) == ITEM_SLOT_TYPE_MAIN then dmg = dmg + 8 end
+	local qb = bot:FindItemSlot('item_quelling_blade')
+	if qb >= 0 and bot:GetItemSlotType(qb) == ITEM_SLOT_TYPE_MAIN then dmg = dmg + 8 end
 	local enemies = RealHeroes(true, bot:GetLocation(), 1400)
 	local risk = X.TradeRisk(bot, enemies)
 

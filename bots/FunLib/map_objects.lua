@@ -14,6 +14,7 @@
 
 local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
 local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
 
 local X = {}
 
@@ -104,7 +105,9 @@ end
 
 local function PoolHasLotus(S, pool)
 	local c = LotusCount(pool)
-	if c ~= nil then return c > 0 end
+	-- A positive stack count is a real count; 0 may just be a modifier that
+	-- doesn't count lotuses, so then fall back to the 3-minute schedule.
+	if c ~= nil and c > 0 then return true end
 	-- Unknown: assume a new one after each 3-minute mark since our last pick.
 	local last = S.poolTaken[Key(pool)] or 0
 	return math.floor(DotaTime() / LOTUS_PERIOD) > math.floor(last / LOTUS_PERIOD)
@@ -157,7 +160,7 @@ function X.RoamDesire(bot)
 		if DotaTime() - bot._lotusStandT < 12 and #J.GetNearbyHeroes(bot, 1000, true, BOT_MODE_NONE) == 0 then return 0.62 end
 		bot._lotusStandT, bot._mapTarget = nil, nil
 	end
-	if StuckGuard.Blocked(bot, 'map', BOT_MODE_ROAM, 90) then
+	if StuckGuard.Blocked(bot, 'map', BOT_MODE_ROAM, 90) or (Objectives and Objectives.IsIdle(bot)) then
 		bot._mapTarget, bot._mapUseT = nil, nil
 		return nil
 	end

@@ -4,6 +4,7 @@ local Customize = require(GetScriptDirectory()..'/Customize/general')
 local EarlyGame = require(GetScriptDirectory()..'/FunLib/early_game')
 local MidPlay = require(GetScriptDirectory()..'/FunLib/mid_play')
 local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
 Customize.ThinkLess = Customize.Enable and Customize.ThinkLess or 1
 
 local bot = GetBot()
@@ -66,6 +67,7 @@ function GetDesire()
 	X.InitRune()
 	-- Standing at a rune spot doing nothing: back to the game for a while.
 	if StuckGuard.Blocked(bot, 'rune', BOT_MODE_RUNE, 40, RuneSpawnSoon) then return BOT_MODE_DESIRE_NONE end
+	if DotaTime() > 60 and not RuneSpawnSoon(DotaTime()) and Objectives.IsIdle(bot) then return BOT_MODE_DESIRE_NONE end
 
 	-- Start of the game: bounty runes by position, harass, smoke gank.
 	local nEarlyDesire = EarlyGame.GetDesire(bot)

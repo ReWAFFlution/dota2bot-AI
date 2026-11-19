@@ -5876,6 +5876,26 @@ do
 				end
 			end
 		end
+		-- Supports: before 15:00 another lane only to save a core there (below
+		-- 30% HP and being hit by enemies), not for every skirmish while the
+		-- lane partner is left alone.
+		if nDesire and nDesire > 0 and nPos >= 4 and DotaTime() < 15 * 60 then
+			local vLoc = hTarget
+			if type(hTarget) == 'table' and hTarget.GetLocation then vLoc = hTarget:GetLocation() end
+			if vLoc and vLoc.x and J.GetDistance(vLoc, J.GetTeamFountain()) > 2500
+			and J.GetDistance(vLoc, GetLaneFrontLocation(GetTeam(), bot:GetAssignedLane(), 0)) > 3000 then
+				local bSave = false
+				for i = 1, 5 do
+					local m = GetTeamMember(i)
+					if m and m ~= bot and m:IsAlive() and J.GetPosition(m) <= 3
+					and J.GetDistance(m:GetLocation(), vLoc) < 1800 and J.GetHP(m) < 0.3
+					and m:WasRecentlyDamagedByAnyHero(2.0) then
+						bSave = true
+					end
+				end
+				if not bSave then return BOT_ACTION_DESIRE_NONE end
+			end
+		end
 		return nDesire, hTarget, sType, sMotive
 	end
 end

@@ -5,6 +5,7 @@ if bot == nil or bot:IsInvulnerable() or not bot:IsHero() or not bot:IsAlive() o
 local J = require( GetScriptDirectory()..'/FunLib/jmz_func')
 local Customize = require( GetScriptDirectory()..'/Customize/general' )
 local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
 
 local Outposts = {}
 local DidWeGetOutpost = false
@@ -19,6 +20,7 @@ function GetDesire()
 	-- local cachedVar = J.Utils.GetCachedVars(cacheKey, 0.5 * (1 + Customize.ThinkLess))
 	-- if DotaTime() > 30 and cachedVar ~= nil then return cachedVar end
 	if StuckGuard.Blocked(bot, 'outpost', BOT_MODE_OUTPOST, 120) then return BOT_ACTION_DESIRE_NONE end
+	if Objectives.IsIdle(bot) then return BOT_ACTION_DESIRE_NONE end
 	local res = GetDesireHelper()
 	-- J.Utils.SetCachedVars(cacheKey, res)
 	return res

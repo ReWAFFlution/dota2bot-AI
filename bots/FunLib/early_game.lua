@@ -89,7 +89,10 @@ end
 
 function X.TeamPlan()
 	local team = GetTeam()
-	if EarlyTeamPlan[team] then return EarlyTeamPlan[team] end
+	local cached = EarlyTeamPlan[team]
+	-- A plan made before the game reported the runes has no runes: rebuild it
+	-- (once cached empty, every bot went straight to its tower).
+	if cached and (cached.safeRune or cached.offRune or cached.midRune or (cached.builtT or 0) > DotaTime() - 1) then return cached end
 
 	local own, enemy = BountySides(team)
 	local plan = { own = own, enemy = enemy }
@@ -142,6 +145,7 @@ function X.TeamPlan()
 		plan.smokeState = 'gather'
 		print('[Early] team '..team..' plans a smoke gank on the enemy carry bounty')
 	end
+	plan.builtT = DotaTime()
 	EarlyTeamPlan[team] = plan
 	return plan
 end

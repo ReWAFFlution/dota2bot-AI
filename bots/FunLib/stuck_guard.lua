@@ -9,8 +9,9 @@
 
 local X = {}
 
-local MOVE_RADIUS = 150
-local STUCK_TIME = 5
+-- Pacing back and forth inside this radius counts as stuck too.
+local MOVE_RADIUS = 350
+local STUCK_TIME = 7
 local BAN_TIME = 40
 
 local function Busy(bot)

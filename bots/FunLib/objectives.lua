@@ -24,7 +24,7 @@ X.POINTS = {
 	lastHit = 0.5, deny = 0.3,
 	ward = 4,
 	roshan = 80,
-	idle = -2,                     -- per 15 s with no income while alive and healthy
+	idle = -5,                     -- per 15 s with no income while alive and healthy
 	participation = 0.3,           -- share of a building's value for heroes that were there
 	disable = 2,                   -- stun/root/hex/silence/sleep landed on an enemy hero
 	harassPer100 = 0.25,           -- per 100 damage to an enemy hero (max 2 per second per bot)
@@ -510,6 +510,23 @@ function X.Assignment(bot)
 	return nil
 end
 
+-- Idle: alive, healthy, out of the fountain, no income for 20 s and not
+-- moving anywhere (pacing by a rune or a watcher). Rune/outpost/ward/watcher
+-- modes switch off for an idle bot so it goes farming or back to its lane.
+function X.IsIdle(bot)
+	local t = DotaTime()
+	if t < 60 or not bot:IsAlive() then return false end
+	local h = bot._idleHist
+	if not h or t - h.t > 20 then
+		local idle = h and (bot:GetNetWorth() - h.nw < 30) and GetUnitToLocationDistance(bot, h.loc) < 900
+			and J.GetHP(bot) > 0.6 and bot:DistanceFromFountain() > 1500
+		bot._idleHist = { t = t, nw = bot:GetNetWorth(), loc = bot:GetLocation() }
+		bot._idleNow = idle or false
+		if idle then print('[Score] '..bot:GetUnitName()..' was idle for 20 s, back to farming') end
+	end
+	return bot._idleNow == true
+end
+
 -- For the push wrappers: max with the normal desire.
 function X.PushDesire(bot, lane)
 	local a = X.Assignment(bot)
@@ -739,6 +756,7 @@ end
 -- Teleport to our building closest to `loc` when that saves a long walk.
 local function TryTP(bot, loc)
 	if X.CoreLaneLocked(bot) then return false end
+	if J.GetPosition(bot) >= 4 and DotaTime() < 15 * 60 then return false end -- walk: the lane partner stays
 	if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return false end
 	local slot = bot:FindItemSlot('item_tpscroll')
 	if slot < 0 then return false end
