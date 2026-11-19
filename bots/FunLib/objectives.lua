@@ -489,13 +489,19 @@ end
 -- they all go. If even 3 don't, nobody goes (no feeding one by one).
 local function PickGroup(S, obj, taken)
 	local group, chosen = {}, {}
+	-- Their T3s and base: every enemy alive defends there, so they all count,
+	-- and it takes 3 of us (fewer only when fewer of them are alive). SF was
+	-- sent alone to a T4 "at x1.64" and died to the five of them.
+	local base = obj.kind == 'push' and (obj.tier or 1) >= 3
+	local minGroup = base and math.min(3, math.max(1, GetNumAlive(GetOpposingTeam()))) or 1
+	local maxGroup = base and 5 or 3
 	for _, c in ipairs(Candidates(S, obj.loc, taken, obj.lane, obj.kind, obj.tier)) do
-		if #group >= 3 then break end
+		if #group >= maxGroup then break end
 		if not (obj.ttd and c.travel > obj.ttd + 5) then -- in time to matter
 			table.insert(group, c.m)
 			table.insert(chosen, { m = c.m, gain = obj.value, cost = X.Rate(c.m) * c.travel / 60 + 2 })
-			local ratio = X.FightAt(obj.loc, group)
-			if ratio >= 1.0 then
+			local ratio = X.FightAt(obj.loc, group, base)
+			if ratio >= (base and 1.2 or 1.0) and #group >= minGroup then
 				ObjLog(string.format('%d heroes win at %s lane %d (x%.2f): sending them', #group, obj.name, obj.lane, ratio))
 				return chosen
 			end
@@ -505,7 +511,7 @@ local function PickGroup(S, obj, taken)
 end
 
 local function PickHelpers(S, obj, taken, maxHelpers)
-	if not obj.ancient and obj.enemies > 0 then return PickGroup(S, obj, taken) end
+	if not obj.ancient and (obj.enemies > 0 or (obj.kind == 'push' and (obj.tier or 1) >= 3)) then return PickGroup(S, obj, taken) end
 	local helpers = {}
 	local a, e = obj.allies, obj.enemies
 	for _, c in ipairs(Candidates(S, obj.loc, taken, obj.lane, obj.kind, obj.tier)) do
@@ -617,7 +623,8 @@ local function Assign(S, t)
 	-- walking to a T2 where Terrorblade had come): otherwise it's dropped, and
 	-- a new winning group (or nobody) is picked below.
 	for _, obj in ipairs(objectives) do
-		if not obj.ancient and obj.enemies > 0 then
+		local base = obj.kind == 'push' and (obj.tier or 1) >= 3
+		if not obj.ancient and (obj.enemies > 0 or base) then
 			local group, pids = {}, {}
 			for _, m in ipairs(Members()) do
 				local a = newAssign[m:GetPlayerID()]
@@ -626,8 +633,8 @@ local function Assign(S, t)
 				end
 			end
 			if #group > 0 then
-				local ratio = X.FightAt(obj.loc, group)
-				if ratio < 0.8 then
+				local ratio = X.FightAt(obj.loc, group, base)
+				if ratio < 0.8 or (base and #group < math.min(3, math.max(1, GetNumAlive(GetOpposingTeam())))) then
 					ObjLog(string.format('%d heroes lose at %s lane %d (x%.2f): calling them off', #group, obj.name, obj.lane, ratio))
 					for i, m in ipairs(group) do taken[m] = nil newAssign[pids[i]] = nil end
 					S.dropped = S.dropped or {}
@@ -1246,7 +1253,7 @@ end
 -- Enemies in the fog who may be at `loc`: seen near it in the last 10 s
 -- (0.9), not seen for longer (0.5: they may be there or teleport in), seen
 -- elsewhere just now (0.2). Returns their power and HP, weighted.
-local function FogEnemies(loc, visible)
+local function FogEnemies(loc, visible, all)
 	local power, hp, n = 0, 0, 0
 	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
 		local snap = enemySnap[pid]
@@ -1255,6 +1262,7 @@ local function FogEnemies(loc, visible)
 			local d = info and info[1]
 			local w = 0.5
 			if d and d.time_since_seen <= 10 then w = Dist(d.location, loc) < 3000 and 0.9 or 0.2 end
+			if all then w = 1 end -- at their base they all come
 			power, hp, n = power + snap.power * w, hp + snap.hp * w, n + w
 		end
 	end
@@ -1265,7 +1273,7 @@ end
 -- we win). Enemies in the fog who may be there count too (Enigma and Rubick
 -- teleported one by one to push a T2 "at x99" with our heroes behind it in
 -- the fog). 99 with no enemy there and none unaccounted for.
-function X.FightAt(loc, extra)
+function X.FightAt(loc, extra, allEnemies)
 	local allies = HeroesNear(GetTeam(), loc, 1500)
 	-- extra: one hero or a list of heroes joining.
 	local extras = (type(extra) == 'table' and extra[1] ~= nil) and extra or (extra and { extra } or {})
@@ -1279,7 +1287,15 @@ function X.FightAt(loc, extra)
 	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
 		if J.IsValidHero(e) and not e:IsIllusion() then visible[e:GetPlayerID()] = true end
 	end
-	local fogPower, fogHP, fogN = FogEnemies(loc, visible)
+	local fogPower, fogHP, fogN = FogEnemies(loc, visible, allEnemies)
+	if allEnemies then
+		-- Every enemy alive defends there: the visible ones anywhere count too.
+		for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+			if J.IsValidHero(e) and not e:IsIllusion() and not J.IsSuspiciousIllusion(e) and Dist(e:GetLocation(), loc) > 1500 then
+				table.insert(enemies, e)
+			end
+		end
+	end
 	if #enemies == 0 and fogN < 0.3 then return 99 end
 	if #allies == 0 then return 0 end
 	-- Our damage on them: on the visible ones, else on heroes like ours.

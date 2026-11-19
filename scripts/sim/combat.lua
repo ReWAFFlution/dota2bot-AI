@@ -218,4 +218,19 @@ local fFog = O.FightAt(Vector(5000, 5000), pusher)
 print(string.format('Enigma pushing a tower, Terrorblade in the fog by it: x%.2f', fFog))
 assert(fFog < 1.0)
 GetHeroLastSeenInfo = oldInfo
+-- SF alone at their T4: one enemy by the tower, three more seen earlier
+-- elsewhere. For their base everyone counts: no go alone.
+SIM_T = SIM_T + 10
+local sfB = hero('nevermore', 2, Vector(5000, 5000), 2200, 300)
+local e1 = hero('largo', 3, Vector(5300, 5000), 1800, 120) e1.pid = 5
+local e2 = hero('dragon_knight', 3, Vector(-3000, 0), 2500, 200) e2.pid = 6
+local e3 = hero('skeleton_king', 3, Vector(-3000, 500), 3000, 250) e3.pid = 7
+local e4 = hero('ringmaster', 3, Vector(-3000, -500), 1600, 150) e4.pid = 8
+allies, enemies = { sfB }, { e1, e2, e3, e4 }
+O.RememberEnemies()
+enemies = { e1 }
+local near = O.FightAt(Vector(5000, 5000), sfB)
+local all = O.FightAt(Vector(5000, 5000), sfB, true)
+print(string.format('SF alone at their T4: nearby only x%.2f, everyone defending x%.2f', near, all))
+assert(all < 1.2 and all < near)
 print('combat ok')
