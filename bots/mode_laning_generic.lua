@@ -1,7 +1,7 @@
 local Utils = require( GetScriptDirectory()..'/FunLib/utils')
 local J = require( GetScriptDirectory()..'/FunLib/jmz_func')
 local LanePlay = require(GetScriptDirectory()..'/FunLib/lane_play')
-local SafeCall = SafeCall or function(_, fn, ...) return fn(...) end
+local SafeCall = require(GetScriptDirectory()..'/FunLib/safe_call')
 
 local Version      = require(GetScriptDirectory()..'/FunLib/version')
 local Localization = require(GetScriptDirectory()..'/FunLib/localization')

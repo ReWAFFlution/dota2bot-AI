@@ -1,6 +1,7 @@
 local X = {}
 local bot = GetBot()
 local SupportSkills = require(GetScriptDirectory()..'/FunLib/support_skills')
+local SafeCall = require(GetScriptDirectory()..'/FunLib/safe_call')
 local botName = bot:GetUnitName()
 if bot == nil or bot:IsInvulnerable() or not bot:IsHero() or not string.find(botName, "hero") or bot:IsIllusion() then return end
 if not bot.frameProcessTime then bot.frameProcessTime = 0.1 end
@@ -8478,8 +8479,7 @@ function AbilityUsageThink()
 	if BotBuild ~= nil and not J.IsNoAbilityIllution(bot) then BotBuild.SkillsComplement() end
 	-- Heal / mana skills on whoever needs them when the hero cast nothing.
 	if not J.IsNoAbilityIllution(bot) then
-		local SafeCallFn = SafeCall or function(_, fn, ...) return fn(...) end
-		SafeCallFn('SupportSkills.Think', SupportSkills.Think, bot)
+		SafeCall('SupportSkills.Think', SupportSkills.Think, bot)
 	end
 end
 

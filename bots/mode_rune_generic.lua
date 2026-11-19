@@ -5,7 +5,7 @@ local EarlyGame = require(GetScriptDirectory()..'/FunLib/early_game')
 local MidPlay = require(GetScriptDirectory()..'/FunLib/mid_play')
 local StuckGuard = require(GetScriptDirectory()..'/FunLib/stuck_guard')
 local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
-local SafeCall = SafeCall or function(_, fn, ...) return fn(...) end
+local SafeCall = require(GetScriptDirectory()..'/FunLib/safe_call')
 Customize.ThinkLess = Customize.Enable and Customize.ThinkLess or 1
 
 local bot = GetBot()
@@ -267,8 +267,6 @@ end
 local fNextMovementTime = -math.huge
 function Think()
 	if SafeCall('EarlyGame.Think', EarlyGame.Think, bot) then return end
-	-- The default logic below needs a rune chosen by its GetDesire.
-	if not (bot.rune and bot.rune.normal and type(bot.rune.normal.location) == 'number' and bot.rune.normal.location >= 0) then return end
 
 	if bot:IsInvulnerable() and bot:DistanceFromFountain() < 500 then
 		bot:Action_MoveToLocation(bot:GetLocation() + RandomVector(500))

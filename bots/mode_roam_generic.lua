@@ -3,7 +3,7 @@ local Customize = require( GetScriptDirectory()..'/Customize/general' )
 local MidPlay = require(GetScriptDirectory()..'/FunLib/mid_play')
 local TeamPlan = require(GetScriptDirectory()..'/FunLib/team_plan')
 local MapObjects = require(GetScriptDirectory()..'/FunLib/map_objects')
-local SafeCall = SafeCall or function(_, fn, ...) return fn(...) end
+local SafeCall = require(GetScriptDirectory()..'/FunLib/safe_call')
 
 local bot = GetBot()
 local botName = bot:GetUnitName()
