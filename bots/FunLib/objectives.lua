@@ -310,6 +310,58 @@ local function ScoreRoshan(S)
 	end
 end
 
+-- Where each bot's time goes: its active mode every second, and whether it
+-- stood still doing nothing (no move over 100, no attack, no cast).
+local MODE_NAMES = {}
+for name, v in pairs({ laning = BOT_MODE_LANING, attack = BOT_MODE_ATTACK, roam = BOT_MODE_ROAM, retreat = BOT_MODE_RETREAT,
+	secret_shop = BOT_MODE_SECRET_SHOP, side_shop = BOT_MODE_SIDE_SHOP, rune = BOT_MODE_RUNE, push_top = BOT_MODE_PUSH_TOWER_TOP,
+	push_mid = BOT_MODE_PUSH_TOWER_MID, push_bot = BOT_MODE_PUSH_TOWER_BOT, defend_top = BOT_MODE_DEFEND_TOWER_TOP,
+	defend_mid = BOT_MODE_DEFEND_TOWER_MID, defend_bot = BOT_MODE_DEFEND_TOWER_BOT, assemble = BOT_MODE_ASSEMBLE,
+	team_roam = BOT_MODE_TEAM_ROAM, farm = BOT_MODE_FARM, defend_ally = BOT_MODE_DEFEND_ALLY, evasive = BOT_MODE_EVASIVE_MANEUVERS,
+	roshan = BOT_MODE_ROSHAN, item = BOT_MODE_ITEM, ward = BOT_MODE_WARD, outpost = BOT_MODE_OUTPOST, none = BOT_MODE_NONE }) do
+	if v ~= nil then MODE_NAMES[v] = name end
+end
+local function TrackModes(S)
+	S.modes = S.modes or {}
+	for _, m in ipairs(Members()) do
+		if m:IsBot() then
+			local pid = m:GetPlayerID()
+			local r = S.modes[pid]
+			if not r then r = { counts = {}, still = 0, dead = 0, n = 0 } S.modes[pid] = r end
+			r.n = r.n + 1
+			if not m:IsAlive() then
+				r.dead = r.dead + 1
+			else
+				local name = MODE_NAMES[m:GetActiveMode()] or tostring(m:GetActiveMode())
+				r.counts[name] = (r.counts[name] or 0) + 1
+				local loc = m:GetLocation()
+				local busy = m:GetAttackTarget() ~= nil or m:IsChanneling() or m:IsUsingAbility() or m:IsCastingAbility()
+				if r.loc and Dist(loc, r.loc) < 100 and not busy and m:DistanceFromFountain() > 1000 then r.still = r.still + 1 end
+				r.loc = loc
+			end
+		end
+	end
+end
+
+local function ModeReport(S, t)
+	if not S.modes then return end
+	local rows = {}
+	for _, m in ipairs(Members()) do
+		local r = S.modes[m:GetPlayerID()]
+		if r and r.n > 0 then
+			local list = {}
+			for name, c in pairs(r.counts) do table.insert(list, { name = name, c = c }) end
+			table.sort(list, function(a, b) return a.c > b.c end)
+			local parts = {}
+			for i = 1, math.min(4, #list) do table.insert(parts, string.format('%s %d%%', list[i].name, math.floor(100 * list[i].c / r.n))) end
+			table.insert(rows, string.format('%s: %s, still %d%%, dead %d%%', string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''),
+				table.concat(parts, ' '), math.floor(100 * r.still / r.n), math.floor(100 * r.dead / r.n)))
+			r.counts, r.still, r.dead, r.n = {}, 0, 0, 0 -- per 5-minute window
+		end
+	end
+	Log(string.format('modes %d:%02d team %d: %s', math.floor(t / 60), math.floor(t % 60), GetTeam(), table.concat(rows, ' | ')))
+end
+
 local function Scoreboard(S, t)
 	if t < S.nextBoard then return end
 	S.nextBoard = t + SCOREBOARD_GAP
@@ -330,6 +382,7 @@ local function Scoreboard(S, t)
 			Stat(GetHeroLastHits, pid), Stat(GetHeroDenies, pid), m:GetNetWorth(), math.floor(m:GetNetWorth() / mins),
 			Stat(GetHeroKills, pid), Stat(GetHeroDeaths, pid), Stat(GetHeroAssists, pid)))
 	end
+	pcall(ModeReport, S, t)
 	Log(string.format('stats %d:%02d team %d: %s', math.floor(t / 60), math.floor(t % 60), GetTeam(), table.concat(rows, ' | ')))
 end
 
@@ -600,6 +653,7 @@ function X.Update()
 	S.nextUpdate = t + UPDATE_GAP
 	if t < 0 then return S end
 	X.RememberEnemies()
+	pcall(TrackModes, S) -- diagnostics only
 	ScoreHeroes(S, t)
 	ScoreBuildings(S)
 	ScoreWards(S)
