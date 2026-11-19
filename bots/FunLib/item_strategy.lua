@@ -865,7 +865,11 @@ function X.NextLateItem(bot, pos)
 	local best, bestScore
 	for item, rate in pairs(cand) do
 		local name = string.gsub(item, '^item_', '')
-		if not NOT_LATE[name] and GetItemCost(item) >= 2000 and not Has(bot, item)
+		-- Only items the purchase logic can assemble (a recipe the engine
+		-- knows): a Starforge without one was "bought" forever.
+		local okc, comps = pcall(GetItemComponents, item)
+		local buildable = okc and comps and comps[1] and #comps[1] > 0
+		if buildable and not NOT_LATE[name] and GetItemCost(item) >= 2000 and not Has(bot, item)
 		and not (Stats and Stats.Items and not Stats.Items[item])
 		and not (TEAM_UNIQUE[item] and AllyHasItem(bot, item)) then
 			local sc = ItemValue and ItemValue.Score(hero, pos, item, DotaTime() / 60, magic) or 0

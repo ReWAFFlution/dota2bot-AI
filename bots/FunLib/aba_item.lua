@@ -799,6 +799,15 @@ Item['item_boots_of_bearing']	= GetItemComponents( 'item_boots_of_bearing' )[1]
 
 -- Item['item_wraith_pact'] removed from game
 
+---------- 7.42 NEW ITEMS ---------------
+-- Missing before: Ringmaster sold Aether Lens and Glimmer Cape "to make room"
+-- for a Starforge, then tried to buy the finished item forever.
+for _, sNew in ipairs({ 'item_starforge', 'item_caduceus', 'item_skypiercer', 'item_berserkers_sabatons',
+                        'item_ristuls_devotion', 'item_bloodslinger' }) do
+	local ok, comps = pcall(GetItemComponents, sNew)
+	if ok and comps and comps[1] and #comps[1] > 0 then Item[sNew] = comps[1] end
+end
+
 ---------- 7.33 NEW ITEMS ---------------
 Item["item_pavise"] 							= GetItemComponents( 'item_pavise' )[1]
 Item["item_phylactery"] 						= GetItemComponents( 'item_phylactery' )[1]

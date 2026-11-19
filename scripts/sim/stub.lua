@@ -20,3 +20,4 @@ function GetTeam() return 2 end
 function GetOpposingTeam() return 3 end
 function GetUnitToUnitDistance(a, b) return (a:GetLocation() - b:GetLocation()):Length2D() end
 function GetUnitToLocationDistance(a, l) return (a:GetLocation() - l):Length2D() end
+function GetItemComponents(n) return { { 'item_branches' } } end
