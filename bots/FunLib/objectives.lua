@@ -560,6 +560,24 @@ local function FindObjectives(S, t)
 				ttd = 99, enough = 0.99, max = 5, name = 'our ancient', ancient = true })
 		end
 	end
+	-- Enemy waves walking into our base on a lane with no T3 of ours: one
+	-- hero pushes that lane back out (waves on open lanes kept crashing into
+	-- the base while the team was elsewhere). Only with no enemy hero at the
+	-- wave.
+	local ourAnc = GetAncient(GetTeam())
+	if ourAnc then
+		for _, info in ipairs(TOWERS) do
+			if info.tier == 3 and not GetTower(GetTeam(), info.id) then
+				local front = GetLaneFrontLocation(GetOpposingTeam(), info.lane, 0)
+				if front and Dist(front, ourAnc:GetLocation()) < 5500
+				and #HeroesNear(GetOpposingTeam(), front, 1500) == 0 then
+					table.insert(list, { kind = 'push', lane = info.lane, tier = 0, loc = front,
+						value = 60, allies = #HeroesNear(GetTeam(), front, 1300), enemies = 0, enough = 0.6,
+						max = 1, name = 'wave in our base' })
+				end
+			end
+		end
+	end
 	-- Our towers under attack. With the ancient defended, the T4s are part of
 	-- that same fight (one objective, not three to switch between).
 	local ancientOn = (S.ancientUntil or -math.huge) > t
@@ -1469,7 +1487,12 @@ function X.Combat(bot)
 		local close = false
 		for _, e in ipairs(enemies) do if Dist(e:GetLocation(), myLoc) < 900 then close = true end end
 		if close then
-			if teamRatio >= 1.0 and not noTarget and hp > 0.35 then c.go = true else c.retreat = true end
+			-- Leave only when they can actually kill us soon; enemies that
+			-- can't (99 s both ways) don't stop the farm (DK kept dropping the
+			-- creeps to step back from Furion at x3.5).
+			local theirSide = Dist(myLoc, enemyFountain) < Dist(myLoc, J.GetTeamFountain())
+			if teamRatio >= 1.0 and not noTarget and hp > 0.35 then c.go = true
+			elseif ttkThem <= 6 or theirSide then c.retreat = true end
 		end
 	end
 	-- Medusa's health is her mana: low on mana near enemies, step back.

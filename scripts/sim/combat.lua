@@ -63,10 +63,15 @@ local ef = Vector(7000, 7000)
 for _, e in ipairs(enemies) do e.loc = ef + (e.loc - Vector(600, 0)) end
 me.loc = ef + Vector(-900, -900) for i = 2, #allies do allies[i].loc = me.loc end
 c = show('same fight at their fountain') assert(c.retreat and not c.go)
--- An enemy next to us, even odds: decide, don't idle.
-me.loc, me.hp = Vector(0, 0), 1500
-allies = { me } enemies = { hero('wk', 3, Vector(500, 0), 1800, 250) }
+-- An enemy next to us on their half, even odds: decide, don't idle.
+me.loc, me.hp = Vector(2000, 2000), 1500
+allies = { me } enemies = { hero('wk', 3, Vector(2500, 2000), 1800, 250) }
 c = show('1v1 even, enemy close') assert(c.go or c.retreat)
+-- On our half, low, an enemy close that can't kill us soon (99 s): no
+-- stepping back from the creeps (DK kept doing it next to Furion).
+me.loc, me.hp = Vector(-3000, -3000), 600
+enemies = { hero('furion', 3, Vector(-2600, -3000), 1800, 20) }
+c = show('own half, enemy harmless') assert(not c.retreat)
 -- 3 of ours vs 2 visible, 2 more seen right here 2 s ago: not a free fight.
 me.loc, me.hp = Vector(0, 0), 1500
 allies = { me, hero('mk', 2, Vector(100, 100), 1800, 300), hero('nyx', 2, Vector(50, -120), 1300, 250) }
