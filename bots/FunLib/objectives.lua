@@ -925,20 +925,51 @@ local function SummonDamage(u, secs)
 	return total
 end
 
--- Illusions hit too (Terrorblade's Conjure Image and Reflection, Phantom
--- Lancer, Naga, Manta): they're left out of the hero lists, so their damage is
--- added to the hero they copy, at the share illusions deal.
-local ILLUSION_SHARE = 0.4
+-- Illusions hit too: they're left out of the hero lists, so their damage is
+-- added to the hero they copy, at the share that hero's illusions deal
+-- (7.42 game files, by the ability's level):
+--   Terrorblade: Conjure Image 25-40%, +60% near him (Dark Unity) -> 40-64%;
+--   Phantom Lancer 17% (15% + Divergence); Naga Mirror Image 25-40%;
+--   Chaos Knight Phantasm 60-100%; Spectre Haunt 35-65%; Morphling 50%;
+--   Anti-Mage 75%; anyone else: Manta (33% melee, 28% ranged).
+local ILLUSIONS = {
+	npc_dota_hero_terrorblade = { ability = 'terrorblade_conjure_image', share = { 0.40, 0.48, 0.56, 0.64 } },
+	npc_dota_hero_phantom_lancer = { share = { 0.17 } },
+	npc_dota_hero_naga_siren = { ability = 'naga_siren_mirror_image', share = { 0.25, 0.30, 0.35, 0.40 } },
+	npc_dota_hero_chaos_knight = { ability = 'chaos_knight_phantasm', share = { 0.60, 0.80, 1.00 } },
+	npc_dota_hero_spectre = { ability = 'spectre_haunt', share = { 0.35, 0.50, 0.65 } },
+	npc_dota_hero_morphling = { share = { 0.50 } },
+	npc_dota_hero_antimage = { share = { 0.75 } },
+}
+local function IllusionShare(u)
+	local e = ILLUSIONS[u:GetUnitName()]
+	if not e then
+		local ranged = false
+		pcall(function() ranged = u:GetAttackRange() > 300 end)
+		return ranged and 0.28 or 0.33
+	end
+	local lvl = #e.share
+	if e.ability then
+		pcall(function()
+			local ab = u:GetAbilityByName(e.ability)
+			if ab and ab:GetLevel() > 0 then lvl = math.min(#e.share, ab:GetLevel()) end
+		end)
+	end
+	return e.share[lvl]
+end
+X._IllusionShare = IllusionShare
+
 local function IllusionDamage(u, victim, secs)
 	local total = 0
 	local lt = (u.GetTeam and u:GetTeam() == GetTeam()) and UNIT_LIST_ALLIED_HEROES or UNIT_LIST_ENEMY_HEROES
+	local share = IllusionShare(u)
 	pcall(function()
 		local name, loc = u:GetUnitName(), u:GetLocation()
 		for _, h in pairs(GetUnitList(lt)) do
 			if h ~= u and J.IsValidHero(h) and h:GetUnitName() == name and Dist(h:GetLocation(), loc) < 1200
 			and (h:IsIllusion() or J.IsSuspiciousIllusion(h)) then
 				local v = h:GetEstimatedDamageToTarget(true, victim, secs, DAMAGE_TYPE_PHYSICAL or DAMAGE_TYPE_ALL)
-				if v then total = total + v * ILLUSION_SHARE end
+				if v then total = total + v * share end
 			end
 		end
 	end)
@@ -954,7 +985,7 @@ local function SteroidDamage(u, secs)
 		if u:HasModifier('modifier_terrorblade_metamorphosis') then return end -- already in the estimate
 		local ab = u:GetAbilityByName('terrorblade_metamorphosis')
 		if ab and ab:GetLevel() > 0 and ab:GetCooldownTimeRemaining() <= 0 then
-			extra = ({ 40, 60, 80, 100 })[math.min(4, ab:GetLevel())] * 1.4 * math.max(0, secs - 1)
+			extra = ({ 20, 40, 60, 80 })[math.min(4, ab:GetLevel())] * 1.4 * math.max(0, secs - 1)
 		end
 	end)
 	return extra

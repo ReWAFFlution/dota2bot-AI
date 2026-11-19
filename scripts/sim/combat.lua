@@ -182,4 +182,12 @@ local cYes = O.Combat(clock)
 print(string.format('Clock+DK vs Terrorblade: without illusions/ult counted %s s to die, with them %s s; go=%s retreat=%s',
 	tostring(cNo and cNo.ttkThem), tostring(cYes.ttkThem), tostring(cYes.go), tostring(cYes.retreat)))
 assert(cYes.ttkThem < cNo.ttkThem and not cYes.go)
+-- Illusion damage by hero: TB (Conjure Image 4 + Dark Unity) 64%, PL 17%,
+-- TB with Conjure Image 1 40%, a melee hero with Manta 33%.
+local pl = hero('phantom_lancer', 3, Vector(0, 0), 1500, 200)
+local sven = hero('sven', 3, Vector(0, 0), 1500, 200) function sven:GetAttackRange() return 150 end
+local tbLow = hero('terrorblade', 3, Vector(0, 0), 1500, 200) tbLow.abilities = { terrorblade_conjure_image = ready(1) }
+print(string.format('illusion damage: TB %.2f, TB (Conjure Image 1) %.2f, PL %.2f, Sven with Manta %.2f',
+	O._IllusionShare(tb2), O._IllusionShare(tbLow), O._IllusionShare(pl), O._IllusionShare(sven)))
+assert(O._IllusionShare(tb2) == 0.64 and O._IllusionShare(tbLow) == 0.40 and O._IllusionShare(pl) == 0.17 and O._IllusionShare(sven) == 0.33)
 print('combat ok')
