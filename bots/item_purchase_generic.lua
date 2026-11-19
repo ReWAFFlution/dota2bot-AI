@@ -106,7 +106,15 @@ local function _countOwnedEverywhere(unit, itemName)
 		local it = unit:GetItemInSlot(slot)
 		if it ~= nil and it:GetName() == itemName then count = count + 1 end
 	end
-	-- we cannot reliably inspect courier bags here; use conservative logic elsewhere.
+	-- Items the courier is carrying to us count too: SF bought a second pair
+	-- of boots while the first was on the courier.
+	local courier = unit.theCourier
+	if courier ~= nil and not courier:IsNull() then
+		for slot = 0, 8 do
+			local it = courier:GetItemInSlot(slot)
+			if it ~= nil and it:GetName() == itemName then count = count + 1 end
+		end
+	end
 	return count
 end
 

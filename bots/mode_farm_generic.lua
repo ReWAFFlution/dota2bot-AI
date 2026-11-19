@@ -412,8 +412,19 @@ function GetDesireHelper()
 					local laneFront = GetLaneFrontLocation(GetTeam(), lane, 0)
 					local dist = GetUnitToLocationDistance(bot, laneFront)
 					local nEnemiesAtLane = J.GetEnemiesNearLoc(laneFront, 1400)
+					-- Our own lane first; never a lane another of our cores is
+					-- farming (MK walked to mid and took SF's creeps).
+					if lane == bot:GetAssignedLane() then dist = dist - 3000 end
+					local bTaken = false
+					for i = 1, 5 do
+						local m = GetTeamMember(i)
+						if m and m ~= bot and m:IsAlive() and J.GetPosition(m) <= 3 and m:GetAssignedLane() == lane
+						and GetUnitToLocationDistance(m, laneFront) < 2500 then
+							bTaken = true
+						end
+					end
 					-- Only consider safe lanes (no enemies or we're stronger)
-					if #nEnemiesAtLane == 0 and dist < bestDist then
+					if #nEnemiesAtLane == 0 and not bTaken and dist < bestDist then
 						bestDist = dist
 						bestLane = lane
 					end
