@@ -8,7 +8,7 @@ if bot.PushLaneDesire == nil then bot.PushLaneDesire = {0, 0, 0} end
 
 function GetDesire()
     -- Objectives: join a push an ally started when the expected points are worth it.
-    bot.PushLaneDesire[LANE_TOP] = math.max(TeamPlan.AdjustPushDesire(bot, LANE_TOP, Push.GetPushDesire(bot, LANE_TOP)), Objectives.PushDesire(bot, LANE_TOP))
+    bot.PushLaneDesire[LANE_TOP] = Objectives.CapPushWhenLosing(bot, math.max(TeamPlan.AdjustPushDesire(bot, LANE_TOP, Push.GetPushDesire(bot, LANE_TOP)), Objectives.PushDesire(bot, LANE_TOP)))
     return bot.PushLaneDesire[LANE_TOP]
 end
 function Think()

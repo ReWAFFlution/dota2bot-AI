@@ -533,6 +533,17 @@ function X.IsIdle(bot)
 	return bot._idleNow == true
 end
 
+-- The combat evaluation says leave: a push (or tower hit) waits. Medusa hit a
+-- tower inside MK's arena with his team around because the push desire beat
+-- the retreat hint.
+function X.CapPushWhenLosing(bot, desire)
+	local c = bot._combat
+	if c and c.retreat and DotaTime() - (bot._fightHintT or -math.huge) < 1.5 then
+		return math.min(desire, 0.3)
+	end
+	return desire
+end
+
 -- For the push wrappers: max with the normal desire.
 function X.PushDesire(bot, lane)
 	local a = X.Assignment(bot)
@@ -949,7 +960,7 @@ function X.FightHint(bot)
 	end
 	if c.retreat and not laneCalm then
 		Say('backs off from')
-		bot._fightHint = ttkThem < 2.5 and 0.95 or 0.8
+		bot._fightHint = ttkThem < 2.5 and 0.95 or 0.9
 	elseif c.go and ev > -5 then
 		Say('goes for')
 		bot.forceFightUntil = t + 2.0 -- spells on the target
