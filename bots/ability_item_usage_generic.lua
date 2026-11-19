@@ -1,5 +1,6 @@
 local X = {}
 local bot = GetBot()
+local KillCombo = require(GetScriptDirectory()..'/FunLib/kill_combo')
 local SupportSkills = require(GetScriptDirectory()..'/FunLib/support_skills')
 local SafeCall = require(GetScriptDirectory()..'/FunLib/safe_call')
 local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
@@ -8533,6 +8534,8 @@ function AbilityUsageThink()
 	if bot.lastAbilityFrameProcessTime == nil then bot.lastAbilityFrameProcessTime = DotaTime() end
 	if DotaTime() > 30 and (DotaTime() - bot.lastAbilityFrameProcessTime < (bot.frameProcessTime * (1 + Customize.ThinkLess))) and bot.isBear == nil then return end
 	bot.lastAbilityFrameProcessTime = DotaTime()
+	-- Kill combo first: spells together on a target they kill together.
+	if not J.IsNoAbilityIllution(bot) and SafeCall('KillCombo.Think', KillCombo.Think, bot) then return end
 	if BotBuild ~= nil and not J.IsNoAbilityIllution(bot) then BotBuild.SkillsComplement() end
 	-- Heal / mana skills on whoever needs them when the hero cast nothing.
 	if not J.IsNoAbilityIllution(bot) then
