@@ -105,9 +105,30 @@ end
 X.Threatened = Threatened
 
 local function Calm(bot)
-	return not Threatened(bot)
-		and not J.IsRetreating(bot)
+	return not J.IsRetreating(bot) and J.GetHP(bot) > 0.25
 		and not (J.IsGoingOnSomeone(bot) and (bot.forceFightUntil or -math.huge) < DotaTime()) -- a real fight, not a harass window
+end
+
+-- The core of this support's lane is safe to leave for a moment: alive, over
+-- 50% HP, not hit in the last 3 s, no enemy hero within 1000 of it.
+local function LaneCoreSafe(bot)
+	local lane = bot:GetAssignedLane()
+	for i = 1, 5 do
+		local m = GetTeamMember(i)
+		if m and m ~= bot and J.GetPosition(m) <= 3 and m:GetAssignedLane() == lane then
+			if not m:IsAlive() then return true end
+			if J.GetHP(m) < 0.5 or m:WasRecentlyDamagedByAnyHero(3) then return false end
+			if #J.GetNearbyHeroes(m, 1000, true, BOT_MODE_NONE) > 0 then return false end
+		end
+	end
+	return true
+end
+
+-- Who may go now: a support when its core is safe; a core last, once the
+-- enemy wave next to it is dead.
+local function MayGoForLotus(bot)
+	if J.GetPosition(bot) >= 4 then return LaneCoreSafe(bot) end
+	return #bot:GetNearbyLaneCreeps(1200, true) == 0
 end
 
 local function PoolHasLotus(S, pool)
@@ -123,6 +144,7 @@ end
 local function LotusDesire(bot, S)
 	if DotaTime() < LOTUS_PERIOD then return nil end
 	if (bot._lotusGiveUpUntil or -math.huge) > DotaTime() then return nil end
+	if not MayGoForLotus(bot) then return nil end
 	local support = J.GetPosition(bot) >= 4
 	local best, bestDist
 	for _, pool in ipairs(S.pools) do
@@ -145,7 +167,7 @@ local function LotusDesire(bot, S)
 	S.poolBy[Key(best)] = bot
 	bot._mapTarget, bot._mapKind = best, 'lotus'
 	if bot._mapTarget ~= best or not bot._lotusGoT then bot._lotusGoT = DotaTime() end
-	return 0.75
+	return support and 0.75 or 0.5 -- cores: only when nothing else to do
 end
 
 local function WatcherDesire(bot, S)
@@ -168,16 +190,17 @@ end
 function X.RoamDesire(bot)
 	-- Stuck at a pool/watcher (can't reach it, order ignored): give up for a while.
 	-- Standing in a lotus pool is on purpose.
-	local enemiesClose = Threatened(bot)
 	if bot._lotusStandT then
-		if DotaTime() - bot._lotusStandT < 12 and not enemiesClose then return 0.75 end
+		if DotaTime() - bot._lotusStandT < 12 and J.GetHP(bot) > 0.25 then return 0.75 end
 		bot._lotusStandT, bot._mapTarget = nil, nil
 	end
 	-- On the way to a pool: keep going (other modes kept interrupting the
 	-- walk) for up to 25 s, unless enemies show up or HP gets low.
+	-- Keep going unless nearly dead, or (support) its core got in trouble.
 	if bot._mapKind == 'lotus' and bot._mapTarget and not bot._mapTarget:IsNull() and bot._lotusGoT
-	and DotaTime() - bot._lotusGoT < 25 and not enemiesClose and J.GetHP(bot) > 0.35 then
-		return 0.75
+	and DotaTime() - bot._lotusGoT < 25 and J.GetHP(bot) > 0.25
+	and (J.GetPosition(bot) < 4 or LaneCoreSafe(bot)) then
+		return J.GetPosition(bot) >= 4 and 0.75 or 0.5
 	end
 	if bot._lotusGoT and DotaTime() - bot._lotusGoT >= 25 and not bot._lotusStandT then
 		-- Couldn't get there in time: leave the pools alone for a minute.

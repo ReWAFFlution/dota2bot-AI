@@ -19,7 +19,13 @@ function bot:GetAbilityByName(n) return n == 'ability_pluck_lotus' and { name = 
 function bot:Action_UseAbilityOnEntity(a, u) casts = casts + 1 channelUntil = SIM_T + 1.5 end
 function bot:GetItemInSlot(i) if i == 0 and lot > 0 then return { GetName = function() return 'item_famango' end, GetCurrentCharges = function() return lot end } end end
 function bot:FindItemSlot() return -1 end
-local J = { GetHP = function() return 0.9 end, GetPosition = function() return 5 end, IsGoingOnSomeone = function() return false end,
+function bot:GetAssignedLane() return LANE_BOT end function bot:GetNearbyLaneCreeps() return {} end
+-- Our carry in the same lane.
+local carry = { hit = false }
+function carry:IsAlive() return true end function carry:GetAssignedLane() return LANE_BOT end
+function carry:WasRecentlyDamagedByAnyHero() return self.hit end
+function GetTeamMember(i) if i == 1 then return carry end if i == 5 then return bot end end
+local J = { GetHP = function() return 0.9 end, GetPosition = function(u) return u == carry and 1 or 5 end, IsGoingOnSomeone = function() return false end,
 	IsRetreating = function() return false end, GetNearbyHeroes = function() return {} end, IsValidHero = function() return false end }
 function require(p) if p:find('jmz') then return J end if p:find('stuck') then return { Blocked = function() return false end } end end
 local M = dofile(BOTS..'/FunLib/map_objects.lua')
@@ -32,4 +38,9 @@ for i = 1, 40 do
 end
 print(string.format('casts=%d lotus=%d', casts, lot))
 assert(lot == 1 and casts >= 1, 'lotus not picked')
+-- The carry gets hit: the support doesn't go (and would turn back).
+SIM_T = SIM_T + 200 carry.hit = true bot._lotusGiveUpUntil = nil
+local d2 = M.RoamDesire(bot)
+print('carry under attack -> lotus desire', d2)
+assert(d2 == nil)
 print('lotus ok')
