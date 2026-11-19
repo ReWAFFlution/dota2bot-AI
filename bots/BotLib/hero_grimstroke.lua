@@ -201,6 +201,18 @@ function X.ConsiderStrokeOfFate()
     local nAbilityLevel = StrokeOfFate:GetLevel()
 
 	local nEnemyHeroes = bot:GetNearbyHeroes(nCastRange, true, BOT_MODE_NONE)
+    -- Right after the Embrace of a kill combo: Stroke of Fate on the latched
+    -- target.
+    if DotaTime() - (bot._grimComboT or -math.huge) < 3 then
+        for _, enemyHero in pairs(nEnemyHeroes) do
+            if J.IsValidHero(enemyHero) and J.CanCastOnNonMagicImmune(enemyHero)
+            and enemyHero:HasModifier('modifier_grimstroke_spirit_walk_buff') == false
+            and (enemyHero:HasModifier('modifier_grimstroke_soul_chain') or enemyHero:HasModifier('modifier_grimstroke_ink_creature_debuff') or J.GetHP(enemyHero) < 0.4) then
+                local nDelay = (GetUnitToUnitDistance(bot, enemyHero) / nSpeed) + nCastPoint
+                return BOT_ACTION_DESIRE_HIGH, enemyHero:GetExtrapolatedLocation(nDelay)
+            end
+        end
+    end
     for _, enemyHero in pairs(nEnemyHeroes)
     do
         if J.IsValidHero(enemyHero)
@@ -355,6 +367,29 @@ function X.ConsiderPhantomsEmbrace()
     local nRendDamage = PhantomsEmbrace:GetSpecialValueInt('pop_damage')
 
     local nEnemyHeroes = bot:GetNearbyHeroes(nCastRange, true, BOT_MODE_NONE)
+    -- The silence breaks a teleport or any channel; and Embrace + Stroke of
+    -- Fate together is a kill too (Grimstroke let a low Hoodwink teleport
+    -- away: each spell alone wasn't enough, so he cast neither).
+    local nStroke = (StrokeOfFate and StrokeOfFate:IsFullyCastable()) and StrokeOfFate:GetSpecialValueInt('damage') or 0
+    for _, enemyHero in pairs(nEnemyHeroes)
+    do
+        if J.IsValidHero(enemyHero)
+        and J.CanCastOnNonMagicImmune(enemyHero)
+        and J.CanCastOnTargetAdvanced(enemyHero)
+        and not J.IsSuspiciousIllusion(enemyHero)
+        and not enemyHero:HasModifier('modifier_dazzle_shallow_grave')
+        and not enemyHero:HasModifier('modifier_oracle_false_promise_timer')
+        then
+            if enemyHero:IsChanneling() or enemyHero:HasModifier('modifier_teleporting') then
+                return BOT_ACTION_DESIRE_HIGH, enemyHero
+            end
+            if nStroke > 0 and bot:GetMana() >= PhantomsEmbrace:GetManaCost() + StrokeOfFate:GetManaCost()
+            and J.CanKillTarget(enemyHero, nDamagePerSec * nDuration + nRendDamage + nStroke * (1 - enemyHero:GetMagicResist()), DAMAGE_TYPE_PHYSICAL) then
+                bot._grimComboT = DotaTime() -- Stroke of Fate follows
+                return BOT_ACTION_DESIRE_HIGH, enemyHero
+            end
+        end
+    end
     for _, enemyHero in pairs(nEnemyHeroes)
     do
         if J.IsValidHero(enemyHero)
