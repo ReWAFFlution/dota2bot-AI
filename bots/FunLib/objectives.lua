@@ -886,14 +886,15 @@ local function ShieldHP(victim)
 end
 X.ShieldHP = ShieldHP
 
-local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns, share)
+local function TimeToKill(dealers, victim, extraHP, extraDps, magicCut, stuns, share, stunnedFor)
 	if #dealers == 0 and (extraDps or 0) == 0 then return 99 end
 	share = share or 1
+	stunnedFor = stunnedFor or 0 -- seconds the dealers spend disabled by us
 	local hp = victim:GetHealth() + (extraHP or 0) + ShieldHP(victim)
 	local regen = 0
 	pcall(function() regen = victim:GetHealthRegen() end)
 	for s = 1, 6 do
-		local window = s + math.min(stuns or 0, 2)
+		local window = math.max(0, s + math.min(stuns or 0, 2) - stunnedFor)
 		if Burst(dealers, victim, window, magicCut) * share + (extraDps or 0) * s >= hp + regen * s then return s end
 	end
 	return 99
@@ -922,7 +923,10 @@ function X.Combat(bot)
 	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
 	local nearFountain = Dist(myLoc, enemyFountain) < 1500
 	local extraDps = (tower and 150 or 0) + (nearFountain and 900 or 0)
-	local ttkThem = TimeToKill(enemies, bot, escape and bot:GetHealth() * 0.4 or 0, extraDps, bkb, ReadyStuns(enemies), share)
+	-- Our ready disables keep them from hitting for a while (WD's Cask chain on
+	-- Terrorblade: he can't use his Metamorphosis damage while stunned).
+	local ourStuns = math.min(ReadyStuns(allies), 2) * 1.2
+	local ttkThem = TimeToKill(enemies, bot, escape and bot:GetHealth() * 0.4 or 0, extraDps, bkb, ReadyStuns(enemies), share, ourStuns)
 
 	-- Team exchange: how fast each group burns the other's total HP (4 s of
 	-- ready damage, each hero on the average enemy). > 1: we win the fight.

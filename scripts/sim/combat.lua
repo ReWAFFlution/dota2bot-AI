@@ -33,7 +33,7 @@ function GetHeroLastSeenInfo(pid) if seenNear[pid] then return { { time_since_se
 local J = { IsValidHero = function(h) return h ~= nil end, CanBeAttacked = function() return true end, GetHP = function(u) return u.hp / 2000 end,
 	GetMP = function() return 0.8 end, IsSuspiciousIllusion = function() return false end, GetPosition = function() return 1 end,
 	GetEnemyFountain = function() return Vector(7000, 7000) end, GetTeamFountain = function() return Vector(-7000, -7000) end }
-function require(p) if p:find('jmz_func') then return J end if p:find('roles_map') then return { IsDisabler = function() return false end, HasEscape = function() return false end } end end
+function require(p) if p:find('jmz_func') then return J end if p:find('roles_map') then return { IsDisabler = function(n) return DISABLERS and DISABLERS[n] == true end, HasEscape = function() return false end } end end
 local O = dofile(BOTS..'/FunLib/objectives.lua')
 local function show(label) local c = O.Combat(me) print(string.format('%-28s us %4.0f s  them %4.0f s  go=%s retreat=%s', label, c.ttkUs, c.ttkThem, tostring(c.go), tostring(c.retreat))) return c end
 enemies = { hero('lina', 3, Vector(400, 0), 600, 150) }
@@ -137,4 +137,14 @@ tb.hp = 150 me.abilities = {}
 local cf = O.Combat(me)
 print(string.format('WD vs TB at 150 HP, no ult: we kill in %d s, they kill us in %d s, go=%s', cf.ttkUs, cf.ttkThem, tostring(cf.go)))
 assert(cf.ttkUs <= 2 and cf.go)
+-- WD with Cask ready vs Terrorblade at 450 HP hitting for 500/s: while TB is
+-- stunned he doesn't hit, so WD wins the exchange.
+DISABLERS = { npc_dota_hero_sven = true } -- 'me' plays the WD here
+me.abilities = {} me.dps = 160 me.hp = 900
+local tb2 = hero('terrorblade', 3, Vector(450, 0), 450, 500) tb2.pid = 5
+enemies = { tb2 }
+local cs = O.Combat(me)
+print(string.format('WD (Cask ready) vs TB 450 HP: we kill in %d s, they kill us in %d s, go=%s', cs.ttkUs, cs.ttkThem, tostring(cs.go)))
+assert(cs.go)
+DISABLERS = nil
 print('combat ok')
