@@ -437,6 +437,13 @@ function Think()
 				return
 			end
 
+			-- At the spot: try to pick up whatever is there. The status can stay
+			-- "not available" for a rune the bot is standing on (SF stood on one
+			-- for 10 s and the enemy took it).
+			if GetUnitToLocationDistance(bot, vRuneLocation) <= 300 and DotaTime() >= 0 then
+				bot:Action_PickUpRune(rune.location)
+				return
+			end
 			bot.rune.location = vRuneLocation
 			bot:Action_MoveToLocation(vRuneLocation)
 			return

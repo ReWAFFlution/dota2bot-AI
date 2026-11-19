@@ -343,7 +343,8 @@ function X.GetDesire(bot)
 	local loc = GetRuneSpawnLocation(rune)
 	if GetUnitToLocationDistance(bot, loc) > 1200 then return 0.9 end
 	local enemies = RealHeroesNear(loc, 1000, true)
-	if GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE or #enemies > 0 then return 0.9 end
+	-- The rune may show up a moment after the horn: wait 3 s for it.
+	if GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE or #enemies > 0 or t < 3 then return 0.9 end
 	bot._earlyDone = true
 	Log(bot, 'bounty done, going to lane')
 	return nil
@@ -382,9 +383,22 @@ function X.Think(bot)
 	end
 	bot._earlyTarget = nil
 
-	-- Pick the rune (picker, or anyone if the picker isn't around).
+	if DotaTime() >= 0 and (bot._runeDiagT or -math.huge) < DotaTime() - 3 and Dist(myLoc, runeLoc) < 1500 then
+		bot._runeDiagT = DotaTime()
+		Log(bot, string.format('rune %d status %s, %d away, picker %s', rune, tostring(GetRuneStatus(rune)), Dist(myLoc, runeLoc), tostring(isPicker)))
+	end
+
+	-- Standing at the spot after the horn: pick up whatever is there (the
+	-- status may not say "available" for a rune right under the hero).
+	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 250 and (bot._runeTryT or -math.huge) < DotaTime() - 0.5 then
+		bot._runeTryT = DotaTime()
+		bot:Action_PickUpRune(rune)
+		return true
+	end
+
+	-- Pick the rune (the picker, anyone close to it, or the closest one).
 	if DotaTime() >= 0 and GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE then
-		local picker = isPicker
+		local picker = isPicker or Dist(myLoc, runeLoc) < 400
 		if not picker then
 			picker = true
 			for i = 1, 5 do
