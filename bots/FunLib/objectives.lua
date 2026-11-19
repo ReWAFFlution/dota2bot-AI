@@ -567,6 +567,39 @@ function X.IsIdle(bot)
 	return bot._idleNow == true
 end
 
+-- Ranged heroes hit buildings from their full range instead of walking up to
+-- them (the default push attack-moved around the tower: Sniper stood at its
+-- base). The default logic keeps the case where the tower hits us with no
+-- creeps of ours under it (it steps back).
+function X.RangedSiegeThink(bot)
+	local range = 0
+	pcall(function() range = bot:GetAttackRange() end)
+	if range < 500 or J.CanNotUseAction(bot) then return false end
+	local target, bestD
+	local function Consider(b)
+		if b and not b:IsNull() and b:IsAlive() and J.CanBeAttacked(b) then
+			local d = GetUnitToUnitDistance(bot, b)
+			if d < range + 600 and (not bestD or d < bestD) then target, bestD = b, d end
+		end
+	end
+	for _, info in ipairs(TOWERS) do Consider(GetTower(GetOpposingTeam(), info.id)) end
+	if not target then return false end
+	if target:HasModifier('modifier_backdoor_protection') or target:HasModifier('modifier_backdoor_protection_active')
+	or target:HasModifier('modifier_fountain_glyph') then return false end
+	local myCreepsAtTower = 0
+	for _, c in pairs(bot:GetNearbyLaneCreeps(1600, false)) do
+		if J.IsValid(c) and GetUnitToUnitDistance(c, target) < 700 then myCreepsAtTower = myCreepsAtTower + 1 end
+	end
+	if target:GetAttackTarget() == bot and myCreepsAtTower == 0 then return false end
+	local spot = target:GetLocation() + (bot:GetLocation() - target:GetLocation()):Normalized() * (range - 60)
+	if bestD > range + 50 then
+		bot:Action_MoveToLocation(spot)
+	else
+		bot:Action_AttackUnit(target, true)
+	end
+	return true
+end
+
 -- The combat evaluation says leave: a push (or tower hit) waits. Medusa hit a
 -- tower inside MK's arena with his team around because the push desire beat
 -- the retreat hint.

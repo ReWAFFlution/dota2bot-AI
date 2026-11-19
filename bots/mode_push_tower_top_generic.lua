@@ -14,5 +14,6 @@ end
 function Think()
     if Objectives.PushThink(bot, LANE_TOP) then return end -- get to the ally's push (TP if far)
     if TeamPlan.PushFormationThink(bot, LANE_TOP) then return end -- tank goes first
+    if Objectives.RangedSiegeThink(bot) then return end -- ranged: hit the tower from full range
     Push.PushThink(bot, LANE_TOP)
 end
