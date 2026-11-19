@@ -256,6 +256,10 @@ function ____exports.GetPushDesireHelper(bot, lane)
     end
     local vEnemyLaneFrontLocation = GetLaneFrontLocation(gameState.enemyTeam, lane, 0)
     local waitForSpells = ____exports.ShouldWaitForImportantItemsSpells(vEnemyLaneFrontLocation)
+    -- Pressing a won fight (team plan "finish"): no waiting for cooldowns.
+    if TeamPlanState and TeamPlanState[gameState.team] and TeamPlanState[gameState.team].phase == "finish" then
+        waitForSpells = false
+    end
     if waitForSpells and eAliveCount >= aAliveCount and eAliveCoreCount >= aAliveCoreCount then
         nMaxDesire = math.min(nMaxDesire, 0.5)
     end

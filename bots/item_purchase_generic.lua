@@ -147,6 +147,24 @@ local function _plannedComponent(name)
 	return false
 end
 
+-- Is `name` already built into an item the hero owns (Dagon 3 inside Dagon 5)?
+local function _contains(item, name, depth)
+	if depth > 6 then return false end
+	local comps = Item[item]
+	if type(comps) ~= 'table' then return false end
+	for _, c in ipairs(comps) do
+		if c == name or _contains(c, name, depth + 1) then return true end
+	end
+	return false
+end
+local function _insideOwnedUpgrade(name)
+	for slot = 0, 16 do
+		local it = bot:GetItemInSlot(slot)
+		if it ~= nil and it:GetName() ~= name and _contains(it:GetName(), name, 0) then return true end
+	end
+	return false
+end
+
 -- Does the bot hold any part of `target` (so dropping it would waste gold)?
 local function _holdsPartOf(target)
 	local counts = _fullBasicCounts(target)
@@ -1353,6 +1371,7 @@ function ItemPurchaseThink()
 		while #bot.purchaseListInReverseOrder > 0 do
 			local nextItem = bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder]
 			local owned = bot:FindItemSlot(nextItem) >= 0 or (bot.completedItems and bot.completedItems[nextItem])
+				or _insideOwnedUpgrade(nextItem)
 			if GetItemCost(nextItem) >= 1000 and owned and nextItem ~= 'item_aghanims_shard' then
 				print('[Items] '..botName..' already has '..nextItem..', skipping it')
 				bot.purchaseListInReverseOrder[#bot.purchaseListInReverseOrder] = nil

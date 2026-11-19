@@ -420,7 +420,12 @@ export function GetPushDesireHelper(bot: Unit, lane: Lane): BotModeDesire {
 
     // If critical items/spells are cooling down near the push location → be cautious
     const vEnemyLaneFrontLocation = GetLaneFrontLocation(gameState.enemyTeam, lane, 0);
-    const waitForSpells = ShouldWaitForImportantItemsSpells(vEnemyLaneFrontLocation);
+    let waitForSpells = ShouldWaitForImportantItemsSpells(vEnemyLaneFrontLocation);
+    // Pressing a won fight (team plan "finish"): no waiting for cooldowns.
+    // @ts-ignore TeamPlanState is a global set by FunLib/team_plan.lua
+    if (TeamPlanState && TeamPlanState[gameState.team] && TeamPlanState[gameState.team].phase === "finish") {
+        waitForSpells = false;
+    }
     if (waitForSpells && eAliveCount >= aAliveCount && eAliveCoreCount >= aAliveCoreCount) {
         nMaxDesire = Math.min(nMaxDesire, 0.5);
     }

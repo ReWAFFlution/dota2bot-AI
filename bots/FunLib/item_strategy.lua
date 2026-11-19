@@ -757,7 +757,9 @@ function X.ReviewNext(bot, pos, stack)
 		local it = stack[i]
 		-- Not an item much dearer than the planned one: MK went for Skadi
 		-- (5900, two 2800 orbs) over Desolator (3500) and sat on 2000 gold.
-		if GetItemCost(it) >= 2500 and GetItemCost(it) <= GetItemCost(top) * 1.25
+		-- (and never ahead of one of its own parts: Dagon 5 before Dagon 3)
+		local itsPart = ItemLib and ComponentsOf(ItemLib, it)[top]
+		if not itsPart and GetItemCost(it) >= 2500 and GetItemCost(it) <= GetItemCost(top) * 1.25
 		and not (it == 'item_black_king_bar' and MissingInitiation(bot, pos)) then
 			local sc = ItemValue.Score(hero, pos, it, minutes, magic)
 			if sc > bestScore then bestIdx, bestScore = i, sc end
