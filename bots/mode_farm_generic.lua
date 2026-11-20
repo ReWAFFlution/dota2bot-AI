@@ -1084,8 +1084,8 @@ function X.ShouldRun(bot)
 	if botLevel < 5
 	and not bDeliberate
 	and bot:WasRecentlyDamagedByCreep(1)
-	and J.GetHP(bot) < 0.7
-	and botTarget ~= nil
+	and J.GetHP(bot) < 0.5
+	and botTarget ~= nil and botTarget:IsHero() -- last hitting a creep draws creep hits; that's normal (24 runs in 5 min)
 	and J.GetHP(botTarget) > J.GetHP(bot) - 0.15 then
 		return X.RunWhy(bot, 2, 'rule 7')
 	end
@@ -1155,13 +1155,16 @@ function X.ShouldRun(bot)
 			 nLongEnemyTowers = bot:GetNearbyTowers(1100, true);
 			 nEnemyTowers     = bot:GetNearbyTowers(980, true);
 		end
+		-- Only when the tower is actually on us: standing near it (an
+		-- offlaner's wave at their tower) made bots run 20 times in 5 min.
+		local bTowerOnMe = (nLongEnemyTowers[1] ~= nil and nLongEnemyTowers[1]:GetAttackTarget() == bot) or bot:WasRecentlyDamagedByTower(1.0)
 		if ( botLevel <= 2 or DotaTime() < 2 * 60 )
-			and nLongEnemyTowers[1] ~= nil
+			and nLongEnemyTowers[1] ~= nil and bTowerOnMe
 		then
 			return X.RunWhy(bot, 2, 'rule 12')
 		end
 		if ( botLevel <= 4 or DotaTime() < 3 * 60 )
-			and nEnemyTowers[1] ~= nil
+			and nEnemyTowers[1] ~= nil and bTowerOnMe
 		then
 			return X.RunWhy(bot, 2, 'rule 13')
 		end
