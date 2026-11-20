@@ -700,6 +700,21 @@ function X.GetPossibleSentryWardSpots(bot)
 		end
 	end
 
+	-- Our observers in their jungle get a sentry next to them (OpenDota
+	-- 9098678691: the support who planted a sentry with each of 12 observers
+	-- had them live their full 6 minutes; the enemy's unpaired ones by our
+	-- river were found within 70-90 s).
+	if DotaTime() > 5 * 60 then
+		for _, spot in ipairs(X.GetEnemyJungleWardSpots()) do
+			if spot.plant_time_obs > 0 and DotaTime() - spot.plant_time_obs < 360
+			and not X.IsOtherWardClose(spot.location, 'npc_dota_sentry_wards', 1200, true, false)
+			and X.IsOtherWardClose(spot.location, 'npc_dota_observer_wards', 400, true, true)
+			and not J.Site.IsLocationHaveTrueSight(spot.location) then
+				table.insert(possibleSpots, spot)
+			end
+		end
+	end
+
 	return possibleSpots
 end
 
@@ -728,7 +743,13 @@ function X.IsOtherWardClose(vLocation, sWardName, nRadius, bTeam, bCheckLifespan
         and GetUnitToLocationDistance(ward, vLocation) <= nRadius
         then
 			if bCheckLifespan then
-				if sWardName == 'item_ward_observer' and J.GetModifierTime(ward, 'modifier_item_buff_ward') >= 360/2 then
+				-- An observer with half its life or more left. The name compared
+				-- was 'item_ward_observer' while every caller passes the unit name
+				-- 'npc_dota_observer_wards', so this never held: no sentry was
+				-- ever planted next to our observers.
+				local left = 360
+				pcall(function() left = ward:GetRemainingLifespan() or 360 end)
+				if not string.find(sWardName, 'observer') or left >= 360 / 2 then
 					return true
 				end
 			else

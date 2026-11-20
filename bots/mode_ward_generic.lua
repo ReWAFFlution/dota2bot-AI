@@ -21,6 +21,8 @@ local ObserverWard = nil
 local SentryWard = nil
 
 local hTargetSpot = nil
+local sTargetKind = nil -- 'obs' or 'sentry': the ward meant for hTargetSpot
+local hDeward = nil -- an enemy ward we see and go to kill
 local fLastWardPlantTime = -math.huge
 
 function GetDesire()
@@ -37,6 +39,11 @@ function GetDesireHelper()
     if not X.IsSuitableToWard() then
         return BOT_MODE_DESIRE_NONE
     end
+    -- Deward: an enemy ward we see (our sentry, true sight) within 1600 and
+    -- nobody of theirs at it. The bots never attacked a ward; the human
+    -- supports in 9098678691 killed 6 observers and 12 sentries between them.
+    hDeward = X.EnemyWardToKill()
+    if hDeward then return BOT_MODE_DESIRE_VERYHIGH end
 
 	-- 如果在打高地 就别撤退去干别的
 	if J.Utils.IsTeamPushingSecondTierOrHighGround(bot) then
@@ -74,6 +81,7 @@ function GetDesireHelper()
     if X.WardReady(ObserverWard) then
         local hAvailabeObserverWardSpots = W.GetAvailabeObserverWardSpots(bot)
         hTargetSpot = W.GetClosestObserverWardSpot(bot, X.Unblocked(hAvailabeObserverWardSpots))
+        sTargetKind = 'obs'
 		if hTargetSpot and (not X.IsEnemyCloserToWardLocation(hTargetSpot.location) or J.IsRealInvisible(bot)) then
 			if DotaTime() < 0 and DotaTime() > (J.IsModeTurbo() and -45 or -60) then
 				return BOT_MODE_DESIRE_ABSOLUTE
@@ -102,6 +110,7 @@ function GetDesireHelper()
     if X.WardReady(SentryWard) then
         local hPossibleSentryWardSpots = W.GetPossibleSentryWardSpots(bot)
         hTargetSpot = W.GetClosestSentryWardSpot(bot, X.Unblocked(hPossibleSentryWardSpots))
+        sTargetKind = 'sentry'
 		if hTargetSpot and (not X.IsEnemyCloserToWardLocation(hTargetSpot.location) or J.IsRealInvisible(bot)) then
 			if DotaTime() > fLastWardPlantTime + 1.0 then
 				if GetUnitToLocationDistance(bot, hTargetSpot.location) <= 3200 then
@@ -116,11 +125,15 @@ end
 
 function Think()
 	if J.CanNotUseAction(bot) then return end
+	if hDeward and J.IsValid(hDeward) and hDeward:CanBeSeen() then
+		bot:Action_AttackUnit(hDeward, true)
+		return
+	end
 	if J.Utils.IsBotThinkingMeaningfulAction(bot, Customize.ThinkLess, "ward") then return end
 	if hTargetSpot then
 		if X.BringWardToMainSlot(ObserverWard) or X.BringWardToMainSlot(SentryWard) then return end
 		if X.SpotIsBlocked(hTargetSpot) then return end
-		if ObserverWard and J.CanCastAbility(ObserverWard) then
+		if sTargetKind ~= 'sentry' and ObserverWard and J.CanCastAbility(ObserverWard) then
 			if GetUnitToLocationDistance(bot, hTargetSpot.location) <= nObserverWardCastRange then
 				-- Plant on the highest ground within reach of the spot.
 				if not hTargetSpot.refined then
@@ -146,7 +159,7 @@ function Think()
 			end
 		end
 
-		if SentryWard and J.CanCastAbility(SentryWard) then
+		if sTargetKind ~= 'obs' and SentryWard and J.CanCastAbility(SentryWard) then
 			if GetUnitToLocationDistance(bot, hTargetSpot.location) <= nSentryWardCastRange then
 				local fLength = 0
 				if W.IsOtherWardClose(hTargetSpot.location, 'npc_dota_observer_wards', 300, true, false) then
@@ -250,6 +263,23 @@ function X.SpotIsBlocked(spot)
 		return true
 	end
 	return false
+end
+
+function X.EnemyWardToKill()
+	local best, bd
+	for _, w in pairs(GetUnitList(UNIT_LIST_ENEMY_WARDS)) do
+		if J.IsValid(w) and w:CanBeSeen() then
+			local name = w:GetUnitName() or ''
+			if string.find(name, 'observer_wards') or string.find(name, 'sentry_wards') then
+				local d = GetUnitToUnitDistance(bot, w)
+				if d < 1600 and #J.GetEnemiesNearLoc(w:GetLocation(), 1000) == 0 and (not bd or d < bd) then best, bd = w, d end
+			end
+		end
+	end
+	if best and best ~= hDeward then
+		print('[Ward] '..bot:GetUnitName()..' dewards '..best:GetUnitName()..string.format(' at (%d, %d)', best:GetLocation().x, best:GetLocation().y))
+	end
+	return best
 end
 
 function X.IsSuitableToWard()
