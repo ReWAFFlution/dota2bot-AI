@@ -1213,11 +1213,16 @@ end
 -- next to a Lion with Finger of Death up, and Troll walked in and died).
 -- Enemies are counted with all their spells (as a player assumes what he
 -- hasn't seen used is ready), at 85%.
+-- Counting all of them at 85% made bots run from even lane fights (Sven
+-- spent 37% of the first 10 minutes retreating at "team x0.04-0.20"): an
+-- enemy is now the mean of "ready only" and "all spells", at most 2.5 times
+-- the ready-only figure.
 local function Estimate(u, victim, secs, dtype)
 	local enemy = u.GetTeam and u:GetTeam() ~= GetTeam()
-	local v = u:GetEstimatedDamageToTarget(not enemy, victim, secs, dtype)
-	if enemy and v then v = v * 0.85 end
-	return v
+	local ready = u:GetEstimatedDamageToTarget(true, victim, secs, dtype)
+	if not enemy or not ready then return ready end
+	local all = u:GetEstimatedDamageToTarget(false, victim, secs, dtype) or ready
+	return math.min((ready + all) / 2, math.max(ready, 1) * 2.5)
 end
 
 local function Burst(dealers, victim, secs, magicCut)
