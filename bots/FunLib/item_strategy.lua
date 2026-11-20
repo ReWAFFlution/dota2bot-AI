@@ -371,6 +371,17 @@ local function PushNext(bot, stack, item, reason, urgent)
 	if not urgent or urgent == 'after_core' then
 		local hero, pos = bot:GetUnitName(), bot._itemPos or 1
 		local rate = urgent == 'after_core' and CORE_ITEM_RATE or KEY_ITEM_RATE
+		-- Before two big items the hero's usual build (30%+ of pro games) comes
+		-- first: Bristleback got BKB right after his boots (Vanguard, Blade Mail
+		-- and Sange are under 60%), Windrunner saved for a Skadi with nothing.
+		local big = 0
+		for slot = 0, 8 do
+			local it = bot:GetItemInSlot(slot)
+			if it and GetItemCost(it:GetName()) >= 2000 then big = big + 1 end
+		end
+		-- (Urgent picks keep their place, except an early BKB: Diffusal against
+		-- Medusa still comes first.)
+		if big < 2 and (not urgent or item == 'item_black_king_bar') then rate = math.min(rate, urgent and 35 or 30) end
 		for i = 1, #stack do
 			if KnownRate(hero, pos, stack[i]) >= rate then at = i break end
 		end

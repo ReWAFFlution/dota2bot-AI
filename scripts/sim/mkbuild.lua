@@ -55,4 +55,21 @@ for i = 1, 12 do SIM_T = SIM_T + 4 S2.Think(jug, 1, st3) end
 local has = false for _, it in ipairs(st3) do if it == 'item_monkey_king_bar' or it == 'item_bloodthorn' then has = true end end
 print('Juggernaut vs Radiance WK: '..table.concat(st3, ', '))
 assert(has, 'no true strike vs Radiance')
+-- Bristleback (pos 3) at 15:00 with no big item vs gankers and disablers:
+-- BKB comes after his usual Vanguard and Blade Mail, not first.
+SIM_T = 15 * 60
+names = { [5] = 'npc_dota_hero_lion', [6] = 'npc_dota_hero_nyx_assassin', [7] = 'npc_dota_hero_rubick', [8] = 'npc_dota_hero_viper', [9] = 'npc_dota_hero_skeleton_king' }
+GetTeamPlayers = function(t) return t == 2 and { 0 } or { 5, 6, 7, 8, 9 } end
+GetSelectedHeroName = function(pid) return pid == 0 and 'npc_dota_hero_bristleback' or names[pid] end
+GetUnitList = function() return {} end
+local S3 = dofile(BOTS..'/FunLib/item_strategy.lua')
+local bb = {}
+function bb:GetUnitName() return 'npc_dota_hero_bristleback' end function bb:FindItemSlot() return -1 end
+function bb:GetNetWorth() return 4000 end function bb:GetItemInSlot() return nil end function bb:HasModifier() return false end
+function bb:GetPlayerID() return 0 end
+local st4 = { 'item_consecrated_wraps', 'item_lotus_orb', 'item_sange', 'item_blade_mail', 'item_vanguard' }
+for i = 1, 12 do SIM_T = SIM_T + 4 S3.Think(bb, 3, st4) end
+local function at(st, n) for i = #st, 1, -1 do if st[i] == n then return #st - i + 1 end end return 99 end
+print(string.format('BB: vanguard %d, blade mail %d, BKB %d (1 = next)', at(st4, 'item_vanguard'), at(st4, 'item_blade_mail'), at(st4, 'item_black_king_bar')))
+assert(at(st4, 'item_black_king_bar') > at(st4, 'item_vanguard') and at(st4, 'item_black_king_bar') > at(st4, 'item_blade_mail'))
 print('mk build ok')
