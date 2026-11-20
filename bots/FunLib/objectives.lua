@@ -344,6 +344,8 @@ local function TrackModes(S)
 				r.dead = r.dead + 1
 			else
 				local name = MODE_NAMES[m:GetActiveMode()] or tostring(m:GetActiveMode())
+				if name == 'farm' and (m._runUntil or -math.huge) > DotaTime() then name = 'run' end -- the farm mode's escape
+				if m:GetActiveMode() == 28 then name = 'watcher' end
 				-- A mode with no name (Pugna stood 55% of the time in "28"): once
 				-- per bot, where it is and what is next to it.
 				if not MODE_NAMES[m:GetActiveMode()] and not r.unknownLogged then

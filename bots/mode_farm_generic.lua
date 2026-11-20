@@ -84,6 +84,7 @@ function GetDesireHelper()
 		if runTime ~= 0
 			and DotaTime() < runTime + shouldRunTime
 		then
+			bot._runUntil = runTime + shouldRunTime -- the mode report shows it as "run"
 			return BOT_MODE_DESIRE_ABSOLUTE * 1.1;
 		else
 			runTime = 0;
@@ -99,6 +100,7 @@ function GetDesireHelper()
 				preferedCamp = nil;
 				bot:Action_ClearActions(true);
 			end
+			bot._runUntil = runTime + shouldRunTime
 			return BOT_MODE_DESIRE_ABSOLUTE * 1.1;
 		end
 	end
@@ -1018,7 +1020,14 @@ function X.ShouldRun(bot)
 		return 3;
 	end
 
+	-- A target picked on purpose (a harass or fight window, a kill combo, the
+	-- fight check's "go") isn't a reason to run: these two rules cancelled
+	-- every lane harass (Undying "farmed" = ran 19% of the first 5 minutes).
+	local bDeliberate = (bot.forceFightUntil or -math.huge) > DotaTime()
+		or (bot._killCombo ~= nil)
+		or (bot._combat ~= nil and bot._combat.go and DotaTime() - (bot._fightHintT or -math.huge) < 1.5)
 	if botLevel < 6
+		and not bDeliberate
 		and DotaTime() > 30
 		and DotaTime() < 8 * 60
 		and enemyFountainDistance < 8111
@@ -1055,6 +1064,7 @@ function X.ShouldRun(bot)
 	
 	-- 前期线上别顶着小兵打太凶
 	if botLevel < 5
+	and not bDeliberate
 	and bot:WasRecentlyDamagedByCreep(1)
 	and J.GetHP(bot) < 0.7
 	and botTarget ~= nil
