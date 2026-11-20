@@ -374,6 +374,11 @@ local function TrackModes(S)
 				-- Gold earned while farming: how good the farm is, not just how long.
 				local nw = m:GetNetWorth()
 				if name == 'farm' and r.lastNW then r.farmGold = (r.farmGold or 0) + math.max(0, nw - r.lastNW) end
+				if name == 'farm' then
+					local b = m._farmBranch or '?'
+					r.branch = r.branch or {}
+					r.branch[b] = (r.branch[b] or 0) + 1
+				end
 				r.lastNW = nw
 				local loc = m:GetLocation()
 				local busy = m:GetAttackTarget() ~= nil or m:IsChanneling() or m:IsUsingAbility() or m:IsCastingAbility()
@@ -397,6 +402,12 @@ local function ModeReport(S, t)
 			for i = 1, math.min(4, #list) do table.insert(parts, string.format('%s %d%%', list[i].name, math.floor(100 * list[i].c / r.n))) end
 			local farmSecs = r.counts.farm or 0
 			local farmRate = farmSecs > 10 and string.format(', farm %d g/min', math.floor((r.farmGold or 0) / farmSecs * 60)) or ''
+			if farmSecs > 10 and r.branch then
+				local bp = {}
+				for b, c in pairs(r.branch) do table.insert(bp, b..' '..math.floor(100 * c / farmSecs)..'%') end
+				farmRate = farmRate..' ('..table.concat(bp, ' ')..')'
+			end
+			r.branch = {}
 			table.insert(rows, string.format('%s: %s, still %d%%, dead %d%%%s', string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''),
 				table.concat(parts, ' '), math.floor(100 * r.still / r.n), math.floor(100 * r.dead / r.n), farmRate))
 			r.counts, r.still, r.dead, r.n, r.farmGold = {}, 0, 0, 0, 0 -- per 5-minute window

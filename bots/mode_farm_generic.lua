@@ -207,7 +207,7 @@ function GetDesireHelper()
 	-- Laning stage: only a camp between waves (cores), else the lane.
 	if J.IsInLaningPhase() then
 		local camp = FarmPlan.BetweenWaves(bot, availableCamp)
-		if camp then preferedCamp = camp return 0.5 end
+		if camp then preferedCamp = camp bot._farmBranch = 'between_waves' return 0.5 end
 		return BOT_MODE_DESIRE_NONE
 	end
 
@@ -423,6 +423,7 @@ function GetDesireHelper()
 		if #hLaneCreepList > 0
 		then
 			bot.farmLocation = J.GetCenterOfUnits(hLaneCreepList)
+			bot._farmBranch = 'wave'
 			return Min(RemapValClamped(J.GetHP(bot), 0.2, 0.7, 0.4, BOT_MODE_DESIRE_HIGH), nFarmCap)
 		else
 			-- Early game: prefer lane farming over jungle
@@ -470,12 +471,15 @@ function GetDesireHelper()
 				if bestLane then
 					local laneFront = GetLaneFrontLocation(GetTeam(), bestLane, 0)
 					bot.farmLocation = laneFront
+					bot._farmBranch = 'front'
 					return Min(RemapValClamped(J.GetHP(bot), 0.2, 0.7, 0.35, BOT_MODE_DESIRE_HIGH), nFarmCap)
 				end
 			end
 
-			-- Late game or dangerous lanes: farm jungle camps
-			if preferedCamp == nil then preferedCamp = FarmPlan.BestCamp(bot, availableCamp, J.Site.GetClosestNeutralSpwan);end
+			-- Late game or dangerous lanes: farm jungle camps. (A camp kept from
+			-- the laning stage is re-checked, not followed blindly.)
+			bot._farmBranch = 'camp'
+			if preferedCamp == nil or FarmPlan.IsEmpty(preferedCamp.cattr) then preferedCamp = FarmPlan.BestCamp(bot, availableCamp, J.Site.GetClosestNeutralSpwan);end
 
 			if preferedCamp ~= nil then
 				-- Don't farm a camp where an ally is already farming
