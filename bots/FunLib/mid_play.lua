@@ -166,8 +166,12 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 		if bot._powerLog ~= minute then bot._powerLog = minute Log(bot, 'power rune is up, taking it') end
 		return Scaled(BOT_MODE_DESIRE_VERYHIGH, dist, 4500)
 	end
-	local window = (minute % 2 == 1 and second >= 45) or (minute % 2 == 0 and second < 20)
-	if status == RUNE_STATUS_UNKNOWN and window and dist < 4000 and (waveClear or second >= 52 or minute % 2 == 0) then
+	-- Arrive as it spawns, not 35 s early: leave when the walk takes about the
+	-- time left (+4 s), wait at most 6 s after the spawn (Tinker spent 24% of
+	-- 10-15 min in the rune mode).
+	local walk = dist / math.max(250, bot:GetCurrentMovementSpeed())
+	local window = (minute % 2 == 1 and 60 - second <= walk + 4) or (minute % 2 == 0 and second < 6)
+	if status == RUNE_STATUS_UNKNOWN and window and dist < 4000 then
 		return Scaled(BOT_MODE_DESIRE_HIGH, dist, 4000)
 	end
 	return nil

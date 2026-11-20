@@ -256,12 +256,12 @@ function GetDesire()
 					else
 						return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius * 2.5)
 					end
-				elseif rune.status == RUNE_STATUS_UNKNOWN and DotaTime() > 113 then
-					if bBottle or (not J.IsEarlyGame() and botPos <= 3) then
-						return X.GetScaledDesire(BOT_MODE_DESIRE_HIGH, rune.distance, nProximityRadius * 2.5)
-					else
-						return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius)
-					end
+				-- Out of sight ("unknown") is most of the time: check it only right
+				-- after a spawn (even minute, first 10 s) and from nearby (DK spent
+				-- 23% of 10-15 min walking to river spots to look).
+				elseif rune.status == RUNE_STATUS_UNKNOWN and DotaTime() > 113
+				and minute % 2 == 0 and second < 10 and rune.distance <= 2000 then
+					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, 2000)
 				elseif rune.status == RUNE_STATUS_MISSING and DotaTime() > 60 and (minute % 2 == 1 and second > 53) then
 					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius)
 				elseif rune.status == RUNE_STATUS_UNKNOWN and X.IsTeamMustSaveRune(rune.location) and DotaTime() > 113 and rune.distance <= nProximityRadius * 2 then
