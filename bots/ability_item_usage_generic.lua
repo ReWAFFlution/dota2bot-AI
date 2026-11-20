@@ -5903,6 +5903,17 @@ do
 			end
 		end
 		local bCoreEarly = (nPos == 1 and DotaTime() < 14 * 60) or ((nPos == 2 or nPos == 3) and DotaTime() < 10 * 60)
+		-- Out on the map in the early game a core teleports only home: DK
+		-- teleported from his lane to another one at 2:30 "to farm" (the
+		-- lane check below compares with the engine's lane, which can differ
+		-- from where the core plays). From the base it can still go to its lane.
+		if nDesire and nDesire > 0 and bCoreEarly and bot:DistanceFromFountain() > 3000 then
+			local vLoc = hTarget
+			if type(hTarget) == 'table' and hTarget.GetLocation then vLoc = hTarget:GetLocation() end
+			if vLoc and vLoc.x and J.GetDistance(vLoc, J.GetTeamFountain()) >= 2500 then
+				return BOT_ACTION_DESIRE_NONE
+			end
+		end
 		if nDesire and nDesire > 0 and bCoreEarly then
 			local vLoc = hTarget
 			if type(hTarget) == 'table' and hTarget.GetLocation then vLoc = hTarget:GetLocation() end
