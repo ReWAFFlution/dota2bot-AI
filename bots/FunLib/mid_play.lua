@@ -138,8 +138,11 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 
 	if t < 6 * 60 - 15 or runeType == RUNE_WATER then
 		-- Water rune: after the wave is dead, and only if HP/mana are missing.
+		-- Out of sight right after it spawns, and close: it's probably there.
+		-- Later in the minute the enemy mid has likely taken it (Viper spent
+		-- 28% of the first 5 minutes in the rune mode).
 		local up = status == RUNE_STATUS_AVAILABLE
-			or (status == RUNE_STATUS_UNKNOWN and (minute == 2 or minute == 4) and second < 50)
+			or (status == RUNE_STATUS_UNKNOWN and (minute == 2 or minute == 4) and second < 12 and dist < 2500)
 		if not up then return nil end
 		-- The mid always takes it (the enemy mid would): with a Bottle it
 		-- refills it, without one it heals. It goes right away when it needs

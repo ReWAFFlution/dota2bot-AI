@@ -977,6 +977,15 @@ end
 
 
 local enemyPids = nil;
+-- Which escape rule fired (printed at most every 20 s per bot).
+function X.RunWhy(bot, secs, why)
+	if secs > 0 and (bot._runLogT or -math.huge) < DotaTime() - 20 then
+		bot._runLogT = DotaTime()
+		print(string.format('[Diag] %s runs %.1f s (%s, level %d, HP %d%%)', bot:GetUnitName(), secs, why, bot:GetLevel(), math.floor(J.GetHP(bot) * 100)))
+	end
+	return secs
+end
+
 function X.ShouldRun(bot)
 	if bot:HasModifier('modifier_medusa_stone_gaze_facing') 
 	then
@@ -986,7 +995,7 @@ function X.ShouldRun(bot)
 		then
 			
 		else  
-			return 3.33
+			return X.RunWhy(bot, 3.33, 'rule 1')
 		end
 	end
 
@@ -994,7 +1003,7 @@ function X.ShouldRun(bot)
 	if bot:IsChanneling() 
 	   or not bot:IsAlive()
 	then
-		return 0
+		return X.RunWhy(bot, 0, 'rule 2')
 	end	   
 	
 	local botLevel    = bot:GetLevel();
@@ -1010,14 +1019,14 @@ function X.ShouldRun(bot)
 
 	if enemyFountainDistance < 1000
 	then
-		return 2;
+		return X.RunWhy(bot, 2, 'rule 3')
 	end
 
 	if bot:DistanceFromFountain() < 200
 		and botMode ~= BOT_MODE_RETREAT
 		and ( J.GetHP(bot) + J.GetMP(bot) < 1.7 )
 	then
-		return 3;
+		return X.RunWhy(bot, 3, 'rule 4')
 	end
 
 	-- A target picked on purpose (a harass or fight window, a kill combo, the
@@ -1037,7 +1046,7 @@ function X.ShouldRun(bot)
 		   and (  not J.IsInRange(bot,botTarget,bot:GetAttackRange() + 150) 
 				  or not J.CanKillTarget(botTarget, bot:GetAttackDamage() * 2.33, DAMAGE_TYPE_PHYSICAL) )
 		then
-			return 2.88;
+			return X.RunWhy(bot, 2.88, 'rule 5')
 		end
 	end
 
@@ -1056,7 +1065,7 @@ function X.ShouldRun(bot)
 			   and not ( allyLevel - 2 > enemyLevel and aliveEnemyCount == 3)
 			   and #nAllyLaneCreeps <= 4
 			then
-				return 1.33;
+				return X.RunWhy(bot, 1.33, 'rule 6')
 			end
 		end
 				
@@ -1069,7 +1078,7 @@ function X.ShouldRun(bot)
 	and J.GetHP(bot) < 0.7
 	and botTarget ~= nil
 	and J.GetHP(botTarget) > J.GetHP(bot) - 0.15 then
-		return 2;
+		return X.RunWhy(bot, 2, 'rule 7')
 	end
 
 	local nEnemyTowers = bot:GetNearbyTowers(898, true);
@@ -1081,7 +1090,7 @@ function X.ShouldRun(bot)
 		   or enemyAncientDistance <= 1314
 		   or enemyFountainDistance <= 2828
 		then
-			return 2;
+			return X.RunWhy(bot, 2, 'rule 8')
 		end
 	end
 	
@@ -1090,7 +1099,7 @@ function X.ShouldRun(bot)
 	then
 		if nEnemyTowers[1]:HasModifier("modifier_invulnerable") and aliveEnemyCount > 1
 		then
-			return 2.5;
+			return X.RunWhy(bot, 2.5, 'rule 9')
 		end
 		
 		if  enemyAncientDistance > 2100
@@ -1099,7 +1108,7 @@ function X.ShouldRun(bot)
 			local nTarget = J.GetProperTarget(bot);
 			if nTarget == nil
 			then
-				return 3.9;
+				return X.RunWhy(bot, 3.9, 'rule 10')
 			end
 			
 			if J.IsValidHero(nTarget) and aliveEnemyCount > 2
@@ -1119,7 +1128,7 @@ function X.ShouldRun(bot)
 				
 				if not assistAlly 
 				then
-					return 2.5;
+					return X.RunWhy(bot, 2.5, 'rule 11')
 				end
 				
 			end
@@ -1140,12 +1149,12 @@ function X.ShouldRun(bot)
 		if ( botLevel <= 2 or DotaTime() < 2 * 60 )
 			and nLongEnemyTowers[1] ~= nil
 		then
-			return 2;
+			return X.RunWhy(bot, 2, 'rule 12')
 		end
 		if ( botLevel <= 4 or DotaTime() < 3 * 60 )
 			and nEnemyTowers[1] ~= nil
 		then
-			return 2;
+			return X.RunWhy(bot, 2, 'rule 13')
 		end
 		if botLevel <= 9
 			and nEnemyTowers[1] ~= nil
@@ -1153,7 +1162,7 @@ function X.ShouldRun(bot)
 			and nEnemyTowers[1]:GetAttackTarget() == bot
 			and #hAllyHeroList <= 1
 		then
-			return 2;
+			return X.RunWhy(bot, 2, 'rule 14')
 		end
 	end
 
@@ -1169,12 +1178,12 @@ function X.ShouldRun(bot)
 		if ( botLevel <= 2 or DotaTime() < 2 * 60 )
 			and nLongEnemyTowers[1] ~= nil
 		then
-			return 1;
+			return X.RunWhy(bot, 1, 'rule 15')
 		end	
 		if ( botLevel <= 4 or DotaTime() < 3 * 60 )
 			and nEnemyTowers[1] ~= nil
 		then
-			return 1;
+			return X.RunWhy(bot, 1, 'rule 16')
 		end	
 		if botLevel <= 9
 			and nEnemyTowers[1] ~= nil
@@ -1182,7 +1191,7 @@ function X.ShouldRun(bot)
 			and nEnemyTowers[1]:GetAttackTarget() == bot
 			and #hAllyHeroList <= 1
 		then
-			return 1;
+			return X.RunWhy(bot, 1, 'rule 17')
 		end
 	end
 
@@ -1216,7 +1225,7 @@ function X.ShouldRun(bot)
 			local nNearByHeroes = bot:GetNearbyHeroes(700,true,BOT_MODE_NONE);
 			if #nNearByHeroes < 2
 	        then
-				return 4;
+				return X.RunWhy(bot, 4, 'rule 18')
 			end
 		end	
 		if  botLevel >= 9 and botLevel <= 17  
@@ -1227,7 +1236,7 @@ function X.ShouldRun(bot)
 			local nNearByHeroes = bot:GetNearbyHeroes(700,true,BOT_MODE_NONE);
 			if #nNearByHeroes < 2
 	        then
-				return 3;
+				return X.RunWhy(bot, 3, 'rule 19')
 			end
 		end
 		local nEnemy = bot:GetNearbyHeroes(800,true,BOT_MODE_NONE);
@@ -1239,11 +1248,11 @@ function X.ShouldRun(bot)
 				and J.GetHP(bot) < 0.45
 				and enemy:IsFacingLocation(bot:GetLocation(),20)
 			then
-				return 3;
+				return X.RunWhy(bot, 3, 'rule 20')
 			end
 		end
 	end
-	return 0
+	return X.RunWhy(bot, 0, 'rule 21')
 end
 
 function X.IsThereT3Detroyed()
