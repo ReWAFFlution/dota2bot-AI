@@ -223,7 +223,8 @@ end
 local function ClosestEnemyT2Lane(loc)
 	local best, bestD = nil, math.huge
 	for _, lane in ipairs(LANES) do
-		local tower = GetTower(GetOpposingTeam(), T2[lane]) or GetTower(GetOpposingTeam(), T3[lane])
+		-- The lane's first standing tower (T1 too: hunts start at 14:00 with T1s up).
+		local tower = GetTower(GetOpposingTeam(), T1[lane]) or GetTower(GetOpposingTeam(), T2[lane]) or GetTower(GetOpposingTeam(), T3[lane])
 		if tower then
 			local d = Dist(tower:GetLocation(), loc)
 			if d < bestD then best, bestD = lane, d end
@@ -283,6 +284,7 @@ function X.Update()
 		for _, dt in pairs(S.deadAt) do timeLeft = math.max(timeLeft, dt + 6 + 2.2 * lvl - t) end
 	end
 	if advantage and t > 10 * 60 and (enemyAlive >= allyAlive or timeLeft >= 20) then
+		if S.phase ~= 'finish' then S.finishLane = X.FinishLane(true) end
 		SetPhase(S, 'finish', why)
 		return S
 	end
@@ -304,11 +306,15 @@ function X.Update()
 		-- After a good defense the team goes hunting (comeback).
 	end
 
-	if t1Down == 0 then
+	if t1Down == 0 and t < 14 * 60 then
 		SetPhase(S, 'laning')
 		return S
 	end
-	if t1Down < 3 and not behind then
+	-- Before 14:00 the hunt waits for all three T1. After that the support
+	-- group smokes and ganks even with T1s standing (OpenDota 9098557365:
+	-- the winning side's smokes at 10:57 and 21:14 each took a kill and a
+	-- tower within the minute).
+	if t1Down < 3 and not behind and t < 14 * 60 then
 		SetPhase(S, 'spread', t1Down..' enemy T1 down')
 		-- The hunt is close: a support gets a smoke ready.
 		if t1Down >= 2 then X.BuySmoke(S, (HuntGroup())) end
@@ -337,7 +343,7 @@ function X.Update()
 		local avgHP = 0
 		for _, m in ipairs(gathered) do avgHP = avgHP + J.GetHP(m) end
 		avgHP = #gathered > 0 and avgHP / #gathered or 0
-		local towerGone = S.siegeLane and not EnemyTowerAlive(S.siegeLane, { T2, T3 })
+		local towerGone = S.siegeLane and not EnemyTowerAlive(S.siegeLane, { T1, T2, T3 })
 		local failing = #gathered < math.min(SIEGE_MIN_GROUP - 1, math.max(2, enemyAlive)) or avgHP < 0.4 or allyAlive < enemyAlive
 		-- A failure has to last 5 s (heroes stepping in and out of 2500 of the
 		-- group flipped hunt/siege 7 times in 3 minutes); then 30 s without a
@@ -437,7 +443,7 @@ function X.AdjustPushDesire(bot, lane, desire)
 		-- (a hero that is nearly dead heals first); a hero more than 5000
 		-- from that lane's front keeps doing what it does (farming).
 		if J.GetHP(bot) < 0.3 then return desire end
-		local best = X.FinishLane()
+		local best = S.finishLane or X.FinishLane()
 		local far = GetUnitToLocationDistance(bot, GetLaneFrontLocation(GetTeam(), best, 0))
 		if far > 5000 then return desire end
 		-- The carry still farming its items joins only when it's right there.
@@ -492,12 +498,30 @@ function X.HasPushAdvantage(enemyAlive, allyAlive, hpNeed)
 	return false
 end
 
-function X.FinishLane()
-	local best, bestScore = LANE_MID, -1
+-- The lane to push after a won fight. `near`: the one whose next enemy
+-- tower is closest to where our heroes are (the fight), so the push starts
+-- before the dead respawn (the winning side in 9098557365 took the mid T1
+-- 4 s after a fight there, the bot T1 10 s after the next one). Otherwise,
+-- and as a tie-break, the lane with the most progress toward the ancient.
+function X.FinishLane(near)
+	local center
+	if near then
+		local sum, n = Vector(0, 0, 0), 0
+		for _, m in ipairs(Members()) do
+			if m:IsAlive() then sum, n = sum + m:GetLocation(), n + 1 end
+		end
+		if n > 0 then center = sum / n end
+	end
+	local best, bestScore = LANE_MID, -math.huge
 	for _, lane in ipairs(LANES) do
-		local score = 0
+		local score, nextTower = 0, nil
 		for tier, tbl in ipairs({ T1, T2, T3 }) do
-			if GetTower(GetOpposingTeam(), tbl[lane]) == nil then score = score + tier end
+			local tw = GetTower(GetOpposingTeam(), tbl[lane])
+			if tw == nil then score = score + tier elseif not nextTower then nextTower = tw end
+		end
+		if center then
+			local loc = nextTower and nextTower:GetLocation() or GetAncient(GetOpposingTeam()):GetLocation()
+			score = score * 300 - Dist(center, loc)
 		end
 		if score > bestScore then best, bestScore = lane, score end
 	end
