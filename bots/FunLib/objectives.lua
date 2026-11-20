@@ -14,6 +14,8 @@ local J = require(GetScriptDirectory()..'/FunLib/jmz_func')
 local okRolesLib, HeroRolesLib = pcall(require, GetScriptDirectory()..'/FunLib/aba_hero_roles_map')
 if not okRolesLib then HeroRolesLib = nil end
 
+local okHW, HumanWatch = pcall(require, GetScriptDirectory()..'/FunLib/human_watch')
+if not okHW then HumanWatch = nil end
 local X = {}
 
 -- Points ----------------------------------------------------------------------
@@ -747,6 +749,7 @@ function X.Update()
 	if t < 0 then return S end
 	X.RememberEnemies()
 	pcall(TrackModes, S) -- diagnostics only
+	if HumanWatch then pcall(HumanWatch.Update) end -- how the humans play
 	ScoreHeroes(S, t)
 	ScoreBuildings(S)
 	ScoreWards(S)
