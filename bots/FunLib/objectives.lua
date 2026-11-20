@@ -983,22 +983,31 @@ function X.FilterDefendDesire(bot, lane, desire)
 	if desire <= 0 then return desire end
 	local tw, tier = X.OwnLaneTower(lane)
 	if tier <= 3 and X.IsIdle(bot) then return math.min(desire, 0.2) end
-	-- Creeps only (no enemy hero within 2000 of the tower): one defender is
-	-- enough, the closest bot; the others go back to farming (Viper and Nyx
-	-- kept defending the top T1 against waves for minutes).
-	if tw and #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 2000) == 0 then
+	-- As many defenders as enemies at the tower + 1 (one with only creeps),
+	-- the closest ones, carry and mid last: Radiant's four bots stood at
+	-- their top tower 33-50% of the time against one farming enemy instead
+	-- of farming. Claims last 3 s and are renewed by the bots that hold them.
+	if tw and tier <= 3 then
 		local S = State()
-		S.waveDef = S.waveDef or {}
-		local c = S.waveDef[lane]
+		S.defClaims = S.defClaims or {}
+		local key = lane..':'..tier
 		local t = DotaTime()
-		-- Carry and mid count 2000 further: they farm, another one clears.
+		local allowed = #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 2000) + 1
 		local function cost(m) return GetUnitToUnitDistance(m, tw) + (J.GetPosition(m) <= 2 and 2000 or 0) end
-		if not c or t - c.t > 3 or not c.bot:IsAlive() or c.bot == bot
-		or cost(bot) + 300 < cost(c.bot) then
-			S.waveDef[lane] = { bot = bot, t = t }
-		else
-			return math.min(desire, 0.15)
+		local claims = {}
+		for _, c in ipairs(S.defClaims[key] or {}) do
+			if c.bot ~= bot and t - c.t <= 3 and c.bot:IsAlive() then table.insert(claims, c) end
 		end
+		table.sort(claims, function(a, b) return cost(a.bot) < cost(b.bot) end)
+		local mine = cost(bot)
+		local ok = #claims < allowed or mine + 300 < cost(claims[#claims].bot)
+		if ok then
+			table.insert(claims, { bot = bot, t = t })
+			table.sort(claims, function(a, b) return cost(a.bot) < cost(b.bot) end)
+			while #claims > allowed do table.remove(claims) end
+		end
+		S.defClaims[key] = claims
+		if not ok then return math.min(desire, 0.15) end
 	end
 	-- Nothing comes at a T3 or the base: no standing guard there either (Dire
 	-- stood at its mid T3 with nobody attacking it instead of farming and
