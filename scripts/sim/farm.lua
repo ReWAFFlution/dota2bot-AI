@@ -48,4 +48,13 @@ GetNeutralSpawners = function() local r = {} for _, e in ipairs(list) do table.i
 local d = F.BetweenWaves(bot, {})
 print('standing at the cleared small camp: next camp', d and d.cattr.type)
 assert(d == nil or d.cattr.type ~= 'small')
+-- Clearing a camp for 30 s (slow clear): it's kept past the 25 s walk limit.
+pos = 1 bot._waveCamp = nil creeps = {} neutrals = { {} } SIM_T = SIM_T + 120
+bot.loc = Vector(0, 0)
+local e = F.BetweenWaves(bot, list)
+bot.loc = e.cattr.location + Vector(100, 0)
+SIM_T = SIM_T + 30
+local still = F.BetweenWaves(bot, list)
+print('30 s into a slow clear: same camp', still and still.idx == e.idx)
+assert(still and still.idx == e.idx)
 print('farm ok')

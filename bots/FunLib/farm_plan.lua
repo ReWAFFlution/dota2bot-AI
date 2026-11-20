@@ -176,11 +176,19 @@ function X.BetweenWaves(bot, list)
 	if J.GetHP(bot) < 0.5 then bot._waveCamp = nil return nil end
 	local t = DotaTime()
 	local w = bot._waveCamp
-	if w and t - w.t < 25 then
+	if w then
 		for _, entry in ipairs(list) do
 			if entry.idx == w.idx and entry.cattr then
 				NoteEmpty(bot, entry.cattr)
-				if not IsEmpty(entry.cattr) and X.IsSafe(bot, entry.cattr) then return entry end
+				-- Being cleared (we're at it and its neutrals are alive): keep it
+				-- until it's done. WK dropped a half-cleared camp every 25 s for
+				-- another one and farmed 165 gold/min in the farm mode.
+				local atIt = GetUnitToLocationDistance(bot, entry.cattr.location) < 800
+				local alive = false
+				if atIt then pcall(function() alive = #bot:GetNearbyNeutralCreeps(800) > 0 end) end
+				if not IsEmpty(entry.cattr) and X.IsSafe(bot, entry.cattr) and ((atIt and alive and t - w.t < 60) or t - w.t < 25) then
+					return entry
+				end
 			end
 		end
 	end
