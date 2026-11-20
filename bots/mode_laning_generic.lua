@@ -189,8 +189,8 @@ if LanePlay.UseSupportThink(bot) then
 	function Think()
 		SafeCall('LanePlay.SupportThink', LanePlay.SupportThink, bot)
 	end
-elseif not local_mode_laning_generic and LanePlay.UseCoreThink(bot) then
-	-- Melee pos 1/3: last hits next to the wave instead of hanging back.
+elseif LanePlay.UseCoreThink(bot) then
+	-- Cores: last hits and denies by predicted creep HP, next to the wave.
 	function Think()
 		SafeCall('LanePlay.CoreThink', LanePlay.CoreThink, bot)
 	end

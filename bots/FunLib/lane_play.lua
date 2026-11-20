@@ -431,9 +431,13 @@ end
 -- too far from the creeps to last hit.
 --------------------------------------------------------------------------------
 
+-- Every core in its lane (pos 1-3, melee and ranged, mid too). It was melee
+-- pos 1/3 only, and the ranged cores and mids last hit with the engine's
+-- laning: at 10:00 Luna and Invoker had 13 last hits each (a human carry in
+-- the same game 56).
 function X.UseCoreThink(bot)
 	local pos = J.GetPosition(bot)
-	return (pos == 1 or pos == 3) and bot:GetAttackRange() < 350 and X.Lane(bot) ~= LANE_MID
+	return pos >= 1 and pos <= 3
 end
 
 function X.CoreThink(bot)
@@ -443,7 +447,7 @@ function X.CoreThink(bot)
 	local range = bot:GetAttackRange()
 	local dmg = bot:GetAttackDamage()
 	local qb = bot:FindItemSlot('item_quelling_blade')
-	if qb >= 0 and bot:GetItemSlotType(qb) == ITEM_SLOT_TYPE_MAIN then dmg = dmg + 8 end
+	if qb >= 0 and bot:GetItemSlotType(qb) == ITEM_SLOT_TYPE_MAIN then dmg = dmg + (range > 350 and 4 or 8) end
 	local enemies = RealHeroes(true, bot:GetLocation(), 1400)
 	local risk = X.TradeRisk(bot, enemies)
 
