@@ -16,7 +16,10 @@ local tTalentTreeList = {
 }
 
 local tAllAbilityBuildList = {
-						{1,3,3,2,2,2,2,6,3,3,6,1,1,1,6},--pos1
+						-- From a high-GPM human TB game (7.42 slots: 1 Reflection,
+						-- 2 Conjure Image, 3 Metamorphosis, 6 Sunder): Meta first,
+						-- Conjure maxed, Sunder at 6, Meta next, Reflection last.
+						{3,2,2,3,2,6,2,3,3,1,6,1,1,1,6},--pos1
 }
 
 local nAbilityBuildList = J.Skill.GetRandomBuild( tAllAbilityBuildList )
