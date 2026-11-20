@@ -52,6 +52,9 @@ local function generateTeam(overrides)
     local team = { }
     for i = 1, Dota2Teams.maxTeamSize do
         local pName = table.remove(playerList, 1)
+        -- Teams of 5 names: stop when they run out (asking for 12 made the
+        -- name a nil, the game got an error and used its default names).
+        if pName == nil then break end
         if Utils.HasValue(overriddenNames, pName) then
             table.insert(team, pName)
         else
