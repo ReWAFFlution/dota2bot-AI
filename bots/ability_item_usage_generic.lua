@@ -5936,7 +5936,8 @@ do
 			local vLoc = hTarget
 			if type(hTarget) == 'table' and hTarget.GetLocation then vLoc = hTarget:GetLocation() end
 			if vLoc and vLoc.x and J.GetDistance(vLoc, J.GetTeamFountain()) > 2500
-			and J.GetDistance(vLoc, GetLaneFrontLocation(GetTeam(), bot:GetAssignedLane(), 0)) > 3000 then
+			and (J.GetDistance(vLoc, GetLaneFrontLocation(GetTeam(), bot:GetAssignedLane(), 0)) > 3000
+				or bot:DistanceFromFountain() > 3000) then -- out on the map: only to save a core
 				local bSave = false
 				for i = 1, 5 do
 					local m = GetTeamMember(i)
