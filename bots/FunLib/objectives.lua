@@ -639,7 +639,7 @@ local function FindObjectives(S, t)
 			-- A real threat: the tower is losing HP, or an enemy hero is in its
 			-- range. A hero farming near it isn't one (two enemy cores used to
 			-- come and stand behind their tower while a human farmed nearby).
-			local inRange = #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 750) > 0
+			local inRange = X.HeroHitsTower(tw)
 			if hp.rate > 5 or inRange then
 				local allies = #HeroesNear(GetTeam(), tw:GetLocation(), 1300)
 				local bonus = info.tier >= 3 and 1.5 or 1 -- the tower fights too
@@ -976,7 +976,18 @@ function X.TowerThreatened(tw)
 			if h ~= nil and h.rate > 5 then return true end
 		end
 	end
-	return #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 750) > 0
+	return X.HeroHitsTower(tw)
+end
+
+-- An enemy hero hitting the tower (not just farming next to it: Slark
+-- farmed the waves at Radiant's top T1 and Slardar and OD "defended" it for
+-- most of 25-30 min instead of pushing).
+function X.HeroHitsTower(tw)
+	for _, e in ipairs(HeroesNear(GetOpposingTeam(), tw:GetLocation(), 900)) do
+		local tgt = e:GetAttackTarget()
+		if tgt and tgt == tw then return true end
+	end
+	return false
 end
 
 function X.FilterDefendDesire(bot, lane, desire)

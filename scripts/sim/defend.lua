@@ -24,7 +24,7 @@ local function hero(name, loc, team)
 	function u:CanBeSeen() return true end function u:GetCurrentMovementSpeed() return 300 end function u:GetAssignedLane() return LANE_TOP end
 	function u:WasRecentlyDamagedByHero() return false end function u:IsStunned() return false end function u:IsRooted() return false end
 	function u:HasModifier() return false end function u:GetMaxHealth() return 2000 end function u:GetMana() return 300 end function u:GetAbilityByName() return nil end
-	function u:IsHexed() return false end function u:IsSilenced() return false end function u:IsNightmared() return false end
+	function u:IsHexed() return false end function u:GetAttackTarget() return self.atk end function u:IsSilenced() return false end function u:IsNightmared() return false end
 	return u
 end
 local medusa = hero('medusa', Vector(-6100, 1500))
@@ -47,7 +47,7 @@ local t1 = O.DefendThink(medusa, LANE_TOP)
 print('human farming 1000 away, tower fine: desire', d1, 'defend think acted', t1)
 assert(d1 <= 0.2 and t1 == false)
 -- Now the human hits the tower.
-human.loc = Vector(-6000, 2300)
+human.loc = Vector(-6000, 2300) human.atk = tower
 for i = 1, 3 do SIM_T = SIM_T + 1 towerHP = towerHP - 60 O.Update() end
 local d2 = O.FilterDefendDesire(medusa, LANE_TOP, 0.7)
 print('tower losing HP: desire', d2)
@@ -57,4 +57,11 @@ medusa._combat = { retreat = true } medusa._fightHintT = SIM_T
 local d3 = O.FilterDefendDesire(medusa, LANE_TOP, 0.7)
 print('losing the fight there: desire', d3, 'assigned', O.DefendDesire(medusa, LANE_TOP))
 assert(d3 <= 0.3 and O.DefendDesire(medusa, LANE_TOP) == 0)
+-- An enemy farming the wave right at the tower (500 away) but not hitting
+-- it, tower HP steady: no standing guard.
+human.atk = nil human.loc = Vector(-6000, 2300) medusa._combat = nil
+for i = 1, 10 do SIM_T = SIM_T + 1 O.Update() end
+local d4 = O.FilterDefendDesire(medusa, LANE_TOP, 0.7)
+print('enemy farming at the tower, not hitting it: desire', d4)
+assert(d4 <= 0.2)
 print('defend ok')
