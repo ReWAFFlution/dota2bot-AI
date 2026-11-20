@@ -258,6 +258,11 @@ function X.Update()
 		S.recentEnemyDeathsT = t
 	end
 	S.enemyAliveLast = enemyAlive
+	-- When each enemy died, for "how long until they're back".
+	S.deadAt = S.deadAt or {}
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+		if IsHeroAlive(pid) then S.deadAt[pid] = nil elseif not S.deadAt[pid] then S.deadAt[pid] = t end
+	end
 
 	-- Push while we have the advantage (more heroes alive, or as many with a
 	-- clear lead), whatever our own count is; regroup once it's gone.
@@ -269,7 +274,15 @@ function X.Update()
 		end
 		return S
 	end
-	if advantage and t > 10 * 60 then
+	-- A kill opens a push only with time to use it: the dead enemy has 20+ s
+	-- left (respawn ~6 + 2.2 x level). Radiant flipped finish/regroup every
+	-- 30-40 s, walked to the top lane and back and never took the T1.
+	local timeLeft = 0
+	if enemyAlive < allyAlive then
+		local lvl = J.GetAverageLevel(true) or 10
+		for _, dt in pairs(S.deadAt) do timeLeft = math.max(timeLeft, dt + 6 + 2.2 * lvl - t) end
+	end
+	if advantage and t > 10 * 60 and (enemyAlive >= allyAlive or timeLeft >= 20) then
 		SetPhase(S, 'finish', why)
 		return S
 	end
@@ -421,9 +434,11 @@ function X.AdjustPushDesire(bot, lane, desire)
 	end
 	if p == 'finish' then
 		-- Everyone to the lane with the most progress toward the ancient
-		-- (a hero that is nearly dead heals first).
+		-- (a hero that is nearly dead heals first); a hero more than 5000
+		-- from that lane's front keeps doing what it does (farming).
 		if J.GetHP(bot) < 0.3 then return desire end
 		local best = X.FinishLane()
+		if GetUnitToLocationDistance(bot, GetLaneFrontLocation(GetTeam(), best, 0)) > 5000 then return desire end
 		if lane == best then return math.max(desire, 0.95) end
 		return math.min(desire, 0.2)
 	elseif p == 'regroup' then
