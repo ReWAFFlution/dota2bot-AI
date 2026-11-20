@@ -168,6 +168,7 @@ local function LotusDesire(bot, S)
 			local claimer = S.poolBy[key]
 			local claimed = claimer and claimer ~= bot and claimer:IsAlive() and (claimer._mapTarget == pool)
 			local range = support and LOTUS_RANGE_SUPPORT or LOTUS_RANGE_ANY
+			if support and DotaTime() > 30 * 60 then range = 1500 end -- late: not across the map (Lion walked 3400 for a pool)
 			if not claimed and d < range and EnemiesNear(pool:GetLocation(), 700) == 0 and (not bestDist or d < bestDist) then -- an enemy right at the pool
 				best, bestDist = pool, d
 			end

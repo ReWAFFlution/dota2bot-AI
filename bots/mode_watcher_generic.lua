@@ -41,6 +41,15 @@ function GetDesire()
 	local t = DotaTime()
 	if t < (bot._watcherTaken[key] or -math.huge) + AGAIN then return BOT_MODE_DESIRE_NONE end
 	if #J.GetEnemiesNearLoc(bot:GetLocation(), 1200) > 0 then return BOT_MODE_DESIRE_NONE end
+	-- Creeps at it or on us (neutrals of a camp next to it): they break the
+	-- capture and the bot stays stuck among them (Lion).
+	if #bot:GetNearbyCreeps(500, true) > 0 then return BOT_MODE_DESIRE_NONE end
+	for _, c in pairs(GetUnitList(UNIT_LIST_NEUTRAL_CREEPS or UNIT_LIST_ALL)) do
+		if c and not c:IsNull() and c:IsAlive() and c:GetTeam() == TEAM_NEUTRAL and (c:GetLocation() - l):Length2D() < 500
+		and not string.find(string.lower(c:GetUnitName() or ''), 'lantern') then -- not the watcher itself
+			return BOT_MODE_DESIRE_NONE
+		end
+	end
 	-- Standing at it long enough: taken.
 	if d < 400 then
 		bot._watcherAtT = bot._watcherAtT or t
