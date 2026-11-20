@@ -499,8 +499,26 @@ function X.CoreLaneLocked(m)
 	local pos = J.GetPosition(m)
 	return (pos == 1 and DotaTime() < 14 * 60) or ((pos == 2 or pos == 3) and DotaTime() < 10 * 60)
 end
+-- The carry's farm phase: before 20:00 and two items worth 2000+ (a human
+-- TB at 761 GPM joined no fight or push before his Mjollnir at 22:30).
+function X.CarryFarming(m)
+	if J.GetPosition(m) ~= 1 then return false end
+	if DotaTime() >= 20 * 60 then
+		local big = 0
+		for slot = 0, 5 do
+			local it = m:GetItemInSlot(slot)
+			if it and GetItemCost(it:GetName()) >= 2000 then big = big + 1 end
+		end
+		if big >= 2 then return false end
+		if DotaTime() >= 30 * 60 then return false end
+	end
+	return true
+end
+
 local function CarryLocked(m, lane, kind, tier)
 	if X.CoreLaneLocked(m) and lane ~= m:GetAssignedLane() then return true end
+	-- Farming carry: no push or T1-T3 defense trips (only right where it is).
+	if X.CarryFarming(m) and (kind == 'push' or (kind == 'defend' and (tier or 1) <= 3)) then return true end
 	-- Supports stay with their core in the laning phase (Disruptor left
 	-- Lifestealer at 5:00 to defend T1s on the other lanes), unless that core
 	-- is dead.

@@ -218,11 +218,20 @@ local function FixEarlyTravel(hero, pos, list)
 	end
 end
 
+local okHuman, HumanBuilds = pcall(require, GetScriptDirectory()..'/FunLib/item_human_builds')
+if not okHuman then HumanBuilds = nil end
+
 function X.GetMetaBuyList(hero, pos)
+	-- A build from a strong human game wins over the Stratz one.
+	local human = HumanBuilds and HumanBuilds[hero] and HumanBuilds[hero][pos]
 	local b = BuildData(hero, pos)
-	if not b then return nil end
+	if not b and not human then return nil end
 	local list = {}
-	for i, item in ipairs(b.buy) do list[i] = item end
+	for i, item in ipairs(human or b.buy) do list[i] = item end
+	if human then
+		local okItem, Item = pcall(require, GetScriptDirectory()..'/FunLib/aba_item')
+		return X.FixOrder(list, okItem and Item or nil)
+	end
 	FixEarlyTravel(hero, pos, list)
 	AddBottle(hero, pos, list)
 	local okItem, Item = pcall(require, GetScriptDirectory()..'/FunLib/aba_item')

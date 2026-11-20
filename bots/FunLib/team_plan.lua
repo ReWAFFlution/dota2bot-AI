@@ -438,7 +438,10 @@ function X.AdjustPushDesire(bot, lane, desire)
 		-- from that lane's front keeps doing what it does (farming).
 		if J.GetHP(bot) < 0.3 then return desire end
 		local best = X.FinishLane()
-		if GetUnitToLocationDistance(bot, GetLaneFrontLocation(GetTeam(), best, 0)) > 5000 then return desire end
+		local far = GetUnitToLocationDistance(bot, GetLaneFrontLocation(GetTeam(), best, 0))
+		if far > 5000 then return desire end
+		-- The carry still farming its items joins only when it's right there.
+		if Objectives and Objectives.CarryFarming and Objectives.CarryFarming(bot) and far > 2500 then return desire end
 		if lane == best then return math.max(desire, 0.95) end
 		return math.min(desire, 0.2)
 	elseif p == 'regroup' then
