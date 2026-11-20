@@ -972,6 +972,23 @@ function X.FilterDefendDesire(bot, lane, desire)
 	if desire <= 0 then return desire end
 	local tw, tier = X.OwnLaneTower(lane)
 	if tier <= 3 and X.IsIdle(bot) then return math.min(desire, 0.2) end
+	-- Creeps only (no enemy hero within 2000 of the tower): one defender is
+	-- enough, the closest bot; the others go back to farming (Viper and Nyx
+	-- kept defending the top T1 against waves for minutes).
+	if tw and #HeroesNear(GetOpposingTeam(), tw:GetLocation(), 2000) == 0 then
+		local S = State()
+		S.waveDef = S.waveDef or {}
+		local c = S.waveDef[lane]
+		local t = DotaTime()
+		-- Carry and mid count 2000 further: they farm, another one clears.
+		local function cost(m) return GetUnitToUnitDistance(m, tw) + (J.GetPosition(m) <= 2 and 2000 or 0) end
+		if not c or t - c.t > 3 or not c.bot:IsAlive() or c.bot == bot
+		or cost(bot) + 300 < cost(c.bot) then
+			S.waveDef[lane] = { bot = bot, t = t }
+		else
+			return math.min(desire, 0.15)
+		end
+	end
 	-- Nothing comes at a T3 or the base: no standing guard there either (Dire
 	-- stood at its mid T3 with nobody attacking it instead of farming and
 	-- pushing out the waves).
