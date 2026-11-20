@@ -332,7 +332,17 @@ for name, v in pairs({ laning = BOT_MODE_LANING, attack = BOT_MODE_ATTACK, roam 
 	roshan = BOT_MODE_ROSHAN, item = BOT_MODE_ITEM, ward = BOT_MODE_WARD, outpost = BOT_MODE_OUTPOST, none = BOT_MODE_NONE }) do
 	if v ~= nil then MODE_NAMES[v] = name end
 end
+-- The constants' real values, once (the report showed "defend_top" for a
+-- team that was pushing).
+local modesLogged = false
 local function TrackModes(S)
+	if not modesLogged then
+		modesLogged = true
+		local parts = {}
+		for v, name in pairs(MODE_NAMES) do table.insert(parts, name..'='..tostring(v)) end
+		table.sort(parts)
+		print('[Diag] mode ids: '..table.concat(parts, ' '))
+	end
 	S.modes = S.modes or {}
 	for _, m in ipairs(Members()) do
 		if m:IsBot() then
