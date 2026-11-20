@@ -4,7 +4,7 @@
 local BOTS = arg[1]
 dofile(debug.getinfo(1).source:sub(2):gsub('farm.lua$', 'stub.lua'))
 function GetScriptDirectory() return BOTS end
-SIM_T = 6 * 60
+SIM_T = 8 * 60
 local pos = 1
 local J = { GetPosition = function() return pos end, GetHP = function() return 0.9 end }
 function require(p) if p:find('jmz_func') then return J end end
@@ -15,8 +15,8 @@ local bot = { loc = Vector(0, 0) }
 function bot:GetLocation() return self.loc end function bot:GetUnitName() return 'npc_dota_hero_juggernaut' end
 function bot:GetNearbyLaneCreeps() return creeps end
 local neutrals = { {} }
-function bot:GetNearbyNeutralCreeps() return neutrals end function bot:GetAttackDamage() return 55 end
-function bot:GetSecondsPerAttack() return 1.4 end function bot:GetLevel() return 6 end function bot:GetCurrentMovementSpeed() return 315 end
+function bot:GetNearbyNeutralCreeps() return neutrals end function bot:GetAttackDamage() return 100 end
+function bot:GetSecondsPerAttack() return 1.2 end function bot:GetLevel() return 6 end function bot:GetCurrentMovementSpeed() return 315 end
 function GetUnitToLocationDistance(u, l) return (u:GetLocation() - l):Length2D() end
 local F = dofile(BOTS..'/FunLib/farm_plan.lua')
 local list = {
@@ -57,4 +57,7 @@ SIM_T = SIM_T + 30
 local still = F.BetweenWaves(bot, list)
 print('30 s into a slow clear: same camp', still and still.idx == e.idx)
 assert(still and still.idx == e.idx)
+pos = 2 bot._waveCamp = nil creeps = {} neutrals = { {} } bot.loc = Vector(0, 0)
+assert(F.BetweenWaves(bot, list) == nil)
+print('mid in the laning stage: no camp')
 print('farm ok')
