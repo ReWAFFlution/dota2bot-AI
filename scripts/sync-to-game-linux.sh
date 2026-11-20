@@ -32,6 +32,16 @@ if [ -L "$DOTA_BOTS_DIR" ]; then
   exit 1
 fi
 
+# Every script has to compile: one syntax error (a missing comma in the team
+# names) made hero_selection fail and the game fell back to its default bots.
+if command -v luajit >/dev/null 2>&1; then
+  bad=0
+  while IFS= read -r -d '' f; do
+    if ! out=$(luajit -bl "$f" 2>&1 >/dev/null); then echo "Syntax error: $out" >&2; bad=1; fi
+  done < <(find "$src" -name '*.lua' -print0)
+  if [ "$bad" -ne 0 ]; then echo "Not synced: fix the errors above." >&2; exit 1; fi
+fi
+
 tmp="$(mktemp -d "${DOTA_BOTS_DIR}.tmp.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
