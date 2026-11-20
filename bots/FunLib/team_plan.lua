@@ -538,6 +538,18 @@ function X.RoamDesire(bot)
 	local S = X.Update()
 	local p = S.phase
 
+	-- The combat evaluation says we kill first (FunLib/objectives.lua
+	-- X.Combat, updated by the retreat mode's fight hint): commit, before any
+	-- phase and above a defend assignment (0.88): DK "went for" Terrorblade
+	-- at our ancient and the base defense kept him off it.
+	local c = bot._combat
+	if c and c.go and J.IsValidHero(c.target) and DotaTime() - (bot._fightHintT or -99) < 1.5
+	and (not J.IsInLaningPhase() or c.ttkUs <= 3) then
+		bot._teamAction = 'pickoff'
+		bot._teamTarget = c.target
+		return 0.9
+	end
+
 	if p == 'regroup' then
 		-- Only the heroes deep on their side walk back; the others keep
 		-- farming and pushing (the whole team walked back at every respawn).
@@ -564,15 +576,6 @@ function X.RoamDesire(bot)
 		return nil
 	end
 
-	-- The combat evaluation says we kill first (FunLib/objectives.lua
-	-- X.Combat, updated by the retreat mode's fight hint): commit.
-	local c = bot._combat
-	if c and c.go and J.IsValidHero(c.target) and DotaTime() - (bot._fightHintT or -99) < 1.5
-	and (not J.IsInLaningPhase() or c.ttkUs <= 3) then
-		bot._teamAction = 'pickoff'
-		bot._teamTarget = c.target
-		return 0.85
-	end
 
 	if p == 'hunt' and S.hunt and X.InGroup(bot) then
 		bot._teamAction = 'hunt'
