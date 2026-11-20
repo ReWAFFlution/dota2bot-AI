@@ -972,6 +972,88 @@ function X.PushDesire(bot, lane)
 	return 0
 end
 
+-- Split push: a farming core takes the open towers on its way (OpenDota
+-- 9098641220: a human TB, 718 GPM, 18k tower damage in 30 min, 184 lane
+-- creeps and only 50 neutrals: T1 mid 11:36, T1 bot 19:06, T2 mid 20:43,
+-- T3 mid + barracks 21:29, T1 top 22:37, T2 top 24:42 - one tower after
+-- another, each time where the enemies weren't). Pos 1 and pos 3 from 10:00
+-- and level 8:
+--   * the lane's first standing enemy tower, with our wave at it (the lane
+--     front within 1000) and the fight there won by far (x1.5, enemies seen
+--     elsewhere counted half: they can teleport); a T3 from 25:00 and x2.5;
+--   * the farming carry only takes a tower within 3000 of it (on its farm
+--     route); in the early game a core only takes its own lane's;
+--   * not while the team plan has the hero in its hunt or siege group, nor
+--     in a finish, regroup or defend;
+--   * the closest such tower; 0.92 within 2500 of it (it's there: hit it,
+--     the farm mode yields), 0.75 to walk to it.
+local function EnemyLaneTower(lane)
+	for tier = 1, 3 do
+		for _, info in ipairs(TOWERS) do
+			if info.lane == lane and info.tier == tier then
+				local tw = GetTower(GetOpposingTeam(), info.id)
+				if tw then return tw, tier end
+			end
+		end
+	end
+	return nil, 4
+end
+
+local function SplitTarget(bot)
+	local pos = J.GetPosition(bot)
+	if pos ~= 1 and pos ~= 3 then return nil end
+	local t = DotaTime()
+	if t < 10 * 60 or bot:GetLevel() < 8 or J.GetHP(bot) < 0.55 or X.IsIdle(bot) then return nil end
+	local plan = TeamPlanState and TeamPlanState[GetTeam()]
+	if plan then
+		local p = plan.phase
+		if p == 'finish' or p == 'regroup' or p == 'defend' then return nil end
+		if (p == 'hunt' or p == 'siege') and plan.group then
+			for _, m in ipairs(plan.group) do if m == bot then return nil end end
+		end
+	end
+	local best, bestD
+	for _, lane in ipairs({ LANE_TOP, LANE_MID, LANE_BOT }) do
+		local tw, tier = EnemyLaneTower(lane)
+		if tw and not (X.CoreLaneLocked(bot) and lane ~= bot:GetAssignedLane()) then
+			local loc = tw:GetLocation()
+			local d = GetUnitToLocationDistance(bot, loc)
+			local front = GetLaneFrontLocation(GetTeam(), lane, 0)
+			local ok = Dist(front, loc) < 1000 and d < 7000
+			if ok and X.CarryFarming(bot) and d > 3000 then ok = false end
+			if ok and tier == 3 and t < 25 * 60 then ok = false end
+			if ok and (not bestD or d < bestD) then
+				local need = tier == 3 and 2.5 or 1.5
+				if X.FightAt(loc, bot, false, true) >= need then best, bestD = { lane = lane, tower = tw, d = d }, d end
+			end
+		end
+	end
+	return best
+end
+
+function X.SplitPushDesire(bot, lane)
+	local t = DotaTime()
+	local c = bot._split
+	if not c or t - c.t >= 0.5 then
+		local prev = c and c.target and c.target.tower
+		c = { t = t, target = SplitTarget(bot) }
+		bot._split = c
+		if c.target and c.target.tower ~= prev then
+			print(string.format('[Obj] %s split push: %s (%d away)', bot:GetUnitName(), c.target.tower:GetUnitName(), math.floor(c.target.d)))
+		end
+	end
+	local s = c.target
+	if not s or s.lane ~= lane or s.tower:IsNull() or not s.tower:IsAlive() then return 0 end
+	if s.d < 2500 then return 0.92 end
+	return 0.75
+end
+
+-- The farm mode yields to a split push the hero is at.
+function X.SplitPushing(bot)
+	local c = bot._split
+	return c and c.target and DotaTime() - c.t < 1 and c.target.d < 2500 or false
+end
+
 -- Our first standing tower on a lane and its tier (nil past T3).
 function X.OwnLaneTower(lane)
 	for tier = 1, 3 do

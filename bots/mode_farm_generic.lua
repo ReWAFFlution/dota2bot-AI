@@ -61,6 +61,8 @@ function GetDesire()
 	-- local cachedVar = J.Utils.GetCachedVars(cacheKey, 0.4)
 	-- if DotaTime() > 30 and cachedVar ~= nil then return cachedVar end
 	local res = GetDesireHelper()
+	-- At an open enemy tower (split push): hit the tower, not the camp next to it.
+	if Objectives.SplitPushing(bot) then res = math.min(res, 0.6) end
 	-- J.Utils.SetCachedVars(cacheKey, res)
 	return res
 end
