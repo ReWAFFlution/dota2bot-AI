@@ -13,9 +13,19 @@ return {
 		-- OpenDota 9098557365: Terrorblade offlane, 641 last hits, 200 neutrals,
 		-- 13k tower damage. Treads 7:34, Shard 15:00, Dragon Lance 21:28, S&Y
 		-- 24:38, Hurricane Pike 28:13, MKB 36:02, BKB 40:13, Satanic 46:51.
-		[3] = { 'item_tango', 'item_branches', 'item_bracer', 'item_magic_wand', 'item_power_treads',
-			'item_aghanims_shard', 'item_dragon_lance', 'item_sange_and_yasha', 'item_hurricane_pike',
-			'item_monkey_king_bar', 'item_black_king_bar', 'item_satanic', 'item_ultimate_scepter_2' },
+		-- 9098641220 (718 GPM) and 9098678691 (816 GPM, 20k tower damage):
+		-- Dragon Lance 13:41-21:28, Shard, S&Y, Pike, Skadi 28:45-33:25.
+		[3] = { 'item_quelling_blade', 'item_tango', 'item_branches', 'item_bracer', 'item_magic_wand', 'item_power_treads',
+			'item_dragon_lance', 'item_aghanims_shard', 'item_sange_and_yasha', 'item_hurricane_pike',
+			'item_monkey_king_bar', 'item_skadi', 'item_black_king_bar', 'item_satanic', 'item_ultimate_scepter_2' },
+	},
+	-- OpenDota 9098678691: Zeus mid, 20-4-14, 573 GPM, 83% kill participation.
+	-- Bottle, Null, Arcane 8:33, Phylactery 14:09, Kaya 20:30, Shard 23:31,
+	-- Aghanim 30:49, Y&K 33:11, Caduceus 35:37.
+	npc_dota_hero_zuus = {
+		[2] = { 'item_tango', 'item_branches', 'item_faerie_fire', 'item_bottle', 'item_magic_wand', 'item_null_talisman',
+			'item_arcane_boots', 'item_phylactery', 'item_kaya', 'item_aghanims_shard', 'item_ultimate_scepter',
+			'item_yasha_and_kaya', 'item_caduceus', 'item_ultimate_scepter_2' },
 	},
 	-- OpenDota 9098557365: Spectre pos 1, 602 GPM, 282 neutrals (38 ancients),
 	-- 19-4. Battle Fury, not Radiance: Treads 6:45, BFury 17:02, Manta 25:31,
