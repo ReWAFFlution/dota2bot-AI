@@ -1,6 +1,7 @@
 local X = {}
 local bot = GetBot()
 local KillCombo = require(GetScriptDirectory()..'/FunLib/kill_combo')
+local FarmSpells = require(GetScriptDirectory()..'/FunLib/farm_spells')
 local SupportSkills = require(GetScriptDirectory()..'/FunLib/support_skills')
 local SafeCall = require(GetScriptDirectory()..'/FunLib/safe_call')
 local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
@@ -8537,6 +8538,8 @@ function AbilityUsageThink()
 	-- Kill combo first: spells together on a target they kill together.
 	if not J.IsNoAbilityIllution(bot) and SafeCall('KillCombo.Think', KillCombo.Think, bot) then return end
 	if BotBuild ~= nil and not J.IsNoAbilityIllution(bot) then BotBuild.SkillsComplement() end
+	-- Area spells on camps and waves when the hero's own logic cast nothing.
+	if not J.IsNoAbilityIllution(bot) and SafeCall('FarmSpells.Think', FarmSpells.Think, bot) then return end
 	-- Heal / mana skills on whoever needs them when the hero cast nothing.
 	if not J.IsNoAbilityIllution(bot) then
 		SafeCall('SupportSkills.Think', SupportSkills.Think, bot)

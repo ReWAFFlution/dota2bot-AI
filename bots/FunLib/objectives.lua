@@ -361,6 +361,10 @@ local function TrackModes(S)
 					print(string.format('[Diag] %s in mode %s at (%d, %d), next to %s', m:GetUnitName(), name, loc.x, loc.y, tostring(near)))
 				end
 				r.counts[name] = (r.counts[name] or 0) + 1
+				-- Gold earned while farming: how good the farm is, not just how long.
+				local nw = m:GetNetWorth()
+				if name == 'farm' and r.lastNW then r.farmGold = (r.farmGold or 0) + math.max(0, nw - r.lastNW) end
+				r.lastNW = nw
 				local loc = m:GetLocation()
 				local busy = m:GetAttackTarget() ~= nil or m:IsChanneling() or m:IsUsingAbility() or m:IsCastingAbility()
 				if r.loc and Dist(loc, r.loc) < 100 and not busy and m:DistanceFromFountain() > 1000 then r.still = r.still + 1 end
@@ -381,9 +385,11 @@ local function ModeReport(S, t)
 			table.sort(list, function(a, b) return a.c > b.c end)
 			local parts = {}
 			for i = 1, math.min(4, #list) do table.insert(parts, string.format('%s %d%%', list[i].name, math.floor(100 * list[i].c / r.n))) end
-			table.insert(rows, string.format('%s: %s, still %d%%, dead %d%%', string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''),
-				table.concat(parts, ' '), math.floor(100 * r.still / r.n), math.floor(100 * r.dead / r.n)))
-			r.counts, r.still, r.dead, r.n = {}, 0, 0, 0 -- per 5-minute window
+			local farmSecs = r.counts.farm or 0
+			local farmRate = farmSecs > 10 and string.format(', farm %d g/min', math.floor((r.farmGold or 0) / farmSecs * 60)) or ''
+			table.insert(rows, string.format('%s: %s, still %d%%, dead %d%%%s', string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''),
+				table.concat(parts, ' '), math.floor(100 * r.still / r.n), math.floor(100 * r.dead / r.n), farmRate))
+			r.counts, r.still, r.dead, r.n, r.farmGold = {}, 0, 0, 0, 0 -- per 5-minute window
 		end
 	end
 	Log(string.format('modes %d:%02d team %d: %s', math.floor(t / 60), math.floor(t % 60), GetTeam(), table.concat(rows, ' | ')))
