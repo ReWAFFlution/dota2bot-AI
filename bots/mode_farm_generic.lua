@@ -458,6 +458,15 @@ function GetDesireHelper()
 					end
 				end
 
+				-- A safe camp nearby beats walking to a far lane front: within
+				-- 2500, or closer than the wave (no core picked a camp all game
+				-- before 25:00 - they walked from lane to lane).
+				local nearCamp = FarmPlan.BestCamp(bot, availableCamp, J.Site.GetClosestNeutralSpwan)
+				local campDist = nearCamp and GetUnitToLocationDistance(bot, nearCamp.cattr.location) or math.huge
+				if bestLane and (campDist < 2500 or campDist < bestDist) then
+					preferedCamp = nearCamp
+					bestLane = nil
+				end
 				if bestLane then
 					local laneFront = GetLaneFrontLocation(GetTeam(), bestLane, 0)
 					bot.farmLocation = laneFront
