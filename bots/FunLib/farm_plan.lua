@@ -19,6 +19,8 @@ local TOWERS = { TOWER_TOP_1, TOWER_MID_1, TOWER_BOT_1, TOWER_TOP_2, TOWER_MID_2
 
 local function Dist(a, b) return (a - b):Length2D() end
 
+local Objectives -- loaded on first use (it requires this file)
+
 local function MissingAndRecent(loc, radius)
 	local missing, recent = 0, false
 	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
@@ -57,6 +59,12 @@ function X.IsSafe(bot, camp)
 	local missing, recent = MissingAndRecent(loc, 1500)
 	if recent then return false end
 	if NearEnemyTower(loc, 1500) then return false end
+	-- Alone out of tower cover where the unseen enemies may be: not there.
+	if Objectives == nil then
+		local ok, O = pcall(require, GetScriptDirectory()..'/FunLib/objectives')
+		Objectives = ok and O or false
+	end
+	if Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, loc) then return false end
 	if camp.team ~= GetTeam() then
 		if missing >= 2 then return false end
 		if AliveCount(GetOpposingTeam()) > AliveCount(GetTeam()) then return false end

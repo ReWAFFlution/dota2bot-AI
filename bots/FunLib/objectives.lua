@@ -1786,6 +1786,61 @@ end
 -- Is it safe for `bot` to walk to `loc` (a ward spot) alone? On the enemy half
 -- only when nearly every enemy is visible or an ally is there, and never
 -- where an enemy was just seen.
+-- Pickoff risk: a hero alone out of our towers' cover where the enemies out
+-- of sight may be (OpenDota 9098678691: no smokes, yet the enemy took 10
+-- kills outside the fights - Lifestealer caught the farming Terrorblade
+-- three times and Lion and Abaddon 10 s apart, Necrophos and DP the
+-- supports and Zeus walking alone). From 5:00, for `loc`:
+--   * no ally hero within 1600 of it, and 2000+ from our nearest tower and
+--     out of our base;
+--   * enemies that may be there: those seen within 1800 in the last 3 s,
+--     plus every unseen one whose last spot is within reach since
+--     (1200 + 320 per second unseen, up to 15 s);
+--   * risky: on the enemy half two of them (one for a support), on ours
+--     three.
+local function OurNearestTowerDist(loc)
+	local best = math.huge
+	for _, info in ipairs(TOWERS) do
+		local tw = GetTower(GetTeam(), info.id)
+		if tw then best = math.min(best, Dist(tw:GetLocation(), loc)) end
+	end
+	return best
+end
+
+function X.PickoffRisk(bot, loc)
+	if DotaTime() < 5 * 60 then return false end
+	if J.IsRealInvisible and J.IsRealInvisible(bot) then return false end
+	for _, a in ipairs(HeroesNear(GetTeam(), loc, 1600)) do
+		if a ~= bot then return false end
+	end
+	if Dist(loc, J.GetTeamFountain()) < 4500 or OurNearestTowerDist(loc) < 2000 then return false end
+	local n = 0
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+		if IsHeroAlive(pid) then
+			local info = GetHeroLastSeenInfo(pid)
+			local d = info and info[1]
+			if not d then
+				n = n + 1
+			elseif d.time_since_seen < 3 then
+				if Dist(d.location, loc) < 1800 then n = n + 1 end
+			elseif Dist(d.location, loc) <= 1200 + 320 * math.min(15, d.time_since_seen) then
+				n = n + 1
+			end
+		end
+	end
+	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
+	local enemySide = Dist(loc, enemyFountain) < Dist(loc, J.GetTeamFountain())
+	-- Our half: three of them (the farm there is what the carry lives on);
+	-- their half: two, one for a support.
+	local need = enemySide and (J.GetPosition(bot) >= 4 and 1 or 2) or 3
+	local risky = n >= need
+	if risky and DotaTime() - (bot._pickoffLogT or -math.huge) > 30 then
+		bot._pickoffLogT = DotaTime()
+		print(string.format('[Obj] %s pickoff risk at (%d, %d): %d enemies may be there', bot:GetUnitName(), loc.x, loc.y, n))
+	end
+	return risky
+end
+
 function X.SafeSpot(bot, loc)
 	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
 		if IsHeroAlive(pid) then

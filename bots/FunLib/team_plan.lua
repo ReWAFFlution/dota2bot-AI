@@ -425,6 +425,8 @@ function X.SupportPushLane(bot)
 		local t1 = GetTower(GetOpposingTeam(), T1[lane])
 		local tooDeep = t1 == nil and #J.GetAlliesNearLoc(front, 1600) < 2
 		local d = GetUnitToLocationDistance(bot, front)
+		-- Not a wave alone where the unseen enemies may be (Lion died 9 times).
+		if safe and not tooDeep and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, front) then safe = false end
 		if safe and not tooDeep and (not bestD or d < bestD) then best, bestD = lane, d end
 	end
 	return best

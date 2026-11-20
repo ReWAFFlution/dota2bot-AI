@@ -481,7 +481,7 @@ function GetDesireHelper()
 			-- Late game or dangerous lanes: farm jungle camps. (A camp kept from
 			-- the laning stage is re-checked, not followed blindly.)
 			bot._farmBranch = 'camp'
-			if preferedCamp == nil or FarmPlan.IsEmpty(preferedCamp.cattr) then preferedCamp = FarmPlan.BestCamp(bot, availableCamp, J.Site.GetClosestNeutralSpwan);end
+			if preferedCamp == nil or FarmPlan.IsEmpty(preferedCamp.cattr) or not FarmPlan.IsSafe(bot, preferedCamp.cattr) then preferedCamp = FarmPlan.BestCamp(bot, availableCamp, J.Site.GetClosestNeutralSpwan);end
 
 			if preferedCamp ~= nil then
 				-- Don't farm a camp where an ally is already farming
