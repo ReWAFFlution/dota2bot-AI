@@ -449,6 +449,14 @@ function X.CoreThink(bot)
 	local qb = bot:FindItemSlot('item_quelling_blade')
 	if qb >= 0 and bot:GetItemSlotType(qb) == ITEM_SLOT_TYPE_MAIN then dmg = dmg + (range > 350 and 4 or 8) end
 	local enemies = RealHeroes(true, bot:GetLocation(), 1400)
+	-- Far from our own lane (after a bounty rune by mid): go there first, no
+	-- last hits on another core's lane (Gyrocopter stayed at mid taking the
+	-- mid creeps).
+	local ownFront = GetLaneFrontLocation(GetTeam(), lane, 0)
+	if ownFront and J.GetPosition(bot) <= 3 and GetUnitToLocationDistance(bot, ownFront) > 2500 then
+		bot:Action_MoveToLocation(ownFront)
+		return
+	end
 	local risk = X.TradeRisk(bot, enemies)
 
 	-- Last hits first: a creep we kill now (DK chased Troll toward his tower

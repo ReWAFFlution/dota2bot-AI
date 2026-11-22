@@ -262,6 +262,11 @@ function GetDesire()
 				elseif rune.status == RUNE_STATUS_UNKNOWN and DotaTime() > 113
 				and minute % 2 == 0 and second < 10 and rune.distance <= 2000 then
 					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, 2000)
+				-- The horn: the mid checks the river spots by its lane (Earth
+				-- Spirit stood by his tower while the top one held a rune).
+				elseif rune.status == RUNE_STATUS_UNKNOWN and DotaTime() >= 0 and DotaTime() < 20
+				and botPos == 2 and rune.distance <= 2500 then
+					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, 2000)
 				elseif rune.status == RUNE_STATUS_MISSING and DotaTime() > 60 and (minute % 2 == 1 and second > 53) then
 					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius)
 				elseif rune.status == RUNE_STATUS_UNKNOWN and X.IsTeamMustSaveRune(rune.location) and DotaTime() > 113 and rune.distance <= nProximityRadius * 2 then

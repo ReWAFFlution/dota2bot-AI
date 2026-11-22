@@ -1765,6 +1765,14 @@ function X.Combat(bot)
 			if Dist(e:GetLocation(), myLoc) < reach and (e:GetHealth() < 250 or hits <= 3) and ShieldHP(e) == 0 then
 				tt = math.min(tt, 2)
 			end
+			-- The chase counts: walking to it, and a target that reaches its
+			-- tower first is safe (Gyrocopter went for Legion Commander next to
+			-- her T1 instead of the Witch Doctor he was standing by).
+			if tt < 99 then
+				local gap = math.max(0, Dist(e:GetLocation(), myLoc) - (reach - 400))
+				tt = tt + gap / 350
+				if BuildingNear(GetOpposingTeam(), e:GetLocation(), 1100) and e:GetHealth() > 250 then tt = tt + 2 end
+			end
 			if tt < bestT or (tt == bestT and best and e:GetHealth() < best:GetHealth()) then best, bestT = e, tt end
 		end
 	end
