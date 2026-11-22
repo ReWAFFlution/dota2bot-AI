@@ -440,6 +440,17 @@ function X.UseCoreThink(bot)
 	return pos >= 1 and pos <= 3
 end
 
+-- Time to turn to face `u` (about 0.17 s for a half turn at a common turn
+-- rate); the attack can't start before it.
+function X.TurnTime(bot, u)
+	local ok, facing = pcall(function() return bot:GetFacing() end)
+	if not ok or not facing then return 0 end
+	local v = u:GetLocation() - bot:GetLocation()
+	local want = math.deg(math.atan2(v.y, v.x))
+	local diff = math.abs(((want - facing) + 540) % 360 - 180)
+	return diff / 180 * 0.17
+end
+
 -- Last-hit accounting: creeps we swung at for a last hit against last hits
 -- we actually got, printed once a minute ("[Diag] X last hits: ...").
 function X.NoteLastHitTry(bot, c)
@@ -532,7 +543,7 @@ function X.CoreThink(bot)
 	local walkTo
 	for _, c in pairs(bot:GetNearbyLaneCreeps(800, true)) do
 		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
-			local delay = J.GetAttackProDelayTime(bot, c)
+			local delay = J.GetAttackProDelayTime(bot, c) + X.TurnTime(bot, c)
 			if J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) then
 				X.NoteLastHitTry(bot, c)
 				bot:Action_AttackUnit(c, true)
@@ -619,8 +630,19 @@ function X.CoreThink(bot)
 		worth = risk < (ranged and 1.2 or 1.0)
 	end
 	if walkTo and (risk < 0.8 or freeCreep or worth) then
-		if GetUnitToUnitDistance(bot, walkTo) > range + 50 then
-			bot:Action_MoveToLocation(walkTo:GetLocation())
+		-- Stand in range and face it, like a player shuffling by the creep:
+		-- bots stood a step out of range or turned away and lost the turn
+		-- and the walk-in on the last hit (Arc Warden missed the flag
+		-- bearer).
+		local d = GetUnitToUnitDistance(bot, walkTo)
+		local want = math.max(100, range - 40)
+		if d > want + 40 then
+			local dir = (bot:GetLocation() - walkTo:GetLocation())
+			if dir:Length2D() < 1 then dir = Vector(1, 0, 0) end
+			bot:Action_MoveToLocation(walkTo:GetLocation() + dir:Normalized() * want)
+		elseif X.TurnTime(bot, walkTo) > 0.06 then
+			local toward = walkTo:GetLocation() - bot:GetLocation()
+			bot:Action_MoveToLocation(bot:GetLocation() + toward:Normalized() * 20)
 		end
 		return -- stay next to it for the last hit
 	end
