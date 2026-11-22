@@ -1457,6 +1457,13 @@ local function Estimate(u, victim, secs, dtype)
 	if not enemy or not ready then return ready end
 	local all = u:GetEstimatedDamageToTarget(false, victim, secs, dtype) or ready
 	all = math.max(ready, all - DownDamage(u))
+	-- In the laning stage few spells are trained and the "all spells" figure
+	-- runs far over what a level 3 hero deals: Monkey King at full HP backed
+	-- off from Phoenix ("they kill us in 3 s, team x0.06") for a minute and
+	-- took no last hit. Weight it 25% there, capped at 1.6x the ready figure.
+	if J.IsInLaningPhase() then
+		return math.min(ready * 0.75 + all * 0.25, math.max(ready, 1) * 1.6)
+	end
 	return math.min((ready + all) / 2, math.max(ready, 1) * 2.5)
 end
 
