@@ -1801,7 +1801,10 @@ function X.Combat(bot)
 			-- creeps to step back from Furion at x3.5).
 			local theirSide = Dist(myLoc, enemyFountain) < Dist(myLoc, J.GetTeamFountain())
 			if teamRatio >= 1.0 and not noTarget and hp > 0.35 then c.go = true
-			elseif ttkThem <= 6 or theirSide then c.retreat = true end
+			-- On their side only when we'd lose the fight there: DK backed off
+			-- from Invoker three times in 20 s at x1.19-x3.59 with nobody able
+			-- to kill anyone ("99 s both ways") and spun in place.
+			elseif ttkThem <= 6 or (theirSide and teamRatio < 1.0) then c.retreat = true end
 		end
 	end
 	-- Medusa's health is her mana: low on mana near enemies, step back.
