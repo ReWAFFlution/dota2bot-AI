@@ -463,9 +463,11 @@ function X.NoteLastHitTry(bot, c, dmg, delay)
 		pcall(function() lh = bot:GetLastHits() end)
 		local incoming = 0
 		pcall(function() incoming = J.GetTotalAttackWillRealDamage(c, delay or 0) end)
+		local real, name = dmg or 0, '?'
+		pcall(function() real = c:GetActualIncomingDamage(dmg or 0, DAMAGE_TYPE_PHYSICAL) end)
+		pcall(function() name = string.gsub(c:GetUnitName() or '?', 'npc_dota_', '') end)
 		bot._lhSwings[c] = { t = DotaTime(), hp = c:GetHealth(), dmg = dmg or 0, delay = delay or 0, lh = lh,
-			incoming = incoming, real = c:GetActualIncomingDamage(dmg or 0, DAMAGE_TYPE_PHYSICAL),
-			name = string.gsub(c:GetUnitName() or '?', 'npc_dota_', ''), dist = GetUnitToUnitDistance(bot, c) }
+			incoming = incoming, real = real, name = name, dist = GetUnitToUnitDistance(bot, c) }
 	end
 end
 
