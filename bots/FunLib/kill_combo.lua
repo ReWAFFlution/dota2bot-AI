@@ -71,8 +71,12 @@ local function Spells(bot, target)
 		if ab and not ab:IsNull() and not ab:IsPassive() and not ab:IsHidden() and ab:IsTrained() and ab:IsFullyCastable()
 		and not SKIP[ab:GetName()] then
 			local b = ab:GetBehavior()
-			local skip = Has(b, ABILITY_BEHAVIOR_TOGGLE) or Has(b, ABILITY_BEHAVIOR_CHANNELLED) or Has(b, ABILITY_BEHAVIOR_AUTOCAST)
-				or Has(b, ABILITY_BEHAVIOR_PASSIVE)
+			-- Autocast attack modifiers (Viper's Poison Attack, Frost Arrows)
+			-- are cast by hand on the target: Viper had Medusa low after his
+			-- ultimate and never used Poison Attack to finish her.
+			local orb = Has(b, ABILITY_BEHAVIOR_AUTOCAST) and Has(b, ABILITY_BEHAVIOR_UNIT_TARGET)
+			local skip = Has(b, ABILITY_BEHAVIOR_TOGGLE) or Has(b, ABILITY_BEHAVIOR_CHANNELLED)
+				or (Has(b, ABILITY_BEHAVIOR_AUTOCAST) and not orb) or Has(b, ABILITY_BEHAVIOR_PASSIVE)
 			local disable = Special(ab, DISABLE_KEYS)
 			local dmg = Damage(ab)
 			if not skip and (disable > 0 or dmg > 0) then

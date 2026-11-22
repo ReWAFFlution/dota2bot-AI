@@ -213,7 +213,8 @@ function X.SkillsComplement()
 	end
 
 	PoisonAttackDesire, PoisonAttackTarget = X.ConsiderPoisonAttack()
-	if PoisonAttackDesire > 0
+	-- (A nil target only toggled the autocast: no cast on nothing.)
+	if PoisonAttackDesire > 0 and PoisonAttackTarget ~= nil
 	then
 		bot:Action_UseAbilityOnEntity(PoisonAttack, PoisonAttackTarget)
 		return
