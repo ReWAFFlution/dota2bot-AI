@@ -2038,6 +2038,14 @@ function X.FightHint(bot)
 		-- Necrophos next to him ("they kill us in 5 s") and died at 1:58;
 		-- 14 last hits at 10:00.
 		if ttkUs >= ttkThem or ((c.teamRatio or 0) < 1.0 and (c.groupRatio or 0) < 1.0) then c.go = false end
+		-- Cores farm the lane: a fight only for a kill within 2 s on a target
+		-- already in reach (no chase). In the first 5 minutes Drow 'went for'
+		-- someone 11 times and had 2 last hits; Gyrocopter 6 with 6.
+		if J.GetPosition(bot) <= 3 and c.go then
+			local reach = 600
+			pcall(function() reach = bot:GetAttackRange() + 250 end)
+			if ttkUs > 2 or GetUnitToUnitDistance(bot, target) > reach then c.go = false end
+		end
 	end
 	if c.retreat and not laneCalm then
 		Say('backs off from')
