@@ -525,7 +525,14 @@ function X.CoreThink(bot)
 			end
 		end
 	end
-	if walkTo and risk < 0.8 then
+	-- A trade we'd lose keeps us back, unless no enemy hero is near that creep
+	-- (Chaos Knight at 36% HP stood 500 behind his wave for 5 s at 2:40
+	-- while two creeps died to it, Bristleback and Spirit Breaker away).
+	local freeCreep = false
+	if walkTo and risk >= 0.8 and J.GetHP(bot) > 0.25 then
+		freeCreep = #RealHeroes(true, walkTo:GetLocation(), 750) == 0
+	end
+	if walkTo and (risk < 0.8 or freeCreep) then
 		if GetUnitToUnitDistance(bot, walkTo) > range + 50 then
 			bot:Action_MoveToLocation(walkTo:GetLocation())
 		end
