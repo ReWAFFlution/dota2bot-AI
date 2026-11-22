@@ -500,7 +500,15 @@ function X.CoreThink(bot)
 			bot:Action_AttackUnit(harasser, true)
 			return
 		end
-		if not (walkTo and walkTo:GetHealth() < dmg * 1.3) then
+		-- Only when the harass really costs (under 75% HP, or more hurt than
+		-- the harasser), and not with a deny or last hit coming up: DK stepped
+		-- out of Invoker's range every 20 s at 96% HP and denied nothing.
+		local soon = walkTo ~= nil
+		for _, c in pairs(bot:GetNearbyLaneCreeps(range + 400, false)) do
+			if J.IsValid(c) and J.GetHP(c) < 0.5 and c:GetHealth() < dmg * 2 then soon = true end
+		end
+		local costly = J.GetHP(bot) < 0.75 or J.GetHP(bot) + 0.15 < J.GetHP(harasser)
+		if costly and not soon then
 			local er = 600
 			pcall(function() er = harasser:GetAttackRange() end)
 			local away = bot:GetLocation() - harasser:GetLocation()
