@@ -373,6 +373,9 @@ local function TrackModes(S)
 					print(string.format('[Diag] %s in mode %s at (%d, %d), next to %s', m:GetUnitName(), name, loc.x, loc.y, tostring(near)))
 				end
 				r.counts[name] = (r.counts[name] or 0) + 1
+				-- Mode changes: how often the bot changes its mind.
+				if r.lastMode and r.lastMode ~= name then r.switches = (r.switches or 0) + 1 end
+				r.lastMode = name
 				-- Gold earned while farming: how good the farm is, not just how long.
 				local nw = m:GetNetWorth()
 				if name == 'farm' and r.lastNW then r.farmGold = (r.farmGold or 0) + math.max(0, nw - r.lastNW) end
@@ -422,9 +425,9 @@ local function ModeReport(S, t)
 				farmRate = farmRate..' ('..table.concat(bp, ' ')..')'
 			end
 			r.branch = {}
-			table.insert(rows, string.format('%s: %s, still %d%%, dead %d%%%s', string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''),
-				table.concat(parts, ' '), math.floor(100 * r.still / r.n), math.floor(100 * r.dead / r.n), farmRate))
-			r.counts, r.still, r.dead, r.n, r.farmGold = {}, 0, 0, 0, 0 -- per 5-minute window
+			table.insert(rows, string.format('%s: %s, still %d%%, dead %d%%, %d switches%s', string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''),
+				table.concat(parts, ' '), math.floor(100 * r.still / r.n), math.floor(100 * r.dead / r.n), r.switches or 0, farmRate))
+			r.counts, r.still, r.dead, r.n, r.farmGold, r.switches = {}, 0, 0, 0, 0, 0 -- per 5-minute window
 		end
 	end
 	Log(string.format('modes %d:%02d team %d: %s', math.floor(t / 60), math.floor(t % 60), GetTeam(), table.concat(rows, ' | ')))
@@ -988,8 +991,8 @@ end
 -- 9098641220: a human TB, 718 GPM, 18k tower damage in 30 min, 184 lane
 -- creeps and only 50 neutrals: T1 mid 11:36, T1 bot 19:06, T2 mid 20:43,
 -- T3 mid + barracks 21:29, T1 top 22:37, T2 top 24:42 - one tower after
--- another, each time where the enemies weren't). Pos 1 and pos 3 from 10:00
--- and level 8:
+-- another, each time where the enemies weren't). Pos 1-3 from 10:00 and
+-- level 8 (from 5:00 and level 5 their own lane's tower, x2.0):
 --   * the lane's first standing enemy tower, with our wave at it (the lane
 --     front within 1000) and the fight there won by far (x1.5, enemies seen
 --     elsewhere counted half: they can teleport); a T3 from 25:00 and x2.5;
@@ -1013,9 +1016,14 @@ end
 
 local function SplitTarget(bot)
 	local pos = J.GetPosition(bot)
-	if pos ~= 1 and pos ~= 3 then return nil end
+	if pos < 1 or pos > 3 then return nil end
 	local t = DotaTime()
-	if t < 10 * 60 or bot:GetLevel() < 8 or J.GetHP(bot) < 0.55 or X.IsIdle(bot) then return nil end
+	-- From 5:00 a core takes its own lane's tower when the wave is at it and
+	-- nobody can defend it (DK pushed the mid wave to the T1 again and again
+	-- and walked back under his own tower each time); from 10:00 and level 8
+	-- any lane.
+	local early = t < 10 * 60
+	if t < 5 * 60 or bot:GetLevel() < (early and 5 or 8) or J.GetHP(bot) < 0.55 or X.IsIdle(bot) then return nil end
 	local plan = TeamPlanState and TeamPlanState[GetTeam()]
 	if plan then
 		local p = plan.phase
@@ -1027,7 +1035,7 @@ local function SplitTarget(bot)
 	local best, bestD
 	for _, lane in ipairs({ LANE_TOP, LANE_MID, LANE_BOT }) do
 		local tw, tier = EnemyLaneTower(lane)
-		if tw and not (X.CoreLaneLocked(bot) and lane ~= bot:GetAssignedLane()) then
+		if tw and not ((early or X.CoreLaneLocked(bot)) and lane ~= bot:GetAssignedLane()) then
 			local loc = tw:GetLocation()
 			local d = GetUnitToLocationDistance(bot, loc)
 			local front = GetLaneFrontLocation(GetTeam(), lane, 0)
@@ -1035,7 +1043,7 @@ local function SplitTarget(bot)
 			if ok and X.CarryFarming(bot) and d > 3000 then ok = false end
 			if ok and tier == 3 and t < 25 * 60 then ok = false end
 			if ok and (not bestD or d < bestD) then
-				local need = tier == 3 and 2.5 or 1.5
+				local need = tier == 3 and 2.5 or (early and 2.0 or 1.5)
 				if X.FightAt(loc, bot, false, true) >= need then best, bestD = { lane = lane, tower = tw, d = d }, d end
 			end
 		end

@@ -30,5 +30,7 @@ fight = 1.2 assert(D(LANE_MID) == 0, 'lost fight') fight = 99
 bot.loc = Vector(-5000, 0) assert(D(LANE_MID) == 0.75, 'walk to it')
 pos = 1 assert(D(LANE_MID) == 0, 'farming carry far away')
 bot.loc = Vector(-1500, 0) assert(D(LANE_MID) == 0.92, 'farming carry on its route')
-SIM_T = 500 assert(D(LANE_MID) == 0, 'too early')
+SIM_T = 250 assert(D(LANE_MID) == 0, 'too early')
+SIM_T = 500 pos = 2 assert(D(LANE_MID) == 0.92, 'mid core, own lane, 8:20')
+fight = 1.7 assert(D(LANE_MID) == 0, 'early needs x2.0') fight = 99
 print('split ok')
