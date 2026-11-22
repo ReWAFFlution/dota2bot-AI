@@ -108,6 +108,8 @@ function J.CanNotUseAction( bot )
 			or bot:HasModifier( 'modifier_item_forcestaff_active' )
 			or bot:HasModifier( 'modifier_phantom_lancer_phantom_edge_boost' )
 			or bot:HasModifier( 'modifier_tinker_rearm' )
+			-- Charging: any move or attack order cancels Charge of Darkness.
+			or bot:HasModifier( 'modifier_spirit_breaker_charge_of_darkness' )
 
 end
 

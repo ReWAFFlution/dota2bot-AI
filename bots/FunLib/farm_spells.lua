@@ -77,6 +77,7 @@ end
 function X.Think(bot)
 	if J.GetPosition(bot) > 3 or not bot:IsAlive() or not FarmMode(bot) then return false end
 	if bot:IsChanneling() or bot:IsCastingAbility() or bot:IsUsingAbility() or J.CanNotUseAbility(bot) or bot:IsSilenced() then return false end
+	if bot:HasModifier('modifier_spirit_breaker_charge_of_darkness') then return false end
 	if DotaTime() < (bot._farmSpellT or -math.huge) + 1.5 then return false end
 	if #J.GetEnemiesNearLoc(bot:GetLocation(), 1200) > 0 then return false end
 	local creeps = {}
