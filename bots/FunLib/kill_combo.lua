@@ -97,8 +97,21 @@ local function Spells(bot, target)
 	return list
 end
 
+-- An enemy tower next to the target (Chaos Knight walked from his bounty
+-- rune under Radiant's mid T1 at 0:30 to stun Sand King, then on to his
+-- lane): in the laning stage never; later only when it's dying anyway.
+local function UnderTheirTower(t)
+	for _, id in ipairs({ TOWER_TOP_1, TOWER_MID_1, TOWER_BOT_1, TOWER_TOP_2, TOWER_MID_2, TOWER_BOT_2,
+		TOWER_TOP_3, TOWER_MID_3, TOWER_BOT_3, TOWER_BASE_1, TOWER_BASE_2 }) do
+		local tw = id and GetTower(GetOpposingTeam(), id)
+		if tw and GetUnitToUnitDistance(tw, t) < 850 then return true end
+	end
+	return false
+end
+
 local function TargetOk(t)
 	if not J.IsValidHero(t) or J.IsSuspiciousIllusion(t) or t:IsMagicImmune() or t:IsInvulnerable() then return false end
+	if UnderTheirTower(t) and (J.IsInLaningPhase() or J.GetHP(t) > 0.25) then return false end
 	for _, m in ipairs(SAVES) do if t:HasModifier(m) then return false end end
 	return J.CanCastOnNonMagicImmune(t)
 end

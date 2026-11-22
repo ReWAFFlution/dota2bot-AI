@@ -2,6 +2,7 @@
 -- gets them in order (stun first, then the nuke), the ultimate kept when the
 -- rest is enough; a target two hits finish gets no spells.
 local BOTS = arg[1]
+function GetTower() return nil end -- no towers near the fight
 dofile(debug.getinfo(1).source:sub(2):gsub('killcombo.lua$', 'stub.lua'))
 function GetScriptDirectory() return BOTS end
 SIM_T = 600
