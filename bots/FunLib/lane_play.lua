@@ -440,14 +440,46 @@ function X.UseCoreThink(bot)
 	return pos >= 1 and pos <= 3
 end
 
+-- Last-hit accounting: creeps we swung at for a last hit against last hits
+-- we actually got, printed once a minute ("[Diag] X last hits: ...").
+function X.NoteLastHitTry(bot, c)
+	bot._lhTried = bot._lhTried or {}
+	bot._lhTried[c] = true
+end
+
+function X.LastHitStats(bot, t)
+	local lh = 0
+	pcall(function() lh = bot:GetLastHits() end)
+	local st = bot._lhStats
+	if not st then
+		bot._lhStats = { t = t, lh = lh }
+		bot._lhTried = {}
+		return
+	end
+	if t - st.t >= 60 then
+		local tried = 0
+		for _ in pairs(bot._lhTried or {}) do tried = tried + 1 end
+		print(string.format('[Diag] %s last hits %d:00-%d:00: went for %d, got %d', bot:GetUnitName(),
+			math.floor(st.t / 60), math.floor(t / 60), tried, lh - st.lh))
+		bot._lhStats = { t = t, lh = lh }
+		bot._lhTried = {}
+	end
+end
+
 function X.CoreThink(bot)
 	if J.CanNotUseAction(bot) then return end
 	local t = DotaTime()
 	local lane = X.Lane(bot)
 	local range = bot:GetAttackRange()
 	local dmg = bot:GetAttackDamage()
+	-- The low roll, not the average: an attack at "HP <= average damage" fails
+	-- about half the time on the close calls and the next creep hit takes it.
+	local var = 0
+	pcall(function() var = bot:GetBaseDamageVariance() or 0 end)
+	dmg = dmg - math.max(0, var) * 0.5
 	local qb = bot:FindItemSlot('item_quelling_blade')
 	if qb >= 0 and bot:GetItemSlotType(qb) == ITEM_SLOT_TYPE_MAIN then dmg = dmg + (range > 350 and 4 or 8) end
+	X.LastHitStats(bot, t)
 	local enemies = RealHeroes(true, bot:GetLocation(), 1400)
 	-- Far from our own lane (after a bounty rune by mid): go there first, no
 	-- last hits on another core's lane (Gyrocopter stayed at mid taking the
@@ -502,6 +534,7 @@ function X.CoreThink(bot)
 		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
 			local delay = J.GetAttackProDelayTime(bot, c)
 			if J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) then
+				X.NoteLastHitTry(bot, c)
 				bot:Action_AttackUnit(c, true)
 				return
 			end
