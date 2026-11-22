@@ -1390,11 +1390,55 @@ end
 -- spent 37% of the first 10 minutes retreating at "team x0.04-0.20"): an
 -- enemy is now the mean of "ready only" and "all spells", at most 2.5 times
 -- the ready-only figure.
+-- Spells we saw an enemy cast are on cooldown for their cooldown time: their
+-- damage comes off the "all spells" figure. Troll ran far from Winter
+-- Wyvern and Dawnbreaker under his tower while all their spells were down
+-- ("they kill us in 1 s") and the wave died there without him.
+local enemyCasts = {} -- [unit][ability name] = { t, cd, dmg }
+function X.NoteEnemyCasts()
+	local t = DotaTime()
+	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+		if J.IsValidHero(e) and not e:IsIllusion() then
+			local ok, ab = pcall(function() return e:GetCurrentActiveAbility() end)
+			if ok and ab and not ab:IsNull() and not ab:IsItem() then
+				local name = ab:GetName()
+				local rec = enemyCasts[e] or {}
+				enemyCasts[e] = rec
+				local r = rec[name]
+				if not r or t - r.t > 1 then
+					local cd, dmg = 0, 0
+					pcall(function() cd = ab:GetCooldown() or 0 end)
+					pcall(function() dmg = ab:GetAbilityDamage() or 0 end)
+					if dmg <= 0 then
+						for _, k in ipairs({ 'damage', 'total_damage', 'base_damage', 'hero_damage', 'damage_per_second' }) do
+							local ok2, v = pcall(function() return ab:GetSpecialValueFloat(k) end)
+							if ok2 and v and v > 0 then dmg = v break end
+						end
+					end
+					rec[name] = { t = t, cd = cd, dmg = dmg }
+				end
+			end
+		end
+	end
+end
+
+-- Damage of the enemy's spells known to be on cooldown now.
+local function DownDamage(u)
+	local rec = enemyCasts[u]
+	if not rec then return 0 end
+	local t, sum = DotaTime(), 0
+	for _, r in pairs(rec) do
+		if r.cd > 0 and t - r.t < r.cd then sum = sum + r.dmg end
+	end
+	return sum
+end
+
 local function Estimate(u, victim, secs, dtype)
 	local enemy = u.GetTeam and u:GetTeam() ~= GetTeam()
 	local ready = u:GetEstimatedDamageToTarget(true, victim, secs, dtype)
 	if not enemy or not ready then return ready end
 	local all = u:GetEstimatedDamageToTarget(false, victim, secs, dtype) or ready
+	all = math.max(ready, all - DownDamage(u))
 	return math.min((ready + all) / 2, math.max(ready, 1) * 2.5)
 end
 
@@ -1622,6 +1666,7 @@ function X.GroupFight(target)
 end
 
 function X.Combat(bot)
+	X.NoteEnemyCasts()
 	if not bot:IsAlive() then return nil end
 	local myLoc = bot:GetLocation()
 	local enemies = HeroesNear(GetOpposingTeam(), myLoc, 1400)
