@@ -384,7 +384,19 @@ local function TrackModes(S)
 				r.lastNW = nw
 				local loc = m:GetLocation()
 				local busy = m:GetAttackTarget() ~= nil or m:IsChanneling() or m:IsUsingAbility() or m:IsCastingAbility()
-				if r.loc and Dist(loc, r.loc) < 100 and not busy and m:DistanceFromFountain() > 1000 then r.still = r.still + 1 end
+				if r.loc and Dist(loc, r.loc) < 100 and not busy and m:DistanceFromFountain() > 1000 then
+					r.still = r.still + 1
+					-- Standing 5 s in a row: say in which mode (Troll and CM stood
+					-- by the bounty rune after taking it; nothing said why).
+					r.stillRun = (r.stillRun or 0) + 1
+					if r.stillRun == 5 and DotaTime() - (r.stillLogT or -math.huge) > 60 then
+						r.stillLogT = DotaTime()
+						print(string.format('[Diag] %s stands still 5 s in mode %s (desire %.2f) at (%d, %d)',
+							m:GetUnitName(), name, m:GetActiveModeDesire(), loc.x, loc.y))
+					end
+				else
+					r.stillRun = 0
+				end
 				r.loc = loc
 			end
 		end
