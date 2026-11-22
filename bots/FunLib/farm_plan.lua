@@ -175,10 +175,11 @@ end
 -- come back for the next one): no enemy lane creeps around, HP over 50%,
 -- a safe camp in our jungle within reach, walk + clear in 30 s or less (hits only, spells make it faster). Once
 -- taken, the camp is kept for up to 25 s so it gets cleared.
--- The carry only, from 7:00: mid and offlaner kept leaving their lane for
--- 2.5-3.5 gold/s camps and earned ~100 gold/min in the farm mode while
--- losing lane XP (a wave is ~5 gold/s).
-local WAVE_FARM_FROM = { [1] = 7 * 60 }
+-- The carry from 7:00; mid and offlaner from 8:00 (earlier they kept leaving
+-- their lane for 2.5-3.5 gold/s camps and lost lane XP; without it they
+-- stood in the laning mode by an empty lane 35-50% of 10-15 min, Sand King
+-- and Viper farming 78-92 g/min). The wave coming back calls them back.
+local WAVE_FARM_FROM = { [1] = 7 * 60, [2] = 8 * 60, [3] = 8 * 60 }
 -- Their wave in our lane within reach: lane creeps near our lane front
 -- (within 3000 of us). Troll walked to a small camp while a whole wave died
 -- under our tower: he had backed off from two heroes, the creeps were 1300+
@@ -228,7 +229,7 @@ function X.BetweenWaves(bot, list)
 		if camp and camp.location then NoteEmpty(bot, camp) end
 		if camp and camp.location and camp.team == GetTeam() and camp.type ~= 'ancient' and not IsEmpty(camp) and X.IsSafe(bot, camp)
 		and not TakenByOther(bot, camp)
-		and GetUnitToLocationDistance(bot, camp.location) < 1500 then
+		and GetUnitToLocationDistance(bot, camp.location) < (DotaTime() > 10 * 60 and 2500 or 1500) then
 			local rate = X.CampRate(bot, camp)
 			local gold = (GOLD[camp.type or 'medium'] or 80) * (1 + DotaTime() / 3600)
 			local secs = rate > 0 and gold / rate - 2 or 99 -- walk + clear

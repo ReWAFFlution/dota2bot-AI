@@ -129,6 +129,13 @@ function GetDesire()
 	-- 	return 0.2
 	-- end
 
+	-- A core by an empty lane after 8:00 (no enemy creeps within 1500, no
+	-- enemy hero within 1600): the laning mode has nothing to do there, let
+	-- farming, pushing and the rest take over instead of standing by it.
+	if J.GetPosition(bot) <= 3 and currentTime > 8 * 60 and #bot:GetNearbyLaneCreeps(1500, true) == 0 and #nInRangeEnemy == 0 then
+		return 0.1
+	end
+
 	if local_mode_laning_generic or (J.GetPosition(bot) == 1 and J.IsPosxHuman(5)) then
 		-- last hit
 		if J.IsInLaningPhase() then
