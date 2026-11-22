@@ -6798,9 +6798,25 @@ X.ConsiderItemDesire['item_soul_ring'] = function(item)
 	local currMana = bot:GetMana() / bot:GetMaxMana()
 	local currHealth = bot:OriginalGetHealth() / bot:OriginalGetMaxHealth()
 
-	if (aMode == BOT_MODE_FARM or aMode == BOT_MODE_LANING)
-	and currHealth > 0.5 and currMana < 0.5
-	then
+	-- Its mana is gone when the buff ends unspent: only right before a spell
+	-- that needs it, with something to cast it on. DK popped it every time
+	-- it came off cooldown (mana under 50%) and cast nothing: 170 HP lost
+	-- each time.
+	if currHealth <= 0.45 then return BOT_ACTION_DESIRE_NONE end
+	local need = false
+	for i = 0, 5 do
+		local ab = bot:GetAbilityInSlot(i)
+		if ab and not ab:IsNull() and ab:IsTrained() and not ab:IsPassive() and ab:GetCooldownTimeRemaining() == 0 then
+			local cost = ab:GetManaCost()
+			if cost > bot:GetMana() and cost <= bot:GetMana() + 150 then need = true end
+		end
+	end
+	if not need then return BOT_ACTION_DESIRE_NONE end
+	local enemies = J.GetNearbyHeroes(bot, 900, true, BOT_MODE_NONE)
+	local fight = enemies ~= nil and #enemies > 0 and (J.IsGoingOnSomeone(bot) or (bot.forceFightUntil or -math.huge) > DotaTime())
+	local creeps = bot:GetNearbyCreeps(600, true)
+	local farm = aMode == BOT_MODE_FARM and creeps ~= nil and #creeps >= 3 and currMana < 0.3 -- FunLib/farm_spells casts there
+	if fight or farm then
 		return BOT_ACTION_DESIRE_HIGH, hEffectTarget, sCastType, sCastMotive
 	end
 
