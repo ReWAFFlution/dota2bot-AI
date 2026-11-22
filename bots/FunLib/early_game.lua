@@ -337,6 +337,13 @@ function X.GetDesire(bot)
 	-- Lifestealer and Disruptor and gave first blood): leave it, go to lane.
 	local rloc = GetRuneSpawnLocation(rune)
 	local holders = RealHeroesNear(rloc, 1100, true)
+	-- Or enemies on our way to it, not yet at it (Drow saw two enemy cores
+	-- walking to the rune and kept going): the fight where we are.
+	local onWay = RealHeroesNear(bot:GetLocation(), 1500, true)
+	if #holders == 0 and #onWay > 0 and Objectives.FightAt(bot:GetLocation(), RealHeroesNear(bot:GetLocation(), 1500, false)) < 0.6 then
+		holders = onWay
+		rloc = bot:GetLocation()
+	end
 	if #holders > 0 and GetUnitToLocationDistance(bot, rloc) < 2500 then
 		local ratio = Objectives.FightAt(rloc, RealHeroesNear(bot:GetLocation(), 1500, false))
 		if ratio < 0.6 then -- clearly lost only (both pairs left the bottom bounty at x0.83 / x0.84)
