@@ -609,7 +609,16 @@ function X.CoreThink(bot)
 	if walkTo and risk >= 0.8 and J.GetHP(bot) > 0.25 then
 		freeCreep = #RealHeroes(true, walkTo:GetLocation(), 750) == 0
 	end
-	if walkTo and (risk < 0.8 or freeCreep) then
+	-- A creep about to die (under 1.4 hits) is worth some harass, the ranged
+	-- one more so: Legion Commander stood 500 back at 4:00 and left the
+	-- ranged creep to the wave. Not into a kill (risk over 1.0-1.2) or under
+	-- 40% HP.
+	local worth = false
+	if walkTo and not freeCreep and J.GetHP(bot) > 0.4 and walkTo:GetHealth() < dmg * 1.4 then
+		local ranged = string.find(walkTo:GetUnitName() or '', 'ranged') ~= nil
+		worth = risk < (ranged and 1.2 or 1.0)
+	end
+	if walkTo and (risk < 0.8 or freeCreep or worth) then
 		if GetUnitToUnitDistance(bot, walkTo) > range + 50 then
 			bot:Action_MoveToLocation(walkTo:GetLocation())
 		end
