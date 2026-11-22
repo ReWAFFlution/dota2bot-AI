@@ -2022,7 +2022,9 @@ function X.FightHint(bot)
 	local d = bot._decision
 	-- Still being hit and hurt: the retreat goes on (when it ran out, the
 	-- hunt took Largo back toward Bristleback, who kept hitting him).
-	if d and d.kind == 'retreat' and d.untilT <= t and J.GetHP(bot) < 0.5 and bot:WasRecentlyDamagedByAnyHero(1.5) then
+	-- Only while they can actually kill us: WK kept "backing off" from Drow's
+	-- harass at "99 s both ways, team x2.3-x3.1" and lost half a wave.
+	if d and d.kind == 'retreat' and d.untilT <= t and J.GetHP(bot) < 0.5 and bot:WasRecentlyDamagedByAnyHero(1.5) and ttkThem <= 6 then
 		d.untilT = t + 2
 	end
 	if d and d.untilT > t then
