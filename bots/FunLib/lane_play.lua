@@ -484,6 +484,37 @@ function X.CoreThink(bot)
 			return
 		end
 	end
+	-- Being harassed (an enemy hero hit us in the last 2 s): hit back when it
+	-- is in our range, else step out of its attack range, unless a last hit
+	-- is about to drop. TradeRisk says 0 when they can't kill us in 4 s, so
+	-- WK stood still and took every Crystal Maiden attack.
+	local harasser, hd
+	for _, e in ipairs(enemies) do
+		if bot:WasRecentlyDamagedByHero(e, 2.0) then
+			local d = GetUnitToUnitDistance(bot, e)
+			if not hd or d < hd then harasser, hd = e, d end
+		end
+	end
+	if harasser and J.GetHP(bot) < 0.95 then
+		if hd <= range + 60 and risk < 0.6 and J.CanBeAttacked(harasser) and not EnemyTowerNear(harasser:GetLocation(), 900) then
+			bot:Action_AttackUnit(harasser, true)
+			return
+		end
+		if not (walkTo and walkTo:GetHealth() < dmg * 1.3) then
+			local er = 600
+			pcall(function() er = harasser:GetAttackRange() end)
+			local away = bot:GetLocation() - harasser:GetLocation()
+			if away:Length2D() < 1 then away = Vector(1, 0, 0) end
+			if hd < er + 200 then
+				if t - (bot._harassedLogT or -math.huge) > 20 then
+					bot._harassedLogT = t
+					print('[Diag] '..bot:GetUnitName()..' harassed by '..harasser:GetUnitName()..': steps out of its range')
+				end
+				bot:Action_MoveToLocation(harasser:GetLocation() + away:Normalized() * (er + 250))
+				return
+			end
+		end
+	end
 	if walkTo and risk < 0.8 then
 		if GetUnitToUnitDistance(bot, walkTo) > range + 50 then
 			bot:Action_MoveToLocation(walkTo:GetLocation())
