@@ -453,12 +453,43 @@ end
 
 -- Last-hit accounting: creeps we swung at for a last hit against last hits
 -- we actually got, printed once a minute ("[Diag] X last hits: ...").
-function X.NoteLastHitTry(bot, c)
+function X.NoteLastHitTry(bot, c, dmg, delay)
 	bot._lhTried = bot._lhTried or {}
 	bot._lhTried[c] = true
+	-- The swing, to check in 1.5 s whether we got it.
+	bot._lhSwings = bot._lhSwings or {}
+	if not bot._lhSwings[c] then
+		local lh = 0
+		pcall(function() lh = bot:GetLastHits() end)
+		local incoming = 0
+		pcall(function() incoming = J.GetTotalAttackWillRealDamage(c, delay or 0) end)
+		bot._lhSwings[c] = { t = DotaTime(), hp = c:GetHealth(), dmg = dmg or 0, delay = delay or 0, lh = lh,
+			incoming = incoming, real = c:GetActualIncomingDamage(dmg or 0, DAMAGE_TYPE_PHYSICAL),
+			name = string.gsub(c:GetUnitName() or '?', 'npc_dota_', ''), dist = GetUnitToUnitDistance(bot, c) }
+	end
+end
+
+-- Swings 1.5 s old: a creep that died without a last hit of ours is a miss,
+-- printed with the numbers the swing was made on.
+local function CheckSwings(bot)
+	if not bot._lhSwings then return end
+	local t = DotaTime()
+	local lh = 0
+	pcall(function() lh = bot:GetLastHits() end)
+	for c, w in pairs(bot._lhSwings) do
+		if t - w.t > 1.5 then
+			local dead = c:IsNull() or not c:IsAlive()
+			if dead and lh <= w.lh then
+				print(string.format('[Diag] %s missed %s: HP %d at the swing, our hit %d (%d before armor), others %d within %.2f s, %d away',
+					bot:GetUnitName(), w.name, w.hp, w.real, w.dmg, w.incoming, w.delay, w.dist))
+			end
+			bot._lhSwings[c] = nil
+		end
+	end
 end
 
 function X.LastHitStats(bot, t)
+	CheckSwings(bot)
 	local lh = 0
 	pcall(function() lh = bot:GetLastHits() end)
 	local st = bot._lhStats
@@ -545,7 +576,7 @@ function X.CoreThink(bot)
 		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
 			local delay = J.GetAttackProDelayTime(bot, c) + X.TurnTime(bot, c)
 			if J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) then
-				X.NoteLastHitTry(bot, c)
+				X.NoteLastHitTry(bot, c, dmg, delay)
 				bot:Action_AttackUnit(c, true)
 				return
 			end
