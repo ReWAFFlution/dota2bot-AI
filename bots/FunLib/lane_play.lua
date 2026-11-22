@@ -377,6 +377,22 @@ function X.SupportThink(bot)
 		return
 	end
 
+	-- Nobody to trade with (no enemy hero within 1400) or the laning stage is
+	-- over: clear the wave instead of waiting for last hits. Medusa stood in
+	-- an enemy wave for seconds ("stands still 5 s in mode laning") hitting
+	-- nothing until each creep was low enough.
+	if (#enemies == 0 or (not J.IsInLaningPhase() and risk < 0.6)) and not EnemyTowerNear(bot:GetLocation(), 850) then
+		local weakest
+		for _, c in pairs(bot:GetNearbyLaneCreeps(range + 300, true)) do
+			if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 800)
+			and (not weakest or c:GetHealth() < weakest:GetHealth()) then weakest = c end
+		end
+		if weakest then
+			bot:Action_AttackUnit(weakest, true)
+			return
+		end
+	end
+
 	-- Out of enemy tower range.
 	local tower = EnemyTowerNear(bot:GetLocation(), 800)
 	if tower then
@@ -543,6 +559,22 @@ function X.CoreThink(bot)
 	for _, c in pairs(bot:GetNearbyLaneCreeps(range + 300, false)) do
 		if J.IsValid(c) and J.GetHP(c) < 0.5 and c:GetHealth() <= dmg and J.CanBeAttacked(c) then
 			bot:Action_AttackUnit(c, true)
+			return
+		end
+	end
+
+	-- Nobody to trade with (no enemy hero within 1400) or the laning stage is
+	-- over: clear the wave instead of waiting for last hits. Medusa stood in
+	-- an enemy wave for seconds ("stands still 5 s in mode laning") hitting
+	-- nothing until each creep was low enough.
+	if (#enemies == 0 or (not J.IsInLaningPhase() and risk < 0.6)) and not EnemyTowerNear(bot:GetLocation(), 850) then
+		local weakest
+		for _, c in pairs(bot:GetNearbyLaneCreeps(range + 300, true)) do
+			if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 800)
+			and (not weakest or c:GetHealth() < weakest:GetHealth()) then weakest = c end
+		end
+		if weakest then
+			bot:Action_AttackUnit(weakest, true)
 			return
 		end
 	end
