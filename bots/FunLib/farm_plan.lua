@@ -139,18 +139,35 @@ function X.BestCamp(bot, list, fallback)
 	if not list or #list == 0 then list = AllCamps() end
 	if #list == 0 then Diag(bot, 'no camps from the game') return nil end
 	local best, bestRate = nil, 0
+	local nearBest, nearRate = nil, 0
 	local nSafe, nFree = 0, 0
+	local nearWhy = {}
 	for _, entry in ipairs(list) do
 		local camp = entry.cattr
 		if camp and camp.location then NoteEmpty(bot, camp) end
+		local near = camp and camp.location and GetUnitToLocationDistance(bot, camp.location) < 1500
 		if camp and camp.location and not IsEmpty(camp) and X.IsSafe(bot, camp) then
 			nSafe = nSafe + 1
 			if not TakenByOther(bot, camp) then -- one farmer per camp
 				nFree = nFree + 1
 				local r = X.CampRate(bot, camp)
 				if r > bestRate then best, bestRate = entry, r end
+				if near and r > nearRate then nearBest, nearRate = entry, r end
+			elseif near then table.insert(nearWhy, tostring(camp.type)..' taken')
 			end
+		elseif near then
+			table.insert(nearWhy, tostring(camp.type)..(IsEmpty(camp) and ' empty' or ' unsafe'))
 		end
+	end
+	-- A camp right here beats a far one unless the far one is clearly
+	-- better: Chaos Knight walked to a far camp with two next to him. (Each
+	-- camp's rate counts its own walk, not that the next camp is close too.)
+	if nearBest and best ~= nearBest and nearRate >= bestRate * 0.75 then best, bestRate = nearBest, nearRate end
+	if best and GetUnitToLocationDistance(bot, best.cattr.location) > 2500 and #nearWhy > 0
+	and DotaTime() - (bot._farCampLogT or -math.huge) > 30 then
+		bot._farCampLogT = DotaTime()
+		print(string.format('[Farm] %s goes to a far %s camp (%d away); near ones: %s', bot:GetUnitName(),
+			tostring(best.cattr.type), GetUnitToLocationDistance(bot, best.cattr.location), table.concat(nearWhy, ', ')))
 	end
 	if not best then Diag(bot, string.format('no camp: %d camps, %d safe, %d not taken', #list, nSafe, nFree)) end
 	if best then
