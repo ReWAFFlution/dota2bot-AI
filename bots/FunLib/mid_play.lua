@@ -155,12 +155,16 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 			bottleLow = b ~= nil and b:GetCurrentCharges() < 3
 		end
 		local need = hp < 0.7 or mp < 0.6 or bottleLow
-		if bot._waterLog ~= minute then
+		if bot._waterLog ~= minute and (dist < 900 or (dist < 2000 and (need or waveClear))) then
 			bot._waterLog = minute
 			Log(bot, 'going for the water rune'..(need and ' (needs it)' or (waveClear and ' (wave cleared)' or '')))
 		end
-		if need or waveClear or dist < 1200 then return Scaled(BOT_MODE_DESIRE_VERYHIGH, dist, 4000) end
-		return Scaled(BOT_MODE_DESIRE_HIGH, dist, 4000)
+		-- Close only, and when it's worth leaving the wave for: Earth Spirit
+		-- spent 32% and Puck 17% of the first 5 minutes in the rune mode, with
+		-- 12 and 10 last hits.
+		if dist < 900 then return Scaled(BOT_MODE_DESIRE_VERYHIGH, dist, 2000) end
+		if dist < 2000 and (need or waveClear) then return Scaled(BOT_MODE_DESIRE_VERYHIGH, dist, 2000) end
+		return nil
 	end
 
 	-- Power rune: every 2 minutes from 6:00.

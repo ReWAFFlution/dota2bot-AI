@@ -15,8 +15,10 @@ function sf:GetItemInSlot() return { GetCurrentCharges = function() return charg
 local J = { GetPosition = function() return 2 end }
 function require(p) if p:find('jmz_func') then return J end end
 local M = dofile(BOTS..'/FunLib/mid_play.lua')
-local function d(hp, mp, bottle) return M.PowerRuneDesire(sf, 0, RUNE_STATUS_AVAILABLE, RUNE_WATER, 2000, hp, mp, bottle) end
+local function d(hp, mp, bottle, dist) return M.PowerRuneDesire(sf, 0, RUNE_STATUS_AVAILABLE, RUNE_WATER, dist or 1500, hp, mp, bottle) end
+-- With the wave still there it's only worth it when needed (or right here).
 local full = d(1, 1, true) charges = 0 local empty = d(1, 1, true) local nob = d(1, 1, false) local low = d(0.4, 0.3, false)
-print(string.format('full bottle %.2f, empty bottle %.2f, no bottle full HP %.2f, no bottle low HP %.2f', full, empty, nob, low))
-assert(full > 0 and nob > 0 and empty > full and low > nob)
+local far = d(0.4, 0.3, false, 3000) local here = d(1, 1, false, 600)
+print('full bottle', full, 'empty bottle', empty, 'no bottle full HP', nob, 'low HP', low, 'low HP far', far, 'right here', here)
+assert(full == nil and nob == nil and empty > 0 and low > 0 and far == nil and here > 0)
 print('water ok')
