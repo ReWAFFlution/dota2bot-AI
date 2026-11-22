@@ -1791,11 +1791,11 @@ end
 -- kills outside the fights - Lifestealer caught the farming Terrorblade
 -- three times and Lion and Abaddon 10 s apart, Necrophos and DP the
 -- supports and Zeus walking alone). From 5:00, for `loc`:
---   * no ally hero within 1600 of it, and 2000+ from our nearest tower and
+--   * no ally hero within 1600 of it, and 2500+ from our nearest tower and
 --     out of our base;
 --   * enemies that may be there: those seen within 1800 in the last 3 s,
---     plus every unseen one whose last spot is within reach since
---     (1200 + 320 per second unseen, up to 15 s);
+--     plus those that vanished in the last 20 s whose last spot is within
+--     reach since (1200 + 320 per second unseen);
 --   * risky: on the enemy half two of them (one for a support), on ours
 --     three.
 local function OurNearestTowerDist(loc)
@@ -1807,29 +1807,32 @@ local function OurNearestTowerDist(loc)
 	return best
 end
 
-function X.PickoffRisk(bot, loc)
+-- ownSide: the caller knows it's our half (our own camp): the fountain
+-- distance put Radiant's bottom camps by the river on Dire's half.
+function X.PickoffRisk(bot, loc, ownSide)
 	if DotaTime() < 5 * 60 then return false end
 	if J.IsRealInvisible and J.IsRealInvisible(bot) then return false end
 	for _, a in ipairs(HeroesNear(GetTeam(), loc, 1600)) do
 		if a ~= bot then return false end
 	end
-	if Dist(loc, J.GetTeamFountain()) < 4500 or OurNearestTowerDist(loc) < 2000 then return false end
+	if Dist(loc, J.GetTeamFountain()) < 4500 or OurNearestTowerDist(loc) < 2500 then return false end
 	local n = 0
 	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
 		if IsHeroAlive(pid) then
 			local info = GetHeroLastSeenInfo(pid)
 			local d = info and info[1]
-			if not d then
-				n = n + 1
-			elseif d.time_since_seen < 3 then
+			-- Only the ones that vanished in the last 20 s and are within
+			-- reach: counting every long-missing enemy (radius 6000) kept
+			-- Spectre out of every camp (22 last hits at 15:00).
+			if d and d.time_since_seen < 3 then
 				if Dist(d.location, loc) < 1800 then n = n + 1 end
-			elseif Dist(d.location, loc) <= 1200 + 320 * math.min(15, d.time_since_seen) then
+			elseif d and d.time_since_seen <= 20 and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen then
 				n = n + 1
 			end
 		end
 	end
 	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
-	local enemySide = Dist(loc, enemyFountain) < Dist(loc, J.GetTeamFountain())
+	local enemySide = not ownSide and Dist(loc, enemyFountain) < Dist(loc, J.GetTeamFountain())
 	-- Our half: three of them (the farm there is what the carry lives on);
 	-- their half: two, one for a support.
 	local need = enemySide and (J.GetPosition(bot) >= 4 and 1 or 2) or 3
@@ -1850,7 +1853,7 @@ function X.SafeSpot(bot, loc)
 		end
 	end
 	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
-	local enemySide = Dist(loc, enemyFountain) < Dist(loc, J.GetTeamFountain()) - 1500
+	local enemySide = not ownSide and Dist(loc, enemyFountain) < Dist(loc, J.GetTeamFountain()) - 1500
 	if not enemySide or J.IsRealInvisible and J.IsRealInvisible(bot) then return true end
 	for _, a in ipairs(HeroesNear(GetTeam(), loc, 1600)) do
 		if a ~= bot then return true end

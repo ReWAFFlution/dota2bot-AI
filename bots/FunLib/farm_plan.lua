@@ -64,7 +64,7 @@ function X.IsSafe(bot, camp)
 		local ok, O = pcall(require, GetScriptDirectory()..'/FunLib/objectives')
 		Objectives = ok and O or false
 	end
-	if Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, loc) then return false end
+	if Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, loc, camp.team == GetTeam()) then return false end
 	if camp.team ~= GetTeam() then
 		if missing >= 2 then return false end
 		if AliveCount(GetOpposingTeam()) > AliveCount(GetTeam()) then return false end

@@ -28,7 +28,8 @@ assert(not O.PickoffRisk(bot, loc), 'all seen far away')
 Seen(5, 4000, 4000, 6) -- unseen 6 s, 2800 away: may be here
 assert(O.PickoffRisk(bot, loc), 'support, enemy half, one may be there')
 pos = 1 assert(not O.PickoffRisk(bot, loc), 'core needs two')
-Seen(6, 3000, 1000, 10) assert(O.PickoffRisk(bot, loc), 'core, two may be there')
+Seen(6, 3000, 1000, 10) Seen(7, -3000, 6000, 60) -- long gone: doesn't count
+ assert(O.PickoffRisk(bot, loc), 'core, two may be there')
 local near = Vector(-5000, -5000) assert(not O.PickoffRisk(bot, near), 'near our tower')
 SIM_T = 200 assert(not O.PickoffRisk(bot, loc), 'too early') SIM_T = 1200
 print('pickoff ok')

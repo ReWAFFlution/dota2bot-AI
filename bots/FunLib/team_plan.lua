@@ -283,7 +283,10 @@ function X.Update()
 		local lvl = J.GetAverageLevel(true) or 10
 		for _, dt in pairs(S.deadAt) do timeLeft = math.max(timeLeft, dt + 6 + 2.2 * lvl - t) end
 	end
-	if advantage and t > 10 * 60 and (enemyAlive >= allyAlive or timeLeft >= 20) then
+	-- Not out of a regroup before it's over: Dire flipped finish/regroup
+	-- three times in 11 s.
+	local regrouping = S.phase == 'regroup' and t - S.phaseT < REGROUP_TIME
+	if advantage and not regrouping and t > 10 * 60 and (enemyAlive >= allyAlive or timeLeft >= 20) then
 		if S.phase ~= 'finish' then S.finishLane = X.FinishLane(true) end
 		SetPhase(S, 'finish', why)
 		return S
@@ -370,7 +373,7 @@ function X.Update()
 		end
 	end
 
-	SetPhase(S, 'hunt', 'all enemy T1 down')
+	SetPhase(S, 'hunt', t1Down == 3 and 'all enemy T1 down' or 'hunts from 14:00')
 	local h = S.hunt
 	if h == nil or t > h.untilT or h.target == nil or h.target:IsNull() or not h.target:IsAlive() or t - h.lastSeen > 8
 	or (h.target:CanBeSeen() and InTheirBase(h.target)) then
