@@ -159,6 +159,9 @@ local function LotusDesire(bot, S)
 	if DotaTime() < LOTUS_PERIOD then return nil end
 	if (bot._lotusGiveUpUntil or -math.huge) > DotaTime() then return nil end
 	if not MayGoForLotus(bot) then return nil end
+	-- Not past enemies or into a fight we lose there: Lion went 3400 for a
+	-- lotus with Viper and Techies on his way and died, twice in 3 minutes.
+	if J.GetHP(bot) < 0.6 or #J.GetNearbyHeroes(bot, 1400, true, BOT_MODE_NONE) > 0 then return nil end
 	local support = J.GetPosition(bot) >= 4
 	local best, bestDist
 	for _, pool in ipairs(S.pools) do
@@ -169,7 +172,10 @@ local function LotusDesire(bot, S)
 			local claimed = claimer and claimer ~= bot and claimer:IsAlive() and (claimer._mapTarget == pool)
 			local range = support and LOTUS_RANGE_SUPPORT or LOTUS_RANGE_ANY
 			if support and DotaTime() > 30 * 60 then range = 1500 end -- late: not across the map (Lion walked 3400 for a pool)
-			if not claimed and d < range and EnemiesNear(pool:GetLocation(), 700) == 0 and (not bestDist or d < bestDist) then -- an enemy right at the pool
+			local safe = EnemiesNear(pool:GetLocation(), 1400) == 0
+				and not (Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, pool:GetLocation()))
+				and not (Objectives and Objectives.FightAt and Objectives.FightAt(pool:GetLocation(), bot) < 1.0)
+			if not claimed and d < range and safe and (not bestDist or d < bestDist) then
 				best, bestDist = pool, d
 			end
 		end

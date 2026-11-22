@@ -5961,6 +5961,12 @@ do
 				if not bHome and DotaTime() < (bot._lastFieldTpT or -math.huge) + 60 then
 					return BOT_ACTION_DESIRE_NONE
 				end
+				-- Not into a fight we lose there (Lion teleported back to the
+				-- bottom T1 each respawn and died to Viper and Techies).
+				if not bHome and Objectives and Objectives.FightAt then
+					local okF, r = pcall(Objectives.FightAt, vLoc, bot)
+					if okF and r and r < 0.6 then return BOT_ACTION_DESIRE_NONE end
+				end
 				if (bot._tpLogT or -math.huge) < DotaTime() - 5 then
 					bot._tpLogT = DotaTime()
 					if not bHome then bot._lastFieldTpT = DotaTime() end

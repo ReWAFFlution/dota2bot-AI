@@ -2,6 +2,7 @@ local Utils = require( GetScriptDirectory()..'/FunLib/utils')
 local J = require( GetScriptDirectory()..'/FunLib/jmz_func')
 local LanePlay = require(GetScriptDirectory()..'/FunLib/lane_play')
 local SafeCall = require(GetScriptDirectory()..'/FunLib/safe_call')
+local Objectives = require(GetScriptDirectory()..'/FunLib/objectives')
 
 local Version      = require(GetScriptDirectory()..'/FunLib/version')
 local Localization = require(GetScriptDirectory()..'/FunLib/localization')
@@ -35,7 +36,35 @@ function GetDesire()
 	PickOneAnnouncer()
 	AnnounceMessages()
 
+	-- Deaths in the laning stage, for "this lane is lost" below.
+	if not bot:IsAlive() then
+		if not bot._laneDeadNow then
+			bot._laneDeadNow = true
+			bot._laneDeaths = bot._laneDeaths or {}
+			table.insert(bot._laneDeaths, DotaTime())
+		end
+	else
+		bot._laneDeadNow = nil
+	end
 	if bot:IsInvulnerable() or not bot:IsHero() or not bot:IsAlive() or not string.find(botName, "hero") or bot:IsIllusion() then return BOT_MODE_DESIRE_NONE end
+	-- A support that died twice in 4 minutes in a lane we lose: not back into
+	-- it for now (warding, pulls, roaming take over). Lion respawned and died
+	-- to Viper and Techies in the bottom lane three times in 3 minutes.
+	if J.GetPosition(bot) >= 4 and bot._laneDeaths then
+		local recent = 0
+		for _, dt in ipairs(bot._laneDeaths) do if DotaTime() - dt < 240 then recent = recent + 1 end end
+		if recent >= 2 then
+			local front = GetLaneFrontLocation(GetTeam(), bot:GetAssignedLane(), 0)
+			local ok, ratio = pcall(Objectives.FightAt, front, bot)
+			if ok and ratio and ratio < 0.8 then
+				if DotaTime() - (bot._laneLostLogT or -math.huge) > 60 then
+					bot._laneLostLogT = DotaTime()
+					print(string.format('[Lane] %s: died %d times in 4 min, lane lost (x%.2f): stays out of it', botName, recent, ratio))
+				end
+				return 0.1
+			end
+		end
+	end
 	local botLV = bot:GetLevel()
 	local currentTime = DotaTime()
 
