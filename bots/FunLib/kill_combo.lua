@@ -143,7 +143,7 @@ local function Log(bot, msg) print('[Fight] '..bot:GetUnitName()..': '..msg) end
 
 function X.Think(bot)
 	if not bot:IsAlive() or bot:IsChanneling() or bot:IsCastingAbility() or bot:IsUsingAbility() then return false end
-	if bot:HasModifier('modifier_spirit_breaker_charge_of_darkness') then return false end -- an order cancels the charge
+	if bot.HasModifier and bot:HasModifier('modifier_spirit_breaker_charge_of_darkness') then return false end -- an order cancels the charge
 	if J.CanNotUseAbility(bot) or bot:IsSilenced() then return false end
 	local t = DotaTime()
 	-- A combo in progress keeps its target.
