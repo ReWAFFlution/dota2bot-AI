@@ -179,6 +179,23 @@ end
 -- 2.5-3.5 gold/s camps and earned ~100 gold/min in the farm mode while
 -- losing lane XP (a wave is ~5 gold/s).
 local WAVE_FARM_FROM = { [1] = 7 * 60 }
+-- Their wave in our lane within reach: lane creeps near our lane front
+-- (within 3000 of us). Troll walked to a small camp while a whole wave died
+-- under our tower: he had backed off from two heroes, the creeps were 1300+
+-- away and "the wave is gone" said go.
+local function WaveInReach(bot)
+	local ok, lane = pcall(function() return bot:GetAssignedLane() end)
+	local front = ok and lane and GetLaneFrontLocation(GetTeam(), lane, 0)
+	if not front or GetUnitToLocationDistance(bot, front) > 3000 then return false end
+	for _, c in pairs(GetUnitList(UNIT_LIST_ENEMY_CREEPS)) do
+		if c and not c:IsNull() and c:IsAlive() and Dist(c:GetLocation(), front) < 1000 then
+			local ok, lane = pcall(function() return c:GetTeam() ~= TEAM_NEUTRAL end)
+			if ok and lane then return true end
+		end
+	end
+	return false
+end
+
 function X.BetweenWaves(bot, list)
 	local pos = J.GetPosition(bot)
 	local from = WAVE_FARM_FROM[pos]
@@ -197,14 +214,14 @@ function X.BetweenWaves(bot, list)
 				local atIt = GetUnitToLocationDistance(bot, entry.cattr.location) < 800
 				local alive = false
 				if atIt then pcall(function() alive = #bot:GetNearbyNeutralCreeps(800) > 0 end) end
-				if not IsEmpty(entry.cattr) and X.IsSafe(bot, entry.cattr) and ((atIt and alive and t - w.t < 60) or t - w.t < 25) then
+				if not IsEmpty(entry.cattr) and X.IsSafe(bot, entry.cattr) and ((atIt and alive and t - w.t < 60) or (t - w.t < 25 and not WaveInReach(bot))) then
 					return entry
 				end
 			end
 		end
 	end
 	bot._waveCamp = nil
-	if #bot:GetNearbyLaneCreeps(1300, true) > 0 then return nil end -- the wave is still there
+	if #bot:GetNearbyLaneCreeps(1300, true) > 0 or WaveInReach(bot) then return nil end -- the wave is still there
 	local best, bestRate
 	for _, entry in ipairs(list) do
 		local camp = entry.cattr
