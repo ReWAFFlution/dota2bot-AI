@@ -1028,7 +1028,9 @@ local function SplitTarget(bot)
 	if plan then
 		local p = plan.phase
 		if p == 'finish' or p == 'regroup' or p == 'defend' then return nil end
-		if (p == 'hunt' or p == 'siege') and plan.group then
+		-- In the hunting group only while a hunt is on (the hunt phase runs
+		-- from 14:00 and kept the offlaner from ever taking a tower).
+		if ((p == 'hunt' and plan.hunt) or p == 'siege') and plan.group then
 			for _, m in ipairs(plan.group) do if m == bot then return nil end end
 		end
 	end
@@ -1043,8 +1045,16 @@ local function SplitTarget(bot)
 			if ok and X.CarryFarming(bot) and d > 3000 then ok = false end
 			if ok and tier == 3 and t < 25 * 60 then ok = false end
 			if ok and (not bestD or d < bestD) then
+				-- Safe: nobody that can be there soon (seen within 2500 or
+				-- vanished within reach), or one we beat there by far. The
+				-- fog-weighted fight (every unseen enemy half at the tower)
+				-- never let anyone split: 0 split pushes in a 20-minute game
+				-- with all ten T1s standing.
+				local n = X.EnemiesInReach(loc, 2500)
 				local need = tier == 3 and 2.5 or (early and 2.0 or 1.5)
-				if X.FightAt(loc, bot, false, true) >= need then best, bestD = { lane = lane, tower = tw, d = d }, d end
+				if n == 0 or (n == 1 and tier < 3 and X.FightAt(loc, bot) >= need) then
+					best, bestD = { lane = lane, tower = tw, d = d }, d
+				end
 			end
 		end
 	end
@@ -1875,6 +1885,26 @@ local function OurNearestTowerDist(loc)
 	return best
 end
 
+-- Enemy heroes that may be at `loc` soon: seen within `near` in the last
+-- 3 s, or vanished in the last 20 s with `loc` within their reach since
+-- (1200 + 320 per second). Long-missing ones aren't counted (radius 6000:
+-- they'd be "everywhere" and kept Spectre out of every camp).
+function X.EnemiesInReach(loc, near)
+	local n = 0
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+		if IsHeroAlive(pid) then
+			local info = GetHeroLastSeenInfo(pid)
+			local d = info and info[1]
+			if d and d.time_since_seen < 3 then
+				if Dist(d.location, loc) < near then n = n + 1 end
+			elseif d and d.time_since_seen <= 20 and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen then
+				n = n + 1
+			end
+		end
+	end
+	return n
+end
+
 -- ownSide: the caller knows it's our half (our own camp): the fountain
 -- distance put Radiant's bottom camps by the river on Dire's half.
 function X.PickoffRisk(bot, loc, ownSide)
@@ -1884,21 +1914,7 @@ function X.PickoffRisk(bot, loc, ownSide)
 		if a ~= bot then return false end
 	end
 	if Dist(loc, J.GetTeamFountain()) < 4500 or OurNearestTowerDist(loc) < 2500 then return false end
-	local n = 0
-	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
-		if IsHeroAlive(pid) then
-			local info = GetHeroLastSeenInfo(pid)
-			local d = info and info[1]
-			-- Only the ones that vanished in the last 20 s and are within
-			-- reach: counting every long-missing enemy (radius 6000) kept
-			-- Spectre out of every camp (22 last hits at 15:00).
-			if d and d.time_since_seen < 3 then
-				if Dist(d.location, loc) < 1800 then n = n + 1 end
-			elseif d and d.time_since_seen <= 20 and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen then
-				n = n + 1
-			end
-		end
-	end
+	local n = X.EnemiesInReach(loc, 1800)
 	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
 	local enemySide = not ownSide and Dist(loc, enemyFountain) < Dist(loc, J.GetTeamFountain())
 	-- Our half: three of them (the farm there is what the carry lives on);
