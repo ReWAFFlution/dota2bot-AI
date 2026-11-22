@@ -318,7 +318,12 @@ end
 function X.GetDesire(bot)
 	local t = DotaTime()
 	if t >= EARLY_END or GetGameMode() == GAMEMODE_1V1MID or GetGameMode() == GAMEMODE_MO then return nil end
-	if bot._earlyDone then return nil end
+	-- Gave up the rune before the horn: this module walks it to its tower
+	-- until the horn. Handed back, the default rune mode took Vengeful Spirit
+	-- back to the enemies' rune, and before the horn nothing retreats from
+	-- bots: she stood by a camp while Bristleback, Medusa and Spirit Breaker
+	-- killed her.
+	if bot._earlyDone then return (t < 0 and bot._earlyGaveUp) and 0.9 or nil end
 	local plan = X.TeamPlan()
 
 	if InSmokeGank(bot, plan) then
@@ -336,8 +341,9 @@ function X.GetDesire(bot)
 		local ratio = Objectives.FightAt(rloc, RealHeroesNear(bot:GetLocation(), 1500, false))
 		if ratio < 0.6 then -- clearly lost only (both pairs left the bottom bounty at x0.83 / x0.84)
 			bot._earlyDone = true
+			bot._earlyGaveUp = true
 			Log(bot, string.format('%d enemies hold rune %d and we lose there (x%.2f): going to lane', #holders, rune, ratio))
-			return nil
+			return t < 0 and 0.9 or nil
 		end
 	end
 	if t < 0 then return 0.9 end
@@ -358,6 +364,12 @@ end
 function X.Think(bot)
 	if X.GetDesire(bot) == nil then return false end
 	if J.CanNotUseAction(bot) then return true end
+	if bot._earlyDone then
+		-- Before the horn, rune given up: to our tower, out of their reach.
+		local safe = SafePoint(bot)
+		if GetUnitToLocationDistance(bot, safe) > 300 then bot:Action_MoveToLocation(safe) end
+		return true
+	end
 	local plan = X.TeamPlan()
 
 	if InSmokeGank(bot, plan) then

@@ -38,5 +38,6 @@ function GetUnitToLocationDistance(u, l) return (u:GetLocation() - l):Length2D()
 FIGHT_AT = 0.3 -- below 0.6
 local dz = E.GetDesire(techies)
 print('Techies, Lifestealer on the bounty (x0.3): rune desire', dz)
-assert(dz == nil and techies._earlyDone)
+-- Before the horn the module keeps it (walks it to its tower); after, nil.
+assert(techies._earlyDone and techies._earlyGaveUp and (dz == nil or (DotaTime() < 0 and dz == 0.9)))
 print('early ok')
