@@ -2198,6 +2198,19 @@ function X.DefendThink(bot, lane)
 		end
 		if best then bot:Action_AttackUnit(best, true) return true end
 	end
+	-- Holding behind the tower: still take the last hits and denies in reach
+	-- (DK stood by a wave PL's illusions were killing and took none).
+	local reach = bot:GetAttackRange() + 150
+	local dmg = bot:GetAttackDamage()
+	for _, enemy in ipairs({ true, false }) do
+		for _, c in pairs(bot:GetNearbyLaneCreeps(reach, enemy)) do
+			if J.IsValid(c) and J.CanBeAttacked(c) and (enemy or J.GetHP(c) < 0.5)
+			and J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, J.GetAttackProDelayTime(bot, c)) then
+				bot:Action_AttackUnit(c, true)
+				return true
+			end
+		end
+	end
 	if GetUnitToLocationDistance(bot, back) > 150 then bot:Action_MoveToLocation(back) end
 	return true
 end
