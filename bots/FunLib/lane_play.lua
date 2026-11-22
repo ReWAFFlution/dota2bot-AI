@@ -459,6 +459,42 @@ function X.CoreThink(bot)
 	end
 	local risk = X.TradeRisk(bot, enemies)
 
+	-- Creeps our tower is shooting: their HP drops in tower-shot chunks, so
+	-- "dies to one hit now" comes too late (WK lost three last hits under his
+	-- tower). Hit now when the tower's next shot then leaves it in one-hit
+	-- range; wait next to it when the tower's shot does that on its own.
+	local myTower
+	local okT, towers = pcall(function() return bot:GetNearbyTowers(1100, false) end)
+	for _, tw in pairs(okT and towers or {}) do
+		if tw and not tw:IsNull() and tw:IsAlive() then myTower = tw break end
+	end
+	if myTower then
+		local tgt = myTower:GetAttackTarget()
+		local towerDmg = myTower:GetAttackDamage() or 0
+		if tgt and not tgt:IsNull() and tgt:IsAlive() and tgt:GetTeam() == GetOpposingTeam() and not tgt:IsHero()
+		and GetUnitToUnitDistance(bot, tgt) < 900 and J.CanBeAttacked(tgt) then
+			local hp = tgt:GetHealth()
+			if hp <= dmg then
+				bot:Action_AttackUnit(tgt, true)
+				return
+			end
+			local afterTower = hp - towerDmg
+			local afterHit = hp - dmg - towerDmg
+			if afterTower > dmg and afterHit > 0 and afterHit <= dmg then
+				bot:Action_AttackUnit(tgt, true) -- the prep hit
+				return
+			end
+			if GetUnitToUnitDistance(bot, tgt) > range + 50 then
+				bot:Action_MoveToLocation(tgt:GetLocation())
+				return
+			end
+			if afterTower > 0 and afterTower <= dmg then
+				bot:Action_ClearActions(true) -- wait for the tower's shot
+				return
+			end
+		end
+	end
+
 	-- Last hits first: a creep we kill now (DK chased Troll toward his tower
 	-- in a harass window and lost two last hits and a deny).
 	local walkTo
