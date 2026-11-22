@@ -706,7 +706,7 @@ end
 --==============================================================================
 -- Draft director
 --   On its first bot pick each team plans which bot slot fills which category:
---     counter  - beats the enemy human's hero (only the team facing a human)
+--     counter  - beats the enemy human's hero, else the enemy bots' picks
 --     meta     - meta hero for the slot's position
 --     popular  - one of the 10 most popular (non-meta) heroes of the position
 --     synergy  - optional, human's team only: good with the human's hero
@@ -804,8 +804,20 @@ local function EntryNames(list)
 	return out
 end
 
-local function CounterNames(team)
+-- Counters to the enemy human's hero: the quota sets below keep these out of
+-- the other categories, so the counter count stays 1-2.
+local function HumanCounterNames(team)
 	return EntryNames(MergeLists(MetaDraft.Counters, SelectedHeroesOf(OtherTeam(team), true)))
+end
+
+-- Counters to everything the enemy has picked, bots too (only the human's
+-- hero was countered); the human's hero counts twice. Top 12.
+local function CounterNames(team)
+	local sources = SelectedHeroesOf(OtherTeam(team), false)
+	for _, h in ipairs(SelectedHeroesOf(OtherTeam(team), true)) do table.insert(sources, h) end
+	local names = EntryNames(MergeLists(MetaDraft.Counters, sources))
+	while #names > 12 do table.remove(names) end
+	return names
 end
 
 local AllHeroNames = {}
@@ -815,7 +827,7 @@ for name, _ in pairs(HeroPositionMap) do table.insert(AllHeroNames, name) end
 local function ReservedHeroes(team, pos)
 	local set = {}
 	for h, _ in pairs(MetaSet) do set[h] = true end
-	for _, h in ipairs(CounterNames(team)) do set[h] = true end
+	for _, h in ipairs(HumanCounterNames(team)) do set[h] = true end
 	if IsCore(pos) then
 		for _, h in ipairs(MetaDraft.PopularByPosition[pos] or {}) do set[h] = true end
 	end
@@ -845,7 +857,7 @@ end
 local function CategoryHeroes(team, cat, pos)
 	-- Counter heroes only come from the counter category, so their count stays 1-2.
 	local counterSet = {}
-	for _, h in ipairs(CounterNames(team)) do counterSet[h] = true end
+	for _, h in ipairs(HumanCounterNames(team)) do counterSet[h] = true end
 	if cat == 'carry' then
 		return PickableAtPos(team, StrongCarries(), pos, nil, counterSet)
 	elseif cat == 'counter' then
@@ -884,8 +896,9 @@ local function PlaceCategory(team, cat, slots, taken)
 end
 
 local function BuildDraftPlan(team, botSlots)
-	local facesHuman = HasHumanPlayer(OtherTeam(team))
-	local order = facesHuman and { 'counter', 'meta', 'popular' } or { 'meta', 'popular' }
+	-- A counter pick for every team: to the human's hero, else to the enemy
+	-- bots' picks (decided at pick time when they haven't picked yet).
+	local order = { 'counter', 'meta', 'popular' }
 
 	-- Quotas: 1 each; the first category whose roll succeeds gets a second hero.
 	local cats = {}
