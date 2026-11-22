@@ -349,13 +349,13 @@ function X.Update()
 		local towerGone = S.siegeLane and not EnemyTowerAlive(S.siegeLane, { T1, T2, T3 })
 		local failing = #gathered < math.min(SIEGE_MIN_GROUP - 1, math.max(2, enemyAlive)) or avgHP < 0.4 or allyAlive < enemyAlive
 		-- A failure has to last 5 s (heroes stepping in and out of 2500 of the
-		-- group flipped hunt/siege 7 times in 3 minutes); then 30 s without a
+		-- group flipped hunt/siege 7 times in 3 minutes); then 60 s without a
 		-- new siege.
 		if failing then S.siegeFailT = S.siegeFailT or t else S.siegeFailT = nil end
 		if failing and t - S.siegeFailT >= 5 then
 			SetPhase(S, 'hunt', 'siege failed')
 			S.hunt, S.siegeFailT = nil, nil
-			S.noSiegeUntil = t + 30
+			S.noSiegeUntil = t + 60
 		elseif towerGone or t - S.phaseT > 90 then
 			S.siegeLane = ClosestEnemyT2Lane(center)
 			S.phaseT = t
@@ -367,6 +367,17 @@ function X.Update()
 	if #gathered >= math.max(3, math.min(SIEGE_MIN_GROUP, enemyAlive)) and cores >= 1 and allyAlive >= enemyAlive
 	and t >= (S.noSiegeUntil or -math.huge) then
 		S.siegeLane = ClosestEnemyT2Lane(center)
+		-- Only a siege the group wins at that tower (their heroes elsewhere
+		-- counted half: they teleport in). Match 9101853178: both teams
+		-- "sieged" the top lane at each other 9 times in 8 minutes, every
+		-- one failed within a minute, 4 towers fell in 36 minutes and both
+		-- carries ended under 12k.
+		local tower = S.siegeLane and (GetTower(GetOpposingTeam(), T1[S.siegeLane]) or GetTower(GetOpposingTeam(), T2[S.siegeLane]) or GetTower(GetOpposingTeam(), T3[S.siegeLane]))
+		local ratio = tower and Objectives.FightAt and Objectives.FightAt(tower:GetLocation(), gathered, false, true) or 99
+		if ratio < 1.3 then
+			S.siegeLane = nil
+			S.noSiegeUntil = t + 20
+		end
 		if S.siegeLane then
 			SetPhase(S, 'siege', 'a core joined, pushing lane '..S.siegeLane)
 			return S
@@ -539,6 +550,8 @@ function X.InGroup(bot)
 	for _, m in ipairs(S.group) do if m == bot then return true end end
 	-- Cores that joined the group count as well during a siege.
 	if S.phase == 'siege' then
+		-- Not the carry still farming its items (it farms on).
+		if Objectives.CarryFarming and Objectives.CarryFarming(bot) then return false end
 		local center = GroupCenter(S.group)
 		return center ~= nil and GetUnitToLocationDistance(bot, center) < 2500
 	end

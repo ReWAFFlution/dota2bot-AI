@@ -1942,6 +1942,10 @@ function X.FightHint(bot)
 	if c.go and J.IsInLaningPhase() and J.IsValidHero(target) then
 		local underTower = BuildingNear(GetOpposingTeam(), target:GetLocation(), 800) ~= nil
 		if ttkUs > (underTower and 2 or 3) then c.go = false end
+		-- And one we win: Spectre went for Lion at level 1-2 at x0.66 with
+		-- Necrophos next to him ("they kill us in 5 s") and died at 1:58;
+		-- 14 last hits at 10:00.
+		if ttkUs >= ttkThem or ((c.teamRatio or 0) < 1.0 and (c.groupRatio or 0) < 1.0) then c.go = false end
 	end
 	if c.retreat and not laneCalm then
 		Say('backs off from')
