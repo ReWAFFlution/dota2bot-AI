@@ -518,7 +518,9 @@ function X.CoreThink(bot)
 					bot._harassedLogT = t
 					print('[Diag] '..bot:GetUnitName()..' harassed by '..harasser:GetUnitName()..': steps out of its range')
 				end
-				bot:Action_MoveToLocation(harasser:GetLocation() + away:Normalized() * (er + 250))
+				local spot = harasser:GetLocation() + away:Normalized() * (er + 250)
+				if EnemyTowerNear(spot, 850) then spot = GetLaneFrontLocation(GetTeam(), lane, -1300) end
+				bot:Action_MoveToLocation(spot)
 				return
 			end
 		end
@@ -546,8 +548,15 @@ function X.CoreThink(bot)
 	end
 
 	-- Next to our wave's front; further back only when a trade would hurt.
+	-- Never a spot in their tower's range: with our wave at their tower the
+	-- front is under it, and DK went back and forth between it and "out of
+	-- tower range" on Radiant's mid high ground until he died.
 	local back = risk < 0.6 and -(range + 50) or -500
 	local loc = GetLaneFrontLocation(GetTeam(), lane, back)
+	for _, b in ipairs({ -700, -1000, -1300, -1600 }) do
+		if not EnemyTowerNear(loc, 850) then break end
+		loc = GetLaneFrontLocation(GetTeam(), lane, math.min(back, b))
+	end
 	if GetUnitToLocationDistance(bot, loc) > 150 then
 		bot:Action_MoveToLocation(loc + RandomVector(50))
 	end
