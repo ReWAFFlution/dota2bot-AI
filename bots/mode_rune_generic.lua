@@ -561,7 +561,10 @@ function X.GetBestRune()
 		local bMidRune = J.GetPosition(bot) == 2 and DotaTime() < 15 * 60
 			and (rune == RUNE_POWERUP_1 or rune == RUNE_POWERUP_2)
 		-- River spots are empty before 2:00 though reported "available".
+		-- (But at the horn they hold bounties: Arc Warden took one at 0:01 and
+		-- the other one stayed there, so the mid may go for them until 0:20.)
 		local bEmptyRiver = DotaTime() < 2 * 60 and (rune == RUNE_POWERUP_1 or rune == RUNE_POWERUP_2)
+			and not (bMidRune and DotaTime() >= 0 and DotaTime() < 20)
 		if not bEmptyRiver and (bMidRune or X.IsTheClosestAlly(bot, vRuneLocation))
 		and not X.IsPingedByHumanPlayer(vRuneLocation, math.huge)
 		and not IsHumanClaimingRune(rune)
