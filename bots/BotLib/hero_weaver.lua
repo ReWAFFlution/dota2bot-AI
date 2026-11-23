@@ -302,6 +302,14 @@ function X.ConsiderShukuchi()
 
     if J.IsRetreating(bot)
 	then
+        -- Surrounded and being hit (Phantom Lancer and his illusions don't
+        -- "chase", they stand and hit): out now (Weaver stayed in the PL
+        -- fight and died 15 s after "getting out", bot vs bot 9103068510).
+        if bot:WasRecentlyDamagedByAnyHero(1.5)
+        and #J.GetNearbyHeroes(bot, 700, true, BOT_MODE_NONE) > 0
+        then
+            return BOT_ACTION_DESIRE_HIGH
+        end
         local nInRangeEnemy = J.GetNearbyHeroes(bot,1200, true, BOT_MODE_NONE)
         for _, enemyHero in pairs(nInRangeEnemy)
         do
@@ -466,6 +474,12 @@ function X.ConsiderTimeLapse()
 
 	if J.IsRetreating(bot)
 	then
+        -- Low and hit by anyone, illusions included, with Shukuchi not ready.
+        if J.GetHP(bot) < 0.3 and bot:WasRecentlyDamagedByAnyHero(1.0)
+        and not (Shukuchi:IsTrained() and Shukuchi:IsFullyCastable())
+        then
+            return BOT_ACTION_DESIRE_HIGH, 'self'
+        end
         local nInRangeEnemy = J.GetNearbyHeroes(bot,1600, true, BOT_MODE_NONE)
         for _, enemyHero in pairs(nInRangeEnemy)
         do
