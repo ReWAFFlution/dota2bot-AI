@@ -523,9 +523,13 @@ function X.SupportFightToJoin(bot)
 	local best, bestD
 	for i = 1, 5 do
 		local m = GetTeamMember(i)
-		if m and m ~= bot and m:IsAlive() and GetUnitToUnitDistance(bot, m) < 4500 then
+		-- 6500 (it was 4500): the supports stood at our top T2 while OD and
+		-- the human fought at mid (9102507636, 31:25-31:51, four enemies died).
+		if m and m ~= bot and m:IsAlive() and GetUnitToUnitDistance(bot, m) < 6500 then
 			local enemies = RealEnemiesNear(m:GetLocation(), 1200)
-			local fighting = #enemies > 0 and (m:WasRecentlyDamagedByAnyHero(2.0) or J.IsGoingOnSomeone(m))
+			local tgt = m:GetAttackTarget()
+			local hitsHero = tgt ~= nil and not tgt:IsNull() and tgt:IsHero() and tgt:GetTeam() ~= GetTeam()
+			local fighting = #enemies > 0 and (m:WasRecentlyDamagedByAnyHero(2.0) or J.IsGoingOnSomeone(m) or hitsHero)
 			-- Not into a fight the ally itself is leaving (lost by the numbers).
 			if m._combat and m._combat.retreat then fighting = false end
 			if fighting and (not bestD or GetUnitToUnitDistance(bot, m) < bestD) then
