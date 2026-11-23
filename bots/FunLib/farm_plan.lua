@@ -83,6 +83,38 @@ function X.CampRate(bot, camp)
 	return gold / (walk + clear + 2)
 end
 
+-- Gold per second of the enemy wave in `lane` for this hero, like a camp's:
+-- the wave's bounty (the creeps seen near our lane front, or a full wave
+-- assumed) over walk + clear time, +20% for the lane XP. Farm decisions
+-- compare it with the camps' rates instead of distances (the cores walked
+-- between waves and far camps at 170-470 g/min while the human farmed 670).
+local CREEP_GOLD = { melee = 40, ranged = 52, siege = 70, flagbearer = 40 }
+function X.WaveRate(bot, lane)
+	local front = GetLaneFrontLocation(GetTeam(), lane, 0)
+	if not front then return 0, nil end
+	local gold, hp, n = 0, 0, 0
+	for _, c in pairs(GetUnitList(UNIT_LIST_ENEMY_CREEPS) or {}) do
+		if c and not c:IsNull() and c:IsAlive() and Dist(c:GetLocation(), front) < 1200 then
+			local name = c:GetUnitName() or ''
+			local g = string.find(name, 'siege') and CREEP_GOLD.siege or string.find(name, 'ranged') and CREEP_GOLD.ranged
+				or string.find(name, 'flagbearer') and CREEP_GOLD.flagbearer or string.find(name, 'creep') and CREEP_GOLD.melee or 0
+			if g > 0 then gold, hp, n = gold + g, hp + c:GetHealth(), n + 1 end
+		end
+	end
+	-- A wave not seen: maybe there, maybe not (60%).
+	if n == 0 then gold, hp = (3 * CREEP_GOLD.melee + CREEP_GOLD.ranged) * 0.6, 1950 end
+	gold = gold * (1 + DotaTime() / 60 / 60) * 1.2
+	-- Waves bunch up: hits splash over several creeps with most cores' spells.
+	local dps = Dps(bot) * (1 + 0.25 * math.max(0, bot:GetLevel() - 6) / 6)
+	local clear = hp / math.max(30, dps)
+	local walk = GetUnitToLocationDistance(bot, front) / math.max(250, bot:GetCurrentMovementSpeed())
+	local rate = gold / (walk + clear + 2)
+	-- Across the map the wave moves and meets ours elsewhere: lane-to-lane
+	-- walks were what kept the cores poor.
+	if walk * math.max(250, bot:GetCurrentMovementSpeed()) > 5000 then rate = rate * 0.7 end
+	return rate, front
+end
+
 -- Every camp on the map as { idx, cattr } entries, straight from the game:
 -- the farm mode's own list (J.Role.availableCampTable) is refreshed only once
 -- a minute from inside its GetDesire and was empty all game long (no bot

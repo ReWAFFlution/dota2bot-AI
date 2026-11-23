@@ -447,16 +447,13 @@ function GetDesireHelper()
 				and bot:GetNetWorth() < 20000
 
 			if bEarlyGame then
-				-- Find the closest safe lane front to farm
-				local bestLane = nil
-				local bestDist = 99999
+				-- The best wave by gold per second (walk + clear), our own lane
+				-- first by a bit; never a lane another of our cores is farming
+				-- (MK walked to mid and took SF's creeps), nor a risky front.
+				local bestLane, bestRate = nil, 0
 				for _, lane in pairs({LANE_TOP, LANE_MID, LANE_BOT}) do
 					local laneFront = GetLaneFrontLocation(GetTeam(), lane, 0)
-					local dist = GetUnitToLocationDistance(bot, laneFront)
 					local nEnemiesAtLane = J.GetEnemiesNearLoc(laneFront, 1400)
-					-- Our own lane first; never a lane another of our cores is
-					-- farming (MK walked to mid and took SF's creeps).
-					if lane == bot:GetAssignedLane() then dist = dist - 3000 end
 					local bTaken = false
 					for i = 1, 5 do
 						local m = GetTeamMember(i)
@@ -465,24 +462,26 @@ function GetDesireHelper()
 							bTaken = true
 						end
 					end
-					-- Only consider safe lanes (no enemies or we're stronger)
 					local risky = Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, laneFront, false)
-					if #nEnemiesAtLane == 0 and not bTaken and not risky and dist < bestDist then
-						bestDist = dist
-						bestLane = lane
+					if #nEnemiesAtLane == 0 and not bTaken and not risky then
+						local r = FarmPlan.WaveRate(bot, lane)
+						if lane == bot:GetAssignedLane() then r = r * 1.15 end
+						if r > bestRate then bestLane, bestRate = lane, r end
 					end
 				end
 
-				-- A safe camp nearby beats walking to a far lane front: within
-				-- 2500, or closer than the wave (no core picked a camp all game
-				-- before 25:00 - they walked from lane to lane).
+				-- A camp only when its gold per second beats the wave's (each
+				-- counts its own walk, so the next camp next door wins after a
+				-- camp, and the wave wins once it is the closer gold).
 				local nearCamp = FarmPlan.BestCamp(bot, availableCamp, J.Site.GetClosestNeutralSpwan)
-				local campDist = nearCamp and GetUnitToLocationDistance(bot, nearCamp.cattr.location) or math.huge
-				-- A camp only when it is clearly closer: a wave is worth about
-				-- two camps (the walk to it pays off up to ~2000 more).
-				if bestLane and campDist + 2000 < bestDist then
+				local campRate = nearCamp and nearCamp.cattr and FarmPlan.CampRate(bot, nearCamp.cattr) or 0
+				if nearCamp and (not bestLane or campRate > bestRate) then
 					preferedCamp = nearCamp
 					bestLane = nil
+				end
+				if bestLane and DotaTime() - (bot._waveLogT or -math.huge) > 60 then
+					bot._waveLogT = DotaTime()
+					print(string.format('[Farm] %s -> wave in lane %d (%.1f gold/s, best camp %.1f)', bot:GetUnitName(), bestLane, bestRate, campRate))
 				end
 				if bestLane then
 					local laneFront = GetLaneFrontLocation(GetTeam(), bestLane, 0)
