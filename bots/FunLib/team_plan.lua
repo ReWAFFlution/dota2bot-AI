@@ -295,6 +295,15 @@ function X.Update()
 		-- ends early only when we are outnumbered or badly hurt.
 		-- (100:08 of that match: 5 vs 3, then 5 vs 2, "advantage lost" in
 		-- 4 and 18 s - hurt after the fight - and the viper pushed alone.)
+		-- Enemies killed during the finish extend it to the first of the dead
+		-- to come back (Radiant killed Weaver and Dazzle under Dire's mid T2
+		-- at 50:20, the 25 s from the start ran out, "advantage lost: 5 vs 4",
+		-- push 0, and the nearly dead T2 stood; bot vs bot 9103068510).
+		do
+			local back, lvl = math.huge, J.GetAverageLevel(true) or 10
+			for _, dt in pairs(S.deadAt) do back = math.min(back, dt + 6 + 2.2 * lvl) end
+			if back < math.huge and back > (S.finishUntil or -math.huge) then S.finishUntil = back end
+		end
 		local holding = t < (S.finishUntil or -math.huge) and allyAlive >= enemyAlive
 			and (X.TeamHP() >= 0.2 or allyAlive - enemyAlive >= 2)
 		if not advantage and not holding then
@@ -520,8 +529,8 @@ end
 
 -- Supports after the laning stage: a fight our heroes are in (an ally
 -- trading with enemies within 4500 of us) worth running to. Returns the ally.
-function X.SupportFightToJoin(bot)
-	if J.GetPosition(bot) < 4 or J.IsInLaningPhase() or J.GetHP(bot) < 0.4 then return nil end
+function X.SupportFightToJoin(bot, anyRole)
+	if (J.GetPosition(bot) < 4 and not anyRole) or J.IsInLaningPhase() or J.GetHP(bot) < 0.4 then return nil end
 	local best, bestD
 	for i = 1, 5 do
 		local m = GetTeamMember(i)
@@ -822,6 +831,14 @@ function X.RoamDesire(bot)
 
 	-- Supports go where the team fights.
 	local fightAlly = X.SupportFightToJoin(bot)
+	-- A core with nothing to do joins too (Legion stood 20 s at our top T2
+	-- in defend_top at 0.11 while the team fought on their side, bot vs bot
+	-- 9103068510, 50:20). Not the carry still farming its items.
+	if not fightAlly and J.GetPosition(bot) <= 3 and bot:GetActiveModeDesire() < 0.3
+	and bot:GetActiveMode() ~= BOT_MODE_RETREAT
+	and not (Objectives.CarryFarming and Objectives.CarryFarming(bot)) then
+		fightAlly = X.SupportFightToJoin(bot, true)
+	end
 	if fightAlly then
 		bot._teamAction = 'join_fight'
 		bot._teamTarget = fightAlly
