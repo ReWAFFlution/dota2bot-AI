@@ -2099,6 +2099,14 @@ function X.PickoffRisk(bot, loc, ownSide)
 	-- their half: two, one for a support.
 	local need = enemySide and (J.GetPosition(bot) >= 4 and 1 or 2) or 3
 	local risky = n >= need or killer
+	-- By strength, not heads: enemies that just ran from a lost fight
+	-- still "may be there", yet we win there with them (bot vs bot
+	-- 9102944605, 17:20: DK left the Radiant mid T1 at x3.97 after the kill
+	-- on Tinker, "2 enemies may be there"). A killer still counts.
+	if risky and not killer then
+		local ok, r = pcall(X.FightAt, loc, bot, false, true)
+		if ok and r and r >= 1.3 then risky = false end
+	end
 	if risky and DotaTime() - (bot._pickoffLogT or -math.huge) > 30 then
 		bot._pickoffLogT = DotaTime()
 		print(string.format('[Obj] %s pickoff risk at (%d, %d): %d enemies may be there%s', bot:GetUnitName(), loc.x, loc.y, n, killer and ' (one kills us alone)' or ''))

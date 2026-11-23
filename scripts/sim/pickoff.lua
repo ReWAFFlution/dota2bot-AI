@@ -21,6 +21,7 @@ local J = { GetPosition = function() return pos end, GetTeamFountain = function(
 	GetEnemyFountain = function() return Vector(7000, 7000) end, IsValidHero = function(u) return u ~= nil end, GetHP = function() return 1 end }
 function require(p) if p:find('jmz_func') then return J end end
 local O = dofile(BOTS..'/FunLib/objectives.lua')
+local fight = 0.8 O.FightAt = function() return fight end
 local function Seen(pid, x, y, tss) seen[pid] = { location = Vector(x, y), time_since_seen = tss } end
 for pid = 5, 9 do Seen(pid, 7000, 7000, 1) end -- all at their fountain, just seen
 local loc = Vector(2000, 2000)
@@ -30,6 +31,7 @@ assert(O.PickoffRisk(bot, loc), 'support, enemy half, one may be there')
 pos = 1 assert(not O.PickoffRisk(bot, loc), 'core needs two')
 Seen(6, 3000, 1000, 10) Seen(7, -3000, 6000, 60) -- long gone: doesn't count
  assert(O.PickoffRisk(bot, loc), 'core, two may be there')
+fight = 1.5 assert(not O.PickoffRisk(bot, loc), 'two may be there, but we win there by strength') fight = 0.8
 local near = Vector(-5000, -5000) assert(not O.PickoffRisk(bot, near), 'near our tower')
 SIM_T = 200 assert(not O.PickoffRisk(bot, loc), 'too early') SIM_T = 1200
 print('pickoff ok')
