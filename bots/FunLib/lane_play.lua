@@ -510,6 +510,24 @@ function X.LastHitStats(bot, t)
 	end
 end
 
+-- Our swing kills `c` when it lands: our hit plus only part of the other
+-- hits predicted before it lands (70%, 50% when the swing takes over 0.9 s).
+-- The full prediction swung too early: "HP 139 at the swing, our hit 52,
+-- others 89 within 1.64 s" - the others' hits came late and the creep lived
+-- (44 such misses in 9102358727, the cores had ~30 last hits at 10:00).
+function X.KillsOnSwing(c, dmg, delay)
+	local regen = 0
+	pcall(function() regen = c:GetHealthRegen() or 0 end)
+	local hp = c:GetHealth() + regen * delay + 0.8
+	local others = 0
+	pcall(function() others = J.GetTotalAttackWillRealDamage(c, delay) or 0 end)
+	local okD, ours = pcall(function() return c:GetActualIncomingDamage(dmg, DAMAGE_TYPE_PHYSICAL) end)
+	if not okD or not ours then return J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) end
+	if others >= hp - 1 then return false end -- dies without us
+	local share = delay > 0.9 and 0.5 or 0.7
+	return ours + others * share > hp
+end
+
 function X.CoreThink(bot)
 	if J.CanNotUseAction(bot) then return end
 	local t = DotaTime()
@@ -577,7 +595,7 @@ function X.CoreThink(bot)
 	for _, c in pairs(bot:GetNearbyLaneCreeps(800, true)) do
 		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
 			local delay = J.GetAttackProDelayTime(bot, c) + X.TurnTime(bot, c)
-			if J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) then
+			if X.KillsOnSwing(c, dmg, delay) then
 				X.NoteLastHitTry(bot, c, dmg, delay)
 				bot:Action_AttackUnit(c, true)
 				return
