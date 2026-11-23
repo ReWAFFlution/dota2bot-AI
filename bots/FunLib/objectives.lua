@@ -1626,7 +1626,10 @@ function X.NoteDamageTaken(bot)
 		if J.IsValidHero(e) and not e:IsIllusion() and bot:WasRecentlyDamagedByHero(e, 1.0) then who, n = e, n + 1 end
 	end
 	if n ~= 1 then return end
-	local dps = (last.hp - hp) / (t - last.t)
+	-- Over 2 s at least: one nuke in half a second isn't a sustained rate
+	-- (Omniknight L4 "seen 235/s", Nyx L4 "298/s" - Gyrocopter backed off
+	-- every 10 s and had 0 last hits in 3 minutes, bot vs bot 9103163695).
+	local dps = (last.hp - hp) / math.max(2.0, t - last.t)
 	local pid = who:GetPlayerID()
 	local o = observedDps[pid]
 	local cur = o and o.dps * 0.5 ^ ((t - o.t) / 60) or 0
@@ -1664,7 +1667,7 @@ local function Estimate(u, victim, secs, dtype)
 	local cap = atk * (math.floor(secs / spa) + 1) + 110 * u:GetLevel()
 	v = math.min(v, cap)
 	-- Never under what it was seen to deal (80%), cap or not.
-	local obs = ObservedDps(u) * secs * 0.8
+	local obs = ObservedDps(u) * secs * (J.IsInLaningPhase() and 0.5 or 0.8)
 	if obs > v then v = obs end
 	return v, ready, all, cap
 end
