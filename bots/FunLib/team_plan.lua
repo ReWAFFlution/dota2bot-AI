@@ -344,17 +344,33 @@ function X.Update()
 	-- Hunt / siege.
 	local group, disablers = HuntGroup()
 	S.group = group
-	if #group < 2 or (disablers == 0 and S.phase ~= 'siege') then
-		SetPhase(S, 'spread', disablers == 0 and 'no disables for a hunt' or 'hunting group not ready')
-		return S
+	-- No hunting group: no hunt, but a siege still can be - one hero who wins
+	-- at the tower is enough (the user: "a siege can be done by one hero").
+	-- It is planned around the human far ahead, else our strongest hero.
+	local noHunt = #group < 2 or (disablers == 0 and S.phase ~= 'siege')
+	local center
+	if noHunt then
+		local best = X.HumanLead()
+		if not best then
+			for _, m in ipairs(Members()) do
+				if m:IsAlive() and (not best or m:GetNetWorth() > best:GetNetWorth()) then best = m end
+			end
+		end
+		center = best and best:GetLocation()
+		if not center then
+			SetPhase(S, 'spread', 'nobody to siege with')
+			return S
+		end
+	else
+		X.BuySmoke(S, group)
+		center = GroupCenter(group)
 	end
-	X.BuySmoke(S, group)
-	local center = GroupCenter(group)
 	local lead = X.HumanLead()
 	if lead and center and GetUnitToLocationDistance(lead, center) > 2500 then
 		-- The group comes to the human instead of sieging without them.
 		center = lead:GetLocation()
 	end
+	S.siegeCenter = center
 	local cores = 0
 	local gathered = {}
 	for _, m in ipairs(Members()) do
@@ -374,7 +390,7 @@ function X.Update()
 		local stw = S.siegeLane and (GetTower(GetOpposingTeam(), T1[S.siegeLane]) or GetTower(GetOpposingTeam(), T2[S.siegeLane]) or GetTower(GetOpposingTeam(), T3[S.siegeLane]))
 		local failing
 		if stw and Objectives.FightAt then
-			failing = #gathered < 2 or avgHP < 0.4 or Objectives.FightAt(stw:GetLocation(), gathered, false, true) < 0.9
+			failing = #gathered < 1 or avgHP < 0.4 or Objectives.FightAt(stw:GetLocation(), gathered, false, true) < 0.9
 		else
 			failing = #gathered < math.min(SIEGE_MIN_GROUP - 1, math.max(2, enemyAlive)) or avgHP < 0.4 or allyAlive < enemyAlive
 		end
@@ -399,7 +415,7 @@ function X.Update()
 	local alive = {}
 	for _, m in ipairs(Members()) do if m:IsAlive() then table.insert(alive, m) end end
 	local teamOK = Objectives.FightAt and Objectives.FightAt(center, alive, true, false) >= 1.0 or allyAlive >= enemyAlive
-	if #gathered >= 2 and cores >= 1 and teamOK
+	if #gathered >= 1 and teamOK
 	and t >= (S.noSiegeUntil or -math.huge) then
 		S.siegeLane = ClosestEnemyT2Lane(center)
 		-- Only a siege the group wins at that tower (their heroes elsewhere
@@ -419,6 +435,10 @@ function X.Update()
 		end
 	end
 
+	if noHunt then
+		SetPhase(S, 'spread', disablers == 0 and 'no disables for a hunt' or 'hunting group not ready')
+		return S
+	end
 	SetPhase(S, 'hunt', t1Down == 3 and 'all enemy T1 down' or 'hunts from 14:00')
 	local h = S.hunt
 	if h == nil or t > h.untilT or h.target == nil or h.target:IsNull() or not h.target:IsAlive() or t - h.lastSeen > 8
@@ -604,7 +624,7 @@ function X.InGroup(bot)
 	if S.phase == 'siege' then
 		-- Not the carry still farming its items (it farms on).
 		if Objectives.CarryFarming and Objectives.CarryFarming(bot) then return false end
-		local center = GroupCenter(S.group)
+		local center = S.siegeCenter or GroupCenter(S.group)
 		return center ~= nil and GetUnitToLocationDistance(bot, center) < 2500
 	end
 	return false
