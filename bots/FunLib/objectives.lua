@@ -1015,6 +1015,19 @@ function X.IdlePushLane(bot)
 	end
 	if bot._idlePushCheck and t - bot._idlePushCheck < 3 then return bot._idlePushLane end
 	bot._idlePushCheck = t
+	-- In their base with them outnumbered: the lane nearest their ancient
+	-- (it ends the game), not the nearest lane (the bots walked to the top
+	-- lane while their ancient was open).
+	local eAnc = GetAncient(GetOpposingTeam())
+	if eAnc and GetUnitToUnitDistance(bot, eAnc) < 7000 and GetNumAlive(GetOpposingTeam()) < GetNumAlive(GetTeam()) then
+		local bl, bd2 = nil, math.huge
+		for _, lane in ipairs({ LANE_TOP, LANE_MID, LANE_BOT }) do
+			local d = GetUnitToLocationDistance(eAnc, GetLaneFrontLocation(GetTeam(), lane, 0))
+			if d < bd2 then bl, bd2 = lane, d end
+		end
+		bot._idlePushLane, bot._idleNoLane = bl, false
+		return bl
+	end
 	local best, bestD = nil, math.huge
 	for _, lane in ipairs({ LANE_TOP, LANE_MID, LANE_BOT }) do
 		local front = GetLaneFrontLocation(GetTeam(), lane, 0)
@@ -2207,7 +2220,9 @@ local function TryTP(bot, loc)
 	-- No teleport for creeps only (WK teleported from his camp to a T2 and
 	-- walked back to the same camp): walk, or leave it to whoever is close.
 	local a = X.Assignment(bot)
-	if a and (a.enemies or 0) < 0.5 and not (a.tier == 5) then return false end
+	-- Our ancient against creeps only: a teleport just when it is under half.
+	local ancLow = a and a.tier == 5 and a.tower and J.GetHP(a.tower) < 0.5
+	if a and (a.enemies or 0) < 0.5 and not ancLow then return false end
 	if J.GetPosition(bot) >= 4 and DotaTime() < 15 * 60 then return false end -- walk: the lane partner stays
 	-- A push is joined by teleport only when the fight there is ours with
 	-- this hero in it: Legion left the bottom lane at 10:30 by teleport for
@@ -2232,7 +2247,14 @@ local function TryTP(bot, loc)
 			if d < bd then best, bd = tw, d end
 		end
 	end
-	if best and bd < myDist - 3500 then
+	-- Only a landing near the target (within 4000), and never away from
+	-- their base while it can be finished: at 39:16 of 9102714471 all five
+	-- enemies were dead, and Bristleback, Ogre and WK teleported to our top
+	-- T1 - the tower "closest" to their ancient, 7000+ from it - and walked
+	-- back from there.
+	local eAnc = GetAncient(GetOpposingTeam())
+	local nearTheirBase = eAnc and GetUnitToUnitDistance(bot, eAnc) < 7000
+	if best and bd < myDist - 3500 and bd < 4000 and not (nearTheirBase and GetNumAlive(GetOpposingTeam()) < GetNumAlive(GetTeam())) then
 		bot._lastFieldTpT = DotaTime()
 		bot:Action_UseAbilityOnLocation(item, best:GetLocation())
 		ObjLog(bot:GetUnitName()..' teleports to help')
