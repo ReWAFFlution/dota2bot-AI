@@ -896,6 +896,7 @@ function X.NextLateItem(bot, pos)
 		local okc, comps = pcall(GetItemComponents, item)
 		local buildable = okc and comps and comps[1] and #comps[1] > 0
 		if buildable and not NOT_LATE[name] and GetItemCost(item) >= 2000 and not Has(bot, item)
+		and not (bot._lateBan and bot._lateBan[item] and DotaTime() < bot._lateBan[item])
 		and not (Stats and Stats.Items and not Stats.Items[item])
 		and not (TEAM_UNIQUE[item] and AllyHasItem(bot, item)) then
 			local sc = ItemValue and ItemValue.Score(hero, pos, item, DotaTime() / 60, magic) or 0
@@ -913,6 +914,22 @@ function X.LateGame(bot, pos, stack)
 	if now < 20 * 60 or (bot._lateNext or -math.huge) > now then return end
 	bot._lateNext = now + 5
 	local item = X.NextLateItem(bot, pos)
+	-- The same item back 3 times in a minute: it doesn't go through (Legion
+	-- re-added a consumed Shard 158 times and sat on 16k gold). Off for 10 min.
+	if item then
+		bot._lateTries = bot._lateTries or {}
+		local tr = bot._lateTries[item]
+		if not tr or now - tr.t > 60 then tr = { t = now, n = 0 } end
+		tr.n = tr.n + 1
+		bot._lateTries[item] = tr
+		if tr.n >= 3 then
+			bot._lateBan = bot._lateBan or {}
+			bot._lateBan[item] = now + 600
+			bot._lateTries[item] = nil
+			Log(bot, item..' keeps coming back unbought: skipped for 10 min')
+			item = nil
+		end
+	end
 	if item then
 		table.insert(stack, item)
 		Log(bot, '+'..item..' (late game, the build is finished)')

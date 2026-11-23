@@ -1243,7 +1243,7 @@ function ItemPurchaseThink()
 				local isBoots = string.find(name, 'boots') or string.find(name, 'treads') or string.find(name, 'greaves')
 				local needed = (bot.currBuyingRequiredCounts and bot.currBuyingRequiredCounts[name]) or _plannedComponent(name)
 				if not tKeep[name] and not isBoots and not needed and not string.find(name, 'token')
-				and cost < sellCost then
+				and cost > 0 and slot ~= 16 and cost < sellCost then -- (neutral items cost 0 and can't be sold)
 					sellSlot, sellCost = slot, cost
 				end
 			end
