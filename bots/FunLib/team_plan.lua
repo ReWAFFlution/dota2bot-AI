@@ -307,15 +307,22 @@ function X.Update()
 		-- At their base: held while the heroes there win there (the whole-team
 		-- check counted their fog heroes; Radiant at 36-37k left Dire's base
 		-- at 4 vs 4 after the first T4, bot vs bot 9103068510, 67:56).
+		-- Same at the building being finished, whatever the time: Dire
+		-- started 14 finishes at x1.4-3.0 between 23:00 and 45:00 and took no
+		-- building - each ended 25-45 s later, before the T2 fell.
+		local target = S.finishLane and (GetTower(GetOpposingTeam(), T1[S.finishLane]) or GetTower(GetOpposingTeam(), T2[S.finishLane])
+			or GetTower(GetOpposingTeam(), T3[S.finishLane]))
 		local eAnc = GetAncient(GetOpposingTeam())
+		target = target or eAnc
 		local atBase = false
-		if eAnc and Objectives.FightAt then
+		if target and Objectives.FightAt then
+			local radius = (target == eAnc) and 4000 or 2500
 			local near = {}
 			for _, m in ipairs(Members()) do
-				if m:IsAlive() and GetUnitToUnitDistance(m, eAnc) < 4000 then table.insert(near, m) end
+				if m:IsAlive() and GetUnitToUnitDistance(m, target) < radius then table.insert(near, m) end
 			end
-			if #near >= 2 then
-				local ok, r = pcall(Objectives.FightAt, eAnc:GetLocation(), near, false, true)
+			if #near >= 2 or (#near >= 1 and target ~= eAnc and J.GetHP(near[1]) > 0.5) then
+				local ok, r = pcall(Objectives.FightAt, target:GetLocation(), near, false, true)
 				atBase = ok and r ~= nil and r >= 1.0 and X.TeamHP() >= 0.3
 			end
 		end
