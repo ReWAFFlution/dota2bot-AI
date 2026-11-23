@@ -747,7 +747,14 @@ function ItemPurchaseThink()
 	-- try to recover own dropped items (generic, not only for bear)
 	local dropped = GetDroppedItemList()
 	for _, d in pairs(dropped) do
-		if d ~= nil and d.owner == bot and d.item ~= nil and not string.find(d.item:GetName(), 'token') then
+		-- Not what it dropped itself to free the backpack (Riki dropped and
+		-- picked up his Magic Stick every 3 s, bot vs bot 9102944605), nor
+		-- the early consumables that drop is for.
+		local dName = d ~= nil and d.item ~= nil and d.item:GetName() or ''
+		local onPurpose = bot._droppedOnPurpose and bot._droppedOnPurpose[dName]
+		if d ~= nil and d.owner == bot and d.item ~= nil and not string.find(dName, 'token')
+		and not (onPurpose and DotaTime() - onPurpose < 600)
+		and not (Item and Item['tEarlyConsumableItem'] and Utils.HasValue(Item['tEarlyConsumableItem'], dName)) then
 			local dist = GetUnitToLocationDistance(bot, d.location)
 			if dist > 200 and dist < 1000 then
 				bot:Action_MoveToLocation(d.location)

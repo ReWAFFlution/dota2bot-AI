@@ -1677,6 +1677,8 @@ function TrySellOrDropItem()
 					if distance <= 300 then
 						bot:ActionImmediate_SellItem( bot:GetItemInSlot( itemSlot ))
 					elseif distance >= 3000 then
+						bot._droppedOnPurpose = bot._droppedOnPurpose or {}
+						bot._droppedOnPurpose[itemName] = DotaTime()
 						bot:Action_DropItem( bot:GetItemInSlot( itemSlot ), bot:GetLocation() )
 					end
 				end
