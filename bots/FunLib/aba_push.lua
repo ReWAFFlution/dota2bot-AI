@@ -222,7 +222,10 @@ function ____exports.GetPushDesireHelper(bot, lane)
         nMaxDesire = math.min(nMaxDesire, 0.25)
     end
     if rTeam ~= nil then
-        if rTeam < 1.0 then nMaxDesire = math.min(nMaxDesire, 0.41) end
+        -- Even teams push too, where the enemies aren't (rHere): only a
+        -- clearly weaker team holds back (9102358727: 0% push for both
+        -- teams after 70:00, 80 minutes, 8 towers).
+        if rTeam < 0.8 then nMaxDesire = math.min(nMaxDesire, 0.41) end
     elseif gameState.aliveEnemyCount >= 5 and gameState.aliveAllyCount <= gameState.aliveEnemyCount then
         nMaxDesire = math.min(nMaxDesire, 0.41)
     end
@@ -347,7 +350,7 @@ function ____exports.GetPushDesireHelper(bot, lane)
     local pushLane = ____exports.WhichLaneToPush(bot, lane)
     local isCurrentLanePushLane = pushLane == lane
     if not jmz.IsCore(bot) and isCurrentLanePushLane or jmz.IsCore(bot) and (jmz.IsLateGame() and isCurrentLanePushLane or isMidOrEarlyGame) then
-        local allowNumbers = eAliveCount == 0 or rTeam ~= nil and rTeam >= 1.0 or rTeam == nil and (aAliveCoreCount >= eAliveCoreCount or aAliveCoreCount >= 1 and aAliveCount >= eAliveCount + 2 or networthAdvantage > 8000 and aAliveCount >= eAliveCount - 1 or levelAdvantage > 2 and aAliveCount >= eAliveCount - 1)
+        local allowNumbers = eAliveCount == 0 or rTeam ~= nil and (rTeam >= 0.85 or (rHere or 0) >= 1.5) or rTeam == nil and (aAliveCoreCount >= eAliveCoreCount or aAliveCoreCount >= 1 and aAliveCount >= eAliveCount + 2 or networthAdvantage > 8000 and aAliveCount >= eAliveCount - 1 or levelAdvantage > 2 and aAliveCount >= eAliveCount - 1)
         if allowNumbers then
             if gameState.hasAegis then
                 nPushDesire = nPushDesire + 0.3

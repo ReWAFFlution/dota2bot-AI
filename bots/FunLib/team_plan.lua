@@ -287,7 +287,12 @@ function X.Update()
 	-- Hysteresis: starting needs healthier heroes than going on.
 	local advantage, why = X.HasPushAdvantage(enemyAlive, allyAlive, S.phase == 'finish' and 0.3 or 0.45)
 	if S.phase == 'finish' then
-		if not advantage then
+		-- A finish holds while the dead are dead (match 9102358727: 56
+		-- finishes, most over in 1-20 s - "advantage lost" when one enemy
+		-- stepped out of the fog - and 8 towers fell in 80 minutes). It
+		-- ends early only when we are outnumbered or badly hurt.
+		local holding = t < (S.finishUntil or -math.huge) and allyAlive >= enemyAlive and X.TeamHP() >= 0.3
+		if not advantage and not holding then
 			SetPhase(S, 'regroup', 'advantage lost: '..allyAlive..' vs '..enemyAlive)
 		end
 		return S
@@ -304,7 +309,14 @@ function X.Update()
 	-- three times in 11 s.
 	local regrouping = S.phase == 'regroup' and t - S.phaseT < REGROUP_TIME
 	if advantage and not regrouping and t > 10 * 60 and (enemyAlive >= allyAlive or timeLeft >= 20) then
-		if S.phase ~= 'finish' then S.finishLane = X.FinishLane(true) end
+		if S.phase ~= 'finish' then
+			S.finishLane = X.FinishLane(true)
+			-- Until the first dead enemy is back (at least 25 s).
+			local back = math.huge
+			local lvl = J.GetAverageLevel(true) or 10
+			for _, dt in pairs(S.deadAt) do back = math.min(back, dt + 6 + 2.2 * lvl) end
+			S.finishUntil = back < math.huge and math.max(t + 25, back) or t + 25
+		end
 		SetPhase(S, 'finish', why)
 		return S
 	end
@@ -414,7 +426,7 @@ function X.Update()
 	-- theirs); two heroes are the least that make a siege.
 	local alive = {}
 	for _, m in ipairs(Members()) do if m:IsAlive() then table.insert(alive, m) end end
-	local teamOK = Objectives.FightAt and Objectives.FightAt(center, alive, true, false) >= 1.0 or allyAlive >= enemyAlive
+	local teamOK = Objectives.FightAt and Objectives.FightAt(center, alive, true, false) >= 0.9 or allyAlive >= enemyAlive
 	if #gathered >= 1 and teamOK
 	and t >= (S.noSiegeUntil or -math.huge) then
 		S.siegeLane = ClosestEnemyT2Lane(center)
@@ -425,7 +437,7 @@ function X.Update()
 		-- carries ended under 12k.
 		local tower = S.siegeLane and (GetTower(GetOpposingTeam(), T1[S.siegeLane]) or GetTower(GetOpposingTeam(), T2[S.siegeLane]) or GetTower(GetOpposingTeam(), T3[S.siegeLane]))
 		local ratio = tower and Objectives.FightAt and Objectives.FightAt(tower:GetLocation(), gathered, false, true) or 99
-		if ratio < 1.3 then
+		if ratio < 1.15 then
 			S.siegeLane = nil
 			S.noSiegeUntil = t + 20
 		end
@@ -543,6 +555,14 @@ end
 
 -- Do we have the edge to push now? Numbers first, then the resources to use
 -- them: the alive heroes' health and the networth/level lead.
+function X.TeamHP()
+	local hp, n = 0, 0
+	for _, m in ipairs(Members()) do
+		if m:IsAlive() then hp, n = hp + J.GetHP(m), n + 1 end
+	end
+	return n > 0 and hp / n or 0
+end
+
 function X.HasPushAdvantage(enemyAlive, allyAlive, hpNeed)
 	if allyAlive == 0 then return false end
 	local hp, n = 0, 0
