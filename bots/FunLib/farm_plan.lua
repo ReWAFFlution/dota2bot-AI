@@ -111,7 +111,9 @@ function X.WaveRate(bot, lane)
 	local rate = gold / (walk + clear + 2)
 	-- Across the map the wave moves and meets ours elsewhere: lane-to-lane
 	-- walks were what kept the cores poor.
-	if walk * math.max(250, bot:GetCurrentMovementSpeed()) > 5000 then rate = rate * 0.7 end
+	-- Our creeps kill much of it on the way, and the next wave is a walk back.
+	local far = walk * math.max(250, bot:GetCurrentMovementSpeed())
+	if far > 5000 then rate = rate * 0.5 elseif far > 3000 then rate = rate * 0.7 end
 	return rate, front
 end
 

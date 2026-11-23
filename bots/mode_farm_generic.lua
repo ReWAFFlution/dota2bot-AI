@@ -468,6 +468,14 @@ function GetDesireHelper()
 					if #nEnemiesAtLane == 0 and not bTaken and not risky then
 						local r = FarmPlan.WaveRate(bot, lane)
 						if lane == bot:GetAssignedLane() then r = r * 1.15 end
+						-- Stick to the lane picked: Weaver switched 1 -> 3 -> 2 -> 1
+						-- in five minutes for 1-2 gold/s more on paper, walked
+						-- across the map each time ("front" 42% of the farm time,
+						-- 198 g/min, bot vs bot 9103068510). Another lane only
+						-- for 1.6x, and not within 60 s.
+						if lane == bot._farmLane and DotaTime() - (bot._farmLaneT or -math.huge) < 120 then
+							r = r * (DotaTime() - bot._farmLaneT < 60 and 3 or 1.6)
+						end
 						if r > bestRate then bestLane, bestRate = lane, r end
 					end
 				end
@@ -489,7 +497,9 @@ function GetDesireHelper()
 					local laneFront = GetLaneFrontLocation(GetTeam(), bestLane, 0)
 					bot.farmLocation = laneFront
 					bot._farmBranch = 'front'
-					bot._farmLane = bestLane
+					if bot._farmLane ~= bestLane or DotaTime() - (bot._farmLaneT or -math.huge) > 120 then
+						bot._farmLane, bot._farmLaneT = bestLane, DotaTime()
+					end
 					return Min(RemapValClamped(J.GetHP(bot), 0.2, 0.7, 0.35, BOT_MODE_DESIRE_HIGH), nFarmCap)
 				end
 			end
