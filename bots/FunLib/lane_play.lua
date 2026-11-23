@@ -515,7 +515,7 @@ end
 -- The full prediction swung too early: "HP 139 at the swing, our hit 52,
 -- others 89 within 1.64 s" - the others' hits came late and the creep lived
 -- (44 such misses in 9102358727, the cores had ~30 last hits at 10:00).
-function X.KillsOnSwing(c, dmg, delay)
+function X.KillsOnSwing(c, dmg, delay, ownOnly)
 	local regen = 0
 	pcall(function() regen = c:GetHealthRegen() or 0 end)
 	local hp = c:GetHealth() + regen * delay + 0.8
@@ -525,6 +525,7 @@ function X.KillsOnSwing(c, dmg, delay)
 	if not okD or not ours then return J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) end
 	if others >= hp - 1 then return false end -- dies without us
 	if ours > hp then return true end
+	if ownOnly then return false end
 	-- Short of it alone: only the other hits that land well before ours
 	-- (the first 60% of the swing) count. DK missed at HP 82 with our hit 78
 	-- and "others 22 within 1.01 s" counted at 70% (bot vs bot 9102944605):
@@ -598,6 +599,13 @@ function X.CoreThink(bot)
 	-- Last hits first: a creep we kill now (DK chased Troll toward his tower
 	-- in a harass window and lost two last hits and a deny).
 	local walkTo, waitFor
+	-- A last-hit swing just ordered: let it land. The attack time updates as
+	-- the swing starts, the cooldown check below then read "on cooldown" and
+	-- cleared the order mid-swing (deliberate last hits fell from 32 to 4-8
+	-- per core in the first 10 minutes, bot vs bot 9103133622).
+	if bot._lhSwing and DotaTime() - bot._lhSwing.t < 1.2 and J.IsValid(bot._lhSwing.c) and bot._lhSwing.c:IsAlive() then
+		return
+	end
 	-- Still on attack cooldown: the swing would start late and the HP
 	-- forecast over 1.1-1.3 s missed (Ember missed 4 of 9 in two minutes,
 	-- 120-150 away, bot vs bot 9103068510). Wait next to the creep and
@@ -611,23 +619,16 @@ function X.CoreThink(bot)
 	for _, c in pairs(bot:GetNearbyLaneCreeps(800, true)) do
 		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
 			local delay = J.GetAttackProDelayTime(bot, c) + X.TurnTime(bot, c)
-			if cdLeft > 0.25 then
-				if c:GetHealth() < dmg * 1.6 and (not waitFor or c:GetHealth() < waitFor:GetHealth()) then waitFor = c end
-			elseif X.KillsOnSwing(c, dmg, delay) then
+			-- On cooldown: the swing lands late, so only our own hit counts (the
+			-- others' share missed for Ember); never a wait instead of a swing.
+			if X.KillsOnSwing(c, dmg, delay, cdLeft > 0.25) then
 				X.NoteLastHitTry(bot, c, dmg, delay)
+				bot._lhSwing = { t = DotaTime(), c = c }
 				bot:Action_AttackUnit(c, true)
 				return
 			end
 			if c:GetHealth() < dmg * 2.2 and (not walkTo or c:GetHealth() < walkTo:GetHealth()) then walkTo = c end
 		end
-	end
-	if waitFor then
-		if GetUnitToUnitDistance(bot, waitFor) > range + 60 then
-			bot:Action_MoveToLocation(waitFor:GetLocation())
-		else
-			bot:Action_ClearActions(true) -- no auto-attack on another creep meanwhile
-		end
-		return
 	end
 	-- A deny now beats a hit on a hero too.
 	for _, c in pairs(bot:GetNearbyLaneCreeps(range + 150, false)) do

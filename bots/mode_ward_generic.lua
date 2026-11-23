@@ -76,6 +76,11 @@ function GetDesireHelper()
     if bHasWard then bot._wardHeldSince = bot._wardHeldSince or DotaTime() else bot._wardHeldSince = nil end
     local nWardRange = DotaTime() > 10 * 60 and 5000 or 3200
     if bot._wardHeldSince and DotaTime() - bot._wardHeldSince > 45 then nWardRange = 9000 end
+    -- Not across the map while the lane partner is alone in the laning stage
+    -- (Pudge, pos 5, spent 42% of the first 10 minutes warding; Phantom
+    -- Assassin lost her lane to two heroes, 1 last hit in 8:00-10:00, bot vs
+    -- bot 9103133622).
+    if J.IsInLaningPhase() then nWardRange = math.min(nWardRange, bot._wardHeldSince and DotaTime() - bot._wardHeldSince > 45 and 4500 or 3200) end
 
     -- Observer
     if X.WardReady(ObserverWard) then
