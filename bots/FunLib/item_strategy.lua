@@ -831,6 +831,12 @@ end
 -- Owned, or already built into an owned item (Kaya inside Kaya and Sange).
 local function Has(bot, item)
 	if bot:FindItemSlot(item) >= 0 then return true end
+	-- Consumed ones aren't in a slot: Legion re-added the Shard every 5 s
+	-- for 25 minutes ("+item_aghanims_shard (late game...)").
+	if item == 'item_aghanims_shard' and bot:HasModifier('modifier_item_aghanims_shard') then return true end
+	if (item == 'item_ultimate_scepter' or item == 'item_ultimate_scepter_2')
+	and bot:HasModifier('modifier_item_ultimate_scepter_consumed') then return true end
+	if item == 'item_moon_shard' and bot:HasModifier('modifier_item_moon_shard_consumed') then return true end
 	if not ItemLib then return false end
 	for i = 0, 16 do
 		local it = bot:GetItemInSlot(i)

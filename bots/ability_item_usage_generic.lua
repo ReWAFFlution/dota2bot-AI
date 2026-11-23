@@ -1628,7 +1628,15 @@ X.ConsiderItemDesire["item_blink"] = function( hItem )
 				end
 			end
 
-			if (#nInRangeAlly >= nNearbyEnemyHeroCount and bWeAreStronger) then
+			-- By strength at the target with this hero there, not heads: Legion
+			-- (18k) never blinked onto a lone Zeus - the allies near him were 0
+			-- (she wasn't there yet) against 1 enemy (bot vs bot 9103068510).
+			local bStrong = false
+			if Objectives and Objectives.FightAt then
+				local okF, r = pcall(Objectives.FightAt, botTarget:GetLocation(), bot, false, true)
+				bStrong = okF and r ~= nil and r >= 1.2
+			end
+			if bStrong or (#nInRangeAlly >= nNearbyEnemyHeroCount and bWeAreStronger) then
 				local nDistance = Min(nCastRange, GetUnitToUnitDistance(bot, botTarget))
 				local vLocation = J.GetUnitTowardDistanceLocation(bot, botTarget, nDistance) + RandomVector(150)
 				if IsLocationPassable(vLocation) then
