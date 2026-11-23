@@ -524,8 +524,14 @@ function X.KillsOnSwing(c, dmg, delay)
 	local okD, ours = pcall(function() return c:GetActualIncomingDamage(dmg, DAMAGE_TYPE_PHYSICAL) end)
 	if not okD or not ours then return J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) end
 	if others >= hp - 1 then return false end -- dies without us
-	local share = delay > 0.9 and 0.5 or 0.7
-	return ours + others * share > hp
+	if ours > hp then return true end
+	-- Short of it alone: only the other hits that land well before ours
+	-- (the first 60% of the swing) count. DK missed at HP 82 with our hit 78
+	-- and "others 22 within 1.01 s" counted at 70% (bot vs bot 9102944605):
+	-- those hits landed after ours.
+	local early = 0
+	pcall(function() early = J.GetTotalAttackWillRealDamage(c, delay * 0.6) or 0 end)
+	return ours + math.min(early, others) * 0.85 > hp
 end
 
 function X.CoreThink(bot)

@@ -5298,9 +5298,11 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 
 		if tpLoc ~= nil
 			and GetUnitToLocationDistance( bot, tpLoc ) > nMinTPDistance - 600
+			and ( not ( Objectives and Objectives.CanPushTP ) or Objectives.CanPushTP( bot, nPushLane ) )
 		then
 			hEffectTarget = tpLoc
 			sCastMotive = '前往推塔:'..sLane
+			bot._pushTpLane = nPushLane
 
 			if botName == 'npc_dota_hero_furion'
 			then
@@ -5970,6 +5972,9 @@ do
 				if (bot._tpLogT or -math.huge) < DotaTime() - 5 then
 					bot._tpLogT = DotaTime()
 					if not bHome then bot._lastFieldTpT = DotaTime() end
+					if type(sMotive) == 'string' and sMotive:find('tower_') and bot._pushTpLane and Objectives and Objectives.NotePushTP then
+						Objectives.NotePushTP(bot, bot._pushTpLane)
+					end
 					print(string.format('[Obj] %s TP to (%d, %d)%s, %s, mode %s', bot:GetUnitName(), vLoc.x, vLoc.y,
 						bHome and ' (home)' or '', tostring(sMotive), tostring(bot:GetActiveMode())))
 				end

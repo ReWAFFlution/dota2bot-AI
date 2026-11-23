@@ -463,6 +463,8 @@ function GetDesireHelper()
 						end
 					end
 					local risky = Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, laneFront, false)
+					local committed = Objectives and Objectives.CommittedLane and Objectives.CommittedLane(bot)
+					if committed and committed ~= lane then risky = true end
 					if #nEnemiesAtLane == 0 and not bTaken and not risky then
 						local r = FarmPlan.WaveRate(bot, lane)
 						if lane == bot:GetAssignedLane() then r = r * 1.15 end

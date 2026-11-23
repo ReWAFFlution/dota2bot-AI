@@ -1065,7 +1065,59 @@ function X.IdleFollow(bot)
 	return best
 end
 
-function X.CapPushWhenLosing(bot, desire)
+-- Push teleports (bot vs bot 9102944605, 17:29: DK's bottom push won for a
+-- moment during the team's mid siege; the library teleported him to the
+-- bottom T1, and 15 s later he walked back to mid). A push TP needs that
+-- lane's push desire held 2.5 s and no team siege/finish on another lane;
+-- after one the hero stays on that lane 45 s (other lanes' push <= 0.3,
+-- the farm takes that lane's wave).
+function X.NotePushDesire(bot, lane, desire)
+	if not lane then return end
+	bot._pushHighSince = bot._pushHighSince or {}
+	bot._pushNoteT = bot._pushNoteT or {}
+	local now = DotaTime()
+	if desire >= 0.5 then
+		if not bot._pushHighSince[lane] or now - (bot._pushNoteT[lane] or -math.huge) > 1 then bot._pushHighSince[lane] = now end
+	else
+		bot._pushHighSince[lane] = nil
+	end
+	bot._pushNoteT[lane] = now
+end
+
+function X.TeamPlanLane()
+	local S = TeamPlanState and TeamPlanState[GetTeam()]
+	if not S then return nil end
+	if S.phase == 'finish' then return S.finishLane end
+	if S.phase == 'siege' then return S.siegeLane end
+	return nil
+end
+
+function X.CanPushTP(bot, lane)
+	local since = bot._pushHighSince and bot._pushHighSince[lane]
+	if not since or DotaTime() - since < 2.5 then return false end
+	local tl = X.TeamPlanLane()
+	if tl and tl ~= lane then return false end
+	return true
+end
+
+function X.NotePushTP(bot, lane)
+	bot._tpLane, bot._tpLaneUntil = lane, DotaTime() + 45
+end
+
+function X.CommittedLane(bot)
+	if bot._tpLane and DotaTime() < (bot._tpLaneUntil or 0) then return bot._tpLane end
+	return nil
+end
+
+function X.CapPushOtherLane(bot, desire, lane)
+	local c = X.CommittedLane(bot)
+	if c and lane and lane ~= c and X.TeamPlanLane() ~= lane then return math.min(desire, 0.3) end
+	return desire
+end
+
+function X.CapPushWhenLosing(bot, desire, lane)
+	desire = X.CapPushOtherLane(bot, desire, lane)
+	X.NotePushDesire(bot, lane, desire)
 	if X.IsIdle(bot) and X.IdlePushLane(bot) == nil then return math.min(desire, 0.2) end
 	local c = bot._combat
 	if c and (c.retreat or (c.go and J.IsValidHero(c.target))) and DotaTime() - (bot._fightHintT or -math.huge) < 1.5 then

@@ -35,3 +35,16 @@ fight = 1.5 assert(not O.PickoffRisk(bot, loc), 'two may be there, but we win th
 local near = Vector(-5000, -5000) assert(not O.PickoffRisk(bot, near), 'near our tower')
 SIM_T = 200 assert(not O.PickoffRisk(bot, loc), 'too early') SIM_T = 1200
 print('pickoff ok')
+-- Push TP: the lane's push desire held 2.5 s, no team plan on another lane;
+-- after it the hero stays on that lane (other lanes' push <= 0.3).
+local b = {}
+O.NotePushDesire(b, 3, 0.6) assert(not O.CanPushTP(b, 3), 'push TP: desire just came up')
+SIM_T = SIM_T + 1 O.NotePushDesire(b, 3, 0.6) SIM_T = SIM_T + 1 O.NotePushDesire(b, 3, 0.6) SIM_T = SIM_T + 1 O.NotePushDesire(b, 3, 0.6)
+assert(O.CanPushTP(b, 3), 'push TP: desire held 3 s')
+TeamPlanState = { [2] = { phase = 'finish', finishLane = 2 } }
+assert(not O.CanPushTP(b, 3), 'push TP: the team finishes mid')
+TeamPlanState = nil
+O.NotePushTP(b, 3)
+assert(O.CapPushOtherLane(b, 0.8, 2) == 0.3 and O.CapPushOtherLane(b, 0.8, 3) == 0.8, 'committed to the TP lane')
+SIM_T = SIM_T + 50 assert(O.CommittedLane(b) == nil, 'commitment ends')
+print('push tp ok')
