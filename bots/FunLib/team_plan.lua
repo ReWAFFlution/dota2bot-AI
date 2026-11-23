@@ -527,7 +527,8 @@ function X.SupportFightToJoin(bot)
 		-- the human fought at mid (9102507636, 31:25-31:51, four enemies died).
 		if m and m ~= bot and m:IsAlive() and GetUnitToUnitDistance(bot, m) < 6500 then
 			local enemies = RealEnemiesNear(m:GetLocation(), 1200)
-			local tgt = m:GetAttackTarget()
+			local okT, tgt = pcall(function() return m:GetAttackTarget() end)
+			if not okT then tgt = nil end
 			local hitsHero = tgt ~= nil and not tgt:IsNull() and tgt:IsHero() and tgt:GetTeam() ~= GetTeam()
 			local fighting = #enemies > 0 and (m:WasRecentlyDamagedByAnyHero(2.0) or J.IsGoingOnSomeone(m) or hitsHero)
 			-- Not into a fight the ally itself is leaving (lost by the numbers).
