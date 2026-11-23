@@ -1000,8 +1000,14 @@ end
 function X.IdlePushLane(bot)
 	local t = DotaTime()
 	if t < 10 * 60 or bot:GetLevel() < 6 or J.GetHP(bot) < 0.5 then return nil end
+	-- Nothing wants it: the winning mode's desire under 0.2 for 6 s counts
+	-- as idle too (Vengeful stood 20 s at our top T2 in defend_top at 0.11
+	-- before the 20 s idle check sent her off).
+	local low = bot:GetActiveModeDesire() < 0.2 and bot:GetActiveMode() ~= BOT_MODE_RETREAT
+	if low then bot._lowDesireSince = bot._lowDesireSince or t else bot._lowDesireSince = nil end
+	local lowLong = bot._lowDesireSince and t - bot._lowDesireSince >= 6 and bot:DistanceFromFountain() > 1500
 	-- Idle starts a 40 s push window (renewed while still idle).
-	if X.IsIdle(bot) then
+	if X.IsIdle(bot) or lowLong then
 		if t - (bot._idlePushStart or -math.huge) > 40 then bot._idlePushStart = t end
 	elseif t - (bot._idlePushStart or -math.huge) > 40 then
 		return nil
