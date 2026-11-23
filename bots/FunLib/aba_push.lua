@@ -164,7 +164,19 @@ function ____exports.GetPushDesireHelper(bot, lane)
     local enemyFountain = gameState.team == Team.Radiant and DireFountainTpPoint or RadiantFountainTpPoint
     local laneFront = GetLaneFrontLocation(gameState.team, lane, 0)
     if GetLocationToLocationDistance(laneFront, enemyFountain) < 5000 then
-        if #alliesHere < 3 or gameState.aliveAllyCount < gameState.aliveEnemyCount then
+        -- Their high ground: by strength, not heads. Match 9102056479: Rubick
+        -- walked next to a 29k human Kez, wouldn't go up (2 heroes < 3) and
+        -- teleported to our T1. A far-ahead human ally here, or a fight the
+        -- heroes here win at the front, is enough.
+        local okObj, Obj = pcall(require, GetScriptDirectory() .. "/FunLib/objectives")
+        local okTP, TP = pcall(require, GetScriptDirectory() .. "/FunLib/team_plan")
+        local lead = okTP and TP.HumanLead and TP.HumanLead() or nil
+        local strong = lead ~= nil and GetUnitToUnitDistance(lead, bot) < 1600
+        if not strong and okObj and Obj.FightAt then
+            local ok, r = pcall(Obj.FightAt, laneFront, alliesHere, false, true)
+            strong = ok and r ~= nil and r >= 1.3
+        end
+        if not strong and (#alliesHere < 3 or gameState.aliveAllyCount < gameState.aliveEnemyCount) then
             nMaxDesire = math.min(nMaxDesire, 0.08)
         end
     end
