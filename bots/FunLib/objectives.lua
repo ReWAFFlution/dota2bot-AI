@@ -400,6 +400,29 @@ local function TrackModes(S)
 				else
 					r.stillRun = 0
 				end
+				-- Dithering: within 300 of where it was 8 s ago, not hitting or
+				-- casting, nothing to fight or farm within 900 (Techies "stuck
+				-- in place" with no stands-still line: it kept moving a bit).
+				r.trail = r.trail or {}
+				table.insert(r.trail, { loc = loc, mode = name, busy = busy })
+				if #r.trail > 9 then table.remove(r.trail, 1) end
+				if #r.trail == 9 and m:DistanceFromFountain() > 1000 and DotaTime() - (r.ditherLogT or -math.huge) > 60 then
+					local far, anyBusy = 0, false
+					for _, p in ipairs(r.trail) do
+						far = math.max(far, Dist(p.loc, r.trail[1].loc))
+						if p.busy then anyBusy = true end
+					end
+					if far < 300 and far >= 100 and not anyBusy
+					and #m:GetNearbyHeroes(900, true, BOT_MODE_NONE) == 0
+					and #m:GetNearbyCreeps(900, true) == 0 then
+						r.ditherLogT = DotaTime()
+						local modes = {}
+						for _, p in ipairs(r.trail) do if modes[#modes] ~= p.mode then table.insert(modes, p.mode) end end
+						local okA, act = pcall(function() return m:GetCurrentActionType() end)
+						print(string.format('[Diag] %s dithers 8 s within %d at (%d, %d): modes %s, action %s, desire %.2f',
+							m:GetUnitName(), far, loc.x, loc.y, table.concat(modes, '>'), okA and tostring(act) or '?', m:GetActiveModeDesire()))
+					end
+				end
 				r.loc = loc
 			end
 		end
