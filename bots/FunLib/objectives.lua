@@ -993,8 +993,41 @@ end
 
 -- The same when it says fight: heroes first, buildings after (SF hit a T4
 -- he couldn't take while enemies he could kill stood around him).
+-- An idle bot (no income for 20 s, nowhere to go) pushes the nearest lane
+-- where our wave is and nobody waits for it (match 9102358727 at 100:00:
+-- Vengeful and Skywrath stood at their top T3 in "watcher" at 0.33, Razor
+-- in team_roam - nothing else wanted anything). Lane chosen every 3 s.
+function X.IdlePushLane(bot)
+	local t = DotaTime()
+	if t < 10 * 60 or bot:GetLevel() < 6 or J.GetHP(bot) < 0.5 then return nil end
+	-- Idle starts a 40 s push window (renewed while still idle).
+	if X.IsIdle(bot) then
+		if t - (bot._idlePushStart or -math.huge) > 40 then bot._idlePushStart = t end
+	elseif t - (bot._idlePushStart or -math.huge) > 40 then
+		return nil
+	end
+	if bot._idlePushCheck and t - bot._idlePushCheck < 3 then return bot._idlePushLane end
+	bot._idlePushCheck = t
+	local best, bestD = nil, math.huge
+	for _, lane in ipairs({ LANE_TOP, LANE_MID, LANE_BOT }) do
+		local front = GetLaneFrontLocation(GetTeam(), lane, 0)
+		local d = GetUnitToLocationDistance(bot, front)
+		if d < bestD and not X.PickoffRisk(bot, front, false) and X.FightAt(front, bot, false, true) >= 1.0 then
+			best, bestD = lane, d
+		end
+	end
+	bot._idlePushLane = best
+	if best then
+		if bot._idlePushLogged ~= bot._idlePushStart then
+			bot._idlePushLogged = bot._idlePushStart
+			print('[Obj] '..bot:GetUnitName()..' idle: pushes lane '..best)
+		end
+	end
+	return best
+end
+
 function X.CapPushWhenLosing(bot, desire)
-	if X.IsIdle(bot) then return math.min(desire, 0.2) end
+	if X.IsIdle(bot) and X.IdlePushLane(bot) == nil then return math.min(desire, 0.2) end
 	local c = bot._combat
 	if c and (c.retreat or (c.go and J.IsValidHero(c.target))) and DotaTime() - (bot._fightHintT or -math.huge) < 1.5 then
 		return math.min(desire, 0.3)
@@ -1004,6 +1037,7 @@ end
 
 -- For the push wrappers: max with the normal desire.
 function X.PushDesire(bot, lane)
+	if X.IdlePushLane(bot) == lane then return 0.55 end
 	if DropIfIdle(bot) then return 0 end
 	local a = X.Assignment(bot)
 	if a and a.kind == 'push' and a.lane == lane and not X.LosingHere(bot) then return 0.82 end
