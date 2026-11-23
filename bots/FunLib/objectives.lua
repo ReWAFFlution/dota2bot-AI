@@ -2327,6 +2327,11 @@ local function TryTP(bot, loc)
 	-- a mid push "lost x0.11" and called off a second later (9102662640);
 	-- the bottom tower stood alone.
 	if a and a.kind == 'push' and X.FightAt(a.loc, bot, false, true) < 1.0 then return false end
+	-- And only for the team's siege/finish on that lane: a T1 push of a few
+	-- heroes isn't worth a farming core's TP (Bristleback left a calm bottom
+	-- lane for a mid push called off 2 s later and farmed mid camps, bot vs
+	-- bot 9103068510, 11:48). Walking to it is fine.
+	if a and a.kind == 'push' and X.TeamPlanLane() ~= a.lane then return false end
 	-- Nor into a defense we lose with this hero there (Alchemist teleported
 	-- to a T2 at 30:34 and died to the human Viper 6 s later, x0.13).
 	if a and a.kind == 'defend' and (a.enemies or 0) > 0 and X.FightAt(a.loc, bot, false, true) < 0.8 then return false end
