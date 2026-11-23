@@ -1518,10 +1518,20 @@ local function Estimate(u, victim, secs, dtype)
 	-- runs far over what a level 3 hero deals: Monkey King at full HP backed
 	-- off from Phoenix ("they kill us in 3 s, team x0.06") for a minute and
 	-- took no last hit. Weight it 25% there, capped at 1.6x the ready figure.
+	local v
 	if J.IsInLaningPhase() then
-		return math.min(ready * 0.75 + all * 0.25, math.max(ready, 1) * 1.6)
+		v = math.min(ready * 0.75 + all * 0.25, math.max(ready, 1) * 1.6)
+	else
+		v = math.min((ready + all) / 2, math.max(ready, 1) * 2.5)
 	end
-	return math.min((ready + all) / 2, math.max(ready, 1) * 2.5)
+	-- What one enemy can really deal in `secs`: its attacks plus a spell
+	-- budget of 110 per level. Razor backed off from Phoenix 19 times in 20
+	-- minutes at "they kill us in 1.0 s" (level 10, 6.5k networth, one death).
+	local atk, spa = 0, 1.7
+	pcall(function() atk = u:GetAttackDamage() or 0 end)
+	pcall(function() spa = math.max(0.3, u:GetSecondsPerAttack() or 1.7) end)
+	local cap = atk * (math.floor(secs / spa) + 1) + 110 * u:GetLevel()
+	return math.min(v, cap), ready, all, cap
 end
 
 local function Burst(dealers, victim, secs, magicCut)
@@ -2077,6 +2087,22 @@ function X.FightHint(bot)
 			bot._fightLogT = t
 			print(string.format('[Fight] %s %s %s (we kill in %.1f s, they kill us in %.1f s, team x%.2f, group x%.2f, unseen enemies %d, allies coming %d, value %.0f)',
 				bot:GetUnitName(), what, target:GetUnitName(), ttkUs, ttkThem, c.teamRatio or 0, c.groupRatio or 0, c.ghosts or 0, c.arriving or 0, ev))
+			-- A very fast "they kill us": what each enemy's 2 s figure is made of
+			-- (once a minute), to tell a real threat from a bad estimate.
+			if ttkThem <= 1.5 and t - (bot._estLogT or -math.huge) > 60 then
+				bot._estLogT = t
+				local parts = {}
+				for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+					if J.IsValidHero(e) and not e:IsIllusion() and GetUnitToUnitDistance(bot, e) < 1600 then
+						local ok, v, rdy, all, cap = pcall(Estimate, e, bot, 2, DAMAGE_TYPE_ALL)
+						local sm = SummonDamage(e, 2)
+						local il = IllusionDamage(e, bot, 2)
+						table.insert(parts, string.format('%s L%d: est %d (ready %d, all %d, cap %d) summons %d illusions %d',
+							string.gsub(e:GetUnitName(), 'npc_dota_hero_', ''), e:GetLevel(), ok and v or -1, ok and rdy or -1, ok and all or -1, ok and cap or -1, sm, il))
+					end
+				end
+				print(string.format('[Diag] %s HP %d (+%d shield): %s', bot:GetUnitName(), bot:GetHealth(), ShieldHP(bot), table.concat(parts, ' | ')))
+			end
 		end
 	end
 	-- Commitment: a decision holds for a while (retreat 3 s, fight 2 s) so the
