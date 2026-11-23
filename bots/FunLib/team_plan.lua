@@ -344,7 +344,11 @@ function X.Update()
 	-- Not out of a regroup before it's over: Dire flipped finish/regroup
 	-- three times in 11 s.
 	local regrouping = S.phase == 'regroup' and t - S.phaseT < REGROUP_TIME
-	if advantage and not regrouping and t > 10 * 60 and (enemyAlive >= allyAlive or timeLeft >= 20) then
+	-- Behind by 5k+: a finish only with enemies dead for 20 s more (Dire,
+	-- 10-40k behind, went from the defense to a "finish" 20 times and lost
+	-- all 39 of theirs, bot vs bot 9103163695).
+	local behind = NetworthDiff() < -5000
+	if advantage and not regrouping and t > 10 * 60 and ((enemyAlive >= allyAlive and not behind) or timeLeft >= 20) then
 		if S.phase ~= 'finish' then
 			S.finishLane = X.FinishLane(true)
 			-- Until the first dead enemy is back (at least 25 s).
