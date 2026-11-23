@@ -5502,6 +5502,9 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 		local mostFarmDesireLane, mostFarmDesire = J.GetMostFarmLaneDesire(bot)
 		-- From the fountain: to the wave our farm mode picked, if it picked one.
 		if bot._farmBranch == 'front' and bot._farmLane then mostFarmDesireLane = bot._farmLane end
+		-- Not while the team sieges/finishes a lane (Chaos Knight teleported to
+		-- farm the top as the mid finish started, 9103133622, 30:05).
+		if Objectives and Objectives.TeamPlanLane and Objectives.TeamPlanLane() then mostFarmDesire = 0 end
 
 		if mostFarmDesire > 0.1
 		then
@@ -5555,7 +5558,8 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 		-- Only to the wave our farm mode picked (mode_farm_generic): this
 		-- library pick sent Chaos Knight by TP to the bottom T1 while the farm
 		-- mode had chosen the top, and he walked back (bot vs bot 9103133622).
-		if bot:GetActiveMode() == BOT_MODE_FARM and bot._farmBranch == 'front' and bot._farmLane then
+		if bot:GetActiveMode() == BOT_MODE_FARM and bot._farmBranch == 'front' and bot._farmLane
+		and not (Objectives and Objectives.TeamPlanLane and Objectives.TeamPlanLane()) then
 			mostFarmDesireLane = bot._farmLane
 		else
 			mostFarmDesire = 0
