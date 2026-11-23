@@ -64,8 +64,49 @@ local nShrineOfWisdomTeam = TEAM_RADIANT
 -- Waiting at a spot is fine in the last seconds before runes spawn.
 local function RuneSpawnSoon(t) local sec = t % 60 return sec > 52 or sec < 3 end
 
+-- A rune right on the way (within 900) that is up: take it. Checked before
+-- the idle and stuck switches below: Spirit Breaker stood on the bottom
+-- bounty spot capturing the watcher, the idle check turned the rune mode
+-- off, and the rune stayed under him (9102662640, 13:20).
+local function NearRuneDesire()
+	-- A rune right on the way (within 900): take it, it's two seconds
+	-- (Bristleback ran past a bounty rune: its distance-scaled desire lost to
+	-- push/farm). Not while retreating or fighting.
+	bot._passRune = nil
+	-- Within 900 with no enemy hero within 700: even while
+	-- retreating or fighting (WK backed off past a bounty rune and left it).
+	local nearFree = #J.GetEnemiesNearLoc(bot:GetLocation(), 700) == 0
+	local busy = J.IsRetreating(bot) or J.IsGoingOnSomeone(bot) or J.GetHP(bot) <= 0.3
+	if DotaTime() > 0 and (not busy or nearFree) then
+		for _, r in ipairs({ RUNE_BOUNTY_1, RUNE_BOUNTY_2, RUNE_BOUNTY_3, RUNE_BOUNTY_4, RUNE_POWERUP_1, RUNE_POWERUP_2 }) do
+			bot._runeBan = bot._runeBan or {}
+			if type(r) == 'number' and GetRuneStatus(r) == RUNE_STATUS_AVAILABLE and DotaTime() > (bot._runeBan[r] or -math.huge) then
+				local loc = GetRuneSpawnLocation(r)
+				-- Standing on it 2 s without getting it: the status lags behind
+				-- (Pugna stood at a picked-up bounty spot): leave it for a minute.
+				if loc and GetUnitToLocationDistance(bot, loc) < 250 then
+					bot._runeAtT = bot._runeAtT or {}
+					bot._runeAtT[r] = bot._runeAtT[r] or DotaTime()
+					if DotaTime() - bot._runeAtT[r] > 2 then bot._runeBan[r] = DotaTime() + 60 bot._runeAtT[r] = nil end
+				elseif bot._runeAtT then
+					bot._runeAtT[r] = nil
+				end
+				local dist = loc and GetUnitToLocationDistance(bot, loc) or math.huge
+				if DotaTime() > (bot._runeBan[r] or -math.huge)
+				and loc and (loc.x ~= 0 or loc.y ~= 0) and dist < 900 then
+					bot._passRune = r
+					return busy and 0.97 or BOT_MODE_DESIRE_VERYHIGH
+				end
+			end
+		end
+	end
+	return nil
+end
+
 function GetDesire()
 	X.InitRune()
+	local nNear = NearRuneDesire()
+	if nNear then return nNear end
 	-- Standing at a rune spot doing nothing: back to the game for a while.
 	if StuckGuard.Blocked(bot, 'rune', BOT_MODE_RUNE, 40, RuneSpawnSoon) then return BOT_MODE_DESIRE_NONE end
 	if DotaTime() > 60 and not RuneSpawnSoon(DotaTime()) and Objectives.IsIdle(bot) then return BOT_MODE_DESIRE_NONE end
@@ -99,38 +140,6 @@ function GetDesire()
 		end
 		if bot:WasRecentlyDamagedByAnyHero(2.0) and botHP < 0.7 then
 			return BOT_MODE_DESIRE_NONE
-		end
-	end
-
-	-- A rune right on the way (within 900): take it, it's two seconds
-	-- (Bristleback ran past a bounty rune: its distance-scaled desire lost to
-	-- push/farm). Not while retreating or fighting.
-	bot._passRune = nil
-	-- Within 900 with no enemy hero within 700: even while
-	-- retreating or fighting (WK backed off past a bounty rune and left it).
-	local nearFree = #J.GetEnemiesNearLoc(bot:GetLocation(), 700) == 0
-	local busy = J.IsRetreating(bot) or J.IsGoingOnSomeone(bot) or J.GetHP(bot) <= 0.3
-	if DotaTime() > 0 and (not busy or nearFree) then
-		for _, r in ipairs({ RUNE_BOUNTY_1, RUNE_BOUNTY_2, RUNE_BOUNTY_3, RUNE_BOUNTY_4, RUNE_POWERUP_1, RUNE_POWERUP_2 }) do
-			bot._runeBan = bot._runeBan or {}
-			if type(r) == 'number' and GetRuneStatus(r) == RUNE_STATUS_AVAILABLE and DotaTime() > (bot._runeBan[r] or -math.huge) then
-				local loc = GetRuneSpawnLocation(r)
-				-- Standing on it 2 s without getting it: the status lags behind
-				-- (Pugna stood at a picked-up bounty spot): leave it for a minute.
-				if loc and GetUnitToLocationDistance(bot, loc) < 250 then
-					bot._runeAtT = bot._runeAtT or {}
-					bot._runeAtT[r] = bot._runeAtT[r] or DotaTime()
-					if DotaTime() - bot._runeAtT[r] > 2 then bot._runeBan[r] = DotaTime() + 60 bot._runeAtT[r] = nil end
-				elseif bot._runeAtT then
-					bot._runeAtT[r] = nil
-				end
-				local dist = loc and GetUnitToLocationDistance(bot, loc) or math.huge
-				if DotaTime() > (bot._runeBan[r] or -math.huge)
-				and loc and (loc.x ~= 0 or loc.y ~= 0) and dist < 900 then
-					bot._passRune = r
-					return busy and 0.97 or BOT_MODE_DESIRE_VERYHIGH
-				end
-			end
 		end
 	end
 
