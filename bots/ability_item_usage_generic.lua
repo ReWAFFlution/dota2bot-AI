@@ -5500,6 +5500,8 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 		and botMP > 0.8
 	then
 		local mostFarmDesireLane, mostFarmDesire = J.GetMostFarmLaneDesire(bot)
+		-- From the fountain: to the wave our farm mode picked, if it picked one.
+		if bot._farmBranch == 'front' and bot._farmLane then mostFarmDesireLane = bot._farmLane end
 
 		if mostFarmDesire > 0.1
 		then
@@ -5550,6 +5552,14 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 		local nNearEnemyList = J.GetNearbyHeroes(bot, 1400, true, BOT_MODE_NONE )
 		local nCreeps= bot:GetNearbyCreeps( 1600, true )
 		local mostFarmDesireLane, mostFarmDesire = J.GetMostFarmLaneDesire(bot)
+		-- Only to the wave our farm mode picked (mode_farm_generic): this
+		-- library pick sent Chaos Knight by TP to the bottom T1 while the farm
+		-- mode had chosen the top, and he walked back (bot vs bot 9103133622).
+		if bot:GetActiveMode() == BOT_MODE_FARM and bot._farmBranch == 'front' and bot._farmLane then
+			mostFarmDesireLane = bot._farmLane
+		else
+			mostFarmDesire = 0
+		end
 		
 		local isTravelBootsAvailable = false
 		if J.IsItemAvailable( "item_travel_boots" )
