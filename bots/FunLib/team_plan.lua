@@ -291,7 +291,10 @@ function X.Update()
 		-- finishes, most over in 1-20 s - "advantage lost" when one enemy
 		-- stepped out of the fog - and 8 towers fell in 80 minutes). It
 		-- ends early only when we are outnumbered or badly hurt.
-		local holding = t < (S.finishUntil or -math.huge) and allyAlive >= enemyAlive and X.TeamHP() >= 0.3
+		-- (100:08 of that match: 5 vs 3, then 5 vs 2, "advantage lost" in
+		-- 4 and 18 s - hurt after the fight - and the viper pushed alone.)
+		local holding = t < (S.finishUntil or -math.huge) and allyAlive >= enemyAlive
+			and (X.TeamHP() >= 0.2 or allyAlive - enemyAlive >= 2)
 		if not advantage and not holding then
 			SetPhase(S, 'regroup', 'advantage lost: '..allyAlive..' vs '..enemyAlive)
 		end
@@ -528,7 +531,9 @@ function X.AdjustPushDesire(bot, lane, desire)
 		if J.GetHP(bot) < 0.3 then return desire end
 		local best = S.finishLane or X.FinishLane()
 		local far = GetUnitToLocationDistance(bot, GetLaneFrontLocation(GetTeam(), best, 0))
-		if far > 5000 then return desire end
+		-- Far away: joins if it can teleport there with time to use it
+		-- (the push mode's Think teleports, Objectives.FinishTravel).
+		if far > 5000 and not (X.CanTP(bot) and (S.finishUntil or 0) - DotaTime() > 15) then return desire end
 		-- The carry still farming its items joins only when it's right there.
 		if Objectives and Objectives.CarryFarming and Objectives.CarryFarming(bot) and far > 2500 then return desire end
 		if lane == best then return math.max(desire, 0.95) end
@@ -555,6 +560,18 @@ end
 
 -- Do we have the edge to push now? Numbers first, then the resources to use
 -- them: the alive heroes' health and the networth/level lead.
+function X.CanTP(bot)
+	local slot = bot:FindItemSlot('item_tpscroll')
+	local item = slot >= 0 and bot:GetItemInSlot(slot) or nil
+	if item and item:IsFullyCastable() then return true end
+	for _, n in ipairs({ 'item_travel_boots', 'item_travel_boots_2' }) do
+		local s2 = bot:FindItemSlot(n)
+		local it = s2 >= 0 and bot:GetItemInSlot(s2) or nil
+		if it and it:IsFullyCastable() then return true end
+	end
+	return false
+end
+
 function X.TeamHP()
 	local hp, n = 0, 0
 	for _, m in ipairs(Members()) do

@@ -2163,6 +2163,38 @@ local function TryTP(bot, loc)
 	return false
 end
 
+-- Finish phase: a hero far from the finish lane teleports to our tower
+-- nearest its front (the allies stood at their top T3 while the human
+-- pushed alone at 5 vs 2).
+function X.FinishTravel(bot, lane)
+	local S = TeamPlanState and TeamPlanState[GetTeam()]
+	if not S or S.phase ~= 'finish' or S.finishLane ~= lane then return false end
+	if (S.finishUntil or 0) - DotaTime() < 15 then return false end
+	local front = GetLaneFrontLocation(GetTeam(), lane, 0)
+	if GetUnitToLocationDistance(bot, front) < 5000 or J.CanNotUseAction(bot) then return false end
+	if bot:IsChanneling() or bot:IsUsingAbility() then return true end -- the teleport is on
+	if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return false end
+	local item
+	for _, n in ipairs({ 'item_tpscroll', 'item_travel_boots', 'item_travel_boots_2' }) do
+		local slot = bot:FindItemSlot(n)
+		local it = slot >= 0 and bot:GetItemInSlot(slot) or nil
+		if it and it:IsFullyCastable() then item = it break end
+	end
+	if not item then return false end
+	local best, bd = nil, math.huge
+	for _, info in ipairs(TOWERS) do
+		local tw = GetTower(GetTeam(), info.id)
+		if tw then
+			local d = Dist(tw:GetLocation(), front)
+			if d < bd then best, bd = tw, d end
+		end
+	end
+	if not best or bd > GetUnitToLocationDistance(bot, front) - 3000 then return false end
+	bot:Action_UseAbilityOnLocation(item, best:GetLocation())
+	ObjLog(bot:GetUnitName()..' teleports to the finish (lane '..lane..')')
+	return true
+end
+
 -- Push helpers: get there (TP if far); the push mode does the rest.
 -- On their high ground: buildings in order, barracks first (Radiant walked
 -- back and forth on Dire's high ground while Dire wouldn't come out, and the

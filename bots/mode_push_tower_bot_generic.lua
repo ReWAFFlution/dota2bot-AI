@@ -12,6 +12,7 @@ function GetDesire()
     return bot.PushLaneDesire[LANE_BOT]
 end
 function Think()
+    if Objectives.FinishTravel(bot, LANE_BOT) then return end -- finish: teleport in from far
     if Objectives.PushThink(bot, LANE_BOT) then return end -- get to the ally's push (TP if far)
     if Objectives.BaseSiegeThink(bot) then return end -- their high ground: barracks first
     if TeamPlan.PushFormationThink(bot, LANE_BOT) then return end -- tank goes first
