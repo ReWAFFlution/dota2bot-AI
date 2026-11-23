@@ -140,10 +140,27 @@ function GetDesire()
     -- Laning: a last hit or deny ready right now (in range, dies to one hit)
     -- goes first unless it's real danger (WK stepped back from one hit of
     -- Grimstroke and Grimstroke denied the creep).
+    -- A retreat that won holds 2.5 s (no last-hit pull-back inside it), and
+    -- a last-hit pull-back holds 1.5 s: Legion flipped retreat/laning every
+    -- second at his tower for 8 s ("dithers 8 s within 119: retreat>laning>
+    -- retreat>..."), neither walking out nor hitting, and died 4 times by
+    -- 10:00 (9102662640).
+    local now = DotaTime()
+    local hold = bot._retreatHold
+    if hold and now < hold.untilT then
+        if hold.kind == 'retreat' then return math.max(res, hold.val) end
+        if hold.kind == 'lasthit' and res < 0.75 then return 0.3 end
+    end
     if res > 0.3 and J.IsInLaningPhase() and J.GetHP(bot) > 0.35 and not bot:IsChanneling() then
         local c = bot._combat
         local danger = c and c.ttkThem and c.ttkThem <= 2
-        if not danger and LastHitReady() then return 0.3 end
+        if not danger and LastHitReady() then
+            bot._retreatHold = { kind = 'lasthit', untilT = now + 1.5 }
+            return 0.3
+        end
+    end
+    if res >= 0.45 and bot:GetActiveMode() ~= BOT_MODE_RETREAT then
+        bot._retreatHold = { kind = 'retreat', untilT = now + 2.5, val = math.min(res, 0.7) }
     end
     return res
 end
