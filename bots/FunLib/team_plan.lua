@@ -809,6 +809,17 @@ function X.RoamDesire(bot)
 		bot._teamAction = 'ward_carry'
 		return 0.72
 	end
+	-- Idle with no lane safe to push: stay next to our nearest core.
+	local follow = Objectives.IdleFollow and Objectives.IdleFollow(bot)
+	if follow then
+		if not bot._followLogT or DotaTime() - bot._followLogT > 30 then
+			bot._followLogT = DotaTime()
+			Log(bot:GetUnitName()..' idle, no lane safe: stays with '..follow:GetUnitName())
+		end
+		bot._teamAction = 'join_fight'
+		bot._teamTarget = follow
+		return 0.4
+	end
 	bot._teamAction = nil
 	return nil
 end
@@ -942,6 +953,8 @@ function X.RoamThink(bot)
 				end
 			end
 			if best then Attack(bot, best) return true end
+			-- Following (no fight): a step behind the ally, not on top of it.
+			if GetUnitToUnitDistance(bot, ally) < 500 then return true end
 		end
 		bot:Action_MoveToLocation(ally:GetLocation())
 		return true

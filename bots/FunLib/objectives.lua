@@ -1010,6 +1010,7 @@ function X.IdlePushLane(bot)
 	if X.IsIdle(bot) or lowLong then
 		if t - (bot._idlePushStart or -math.huge) > 40 then bot._idlePushStart = t end
 	elseif t - (bot._idlePushStart or -math.huge) > 40 then
+		bot._idleNoLane = false
 		return nil
 	end
 	if bot._idlePushCheck and t - bot._idlePushCheck < 3 then return bot._idlePushLane end
@@ -1023,10 +1024,29 @@ function X.IdlePushLane(bot)
 		end
 	end
 	bot._idlePushLane = best
+	-- No safe lane anywhere: X.IdleFollow sends it to our nearest core.
+	bot._idleNoLane = best == nil
 	if best then
 		if bot._idlePushLogged ~= bot._idlePushStart then
 			bot._idlePushLogged = bot._idlePushStart
 			print('[Obj] '..bot:GetUnitName()..' idle: pushes lane '..best)
+		end
+	end
+	return best
+end
+
+-- Idle and no lane safe to push (Techies stood at our top T2 at 0.11 with
+-- "3-4 enemies may be there" on every front): stay with our nearest core
+-- that isn't in the base. Returns that ally or nil.
+function X.IdleFollow(bot)
+	if not bot._idleNoLane or J.GetPosition(bot) <= 3 then return nil end
+	if DotaTime() - (bot._idlePushCheck or -math.huge) > 5 then return nil end
+	local best, bd = nil, math.huge
+	for i = 1, 5 do
+		local m = GetTeamMember(i)
+		if m and m ~= bot and m:IsAlive() and J.GetPosition(m) <= 3 and m:DistanceFromFountain() > 3000 then
+			local d = GetUnitToUnitDistance(bot, m)
+			if d < bd then best, bd = m, d end
 		end
 	end
 	return best
