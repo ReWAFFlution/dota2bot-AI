@@ -124,6 +124,37 @@ function updateUnitStateCache()
     }
     return unitStateCache
 end
+-- Strength, not heads (the user: "the math on allies' strength, not their
+-- number"). Two ratios from Objectives.FightAt (damage x HP of the heroes,
+-- fog, enemies who can teleport in), cached 0.5 s per bot and lane:
+--   here: the heroes near the bot vs the enemies near it and those that
+--         can come (visible elsewhere counted half);
+--   team: every ally alive vs every enemy alive, at the lane front.
+-- nil when FightAt isn't there (the old head counts then apply).
+local PushObj = nil
+local function PushRatios(bot, lane, alliesHere, laneFront)
+    if PushObj == nil then
+        local ok, o = pcall(require, GetScriptDirectory() .. "/FunLib/objectives")
+        PushObj = ok and o or false
+    end
+    if not PushObj or not PushObj.FightAt then return nil, nil end
+    bot._pushRatios = bot._pushRatios or {}
+    local c = bot._pushRatios[lane]
+    local t = DotaTime()
+    if c and t - c.t < 0.5 then return c.here, c.team end
+    local all = {}
+    for i = 1, 5 do
+        local m = GetTeamMember(i)
+        if m and m:IsAlive() and m:IsHero() then table.insert(all, m) end
+    end
+    local ok1, here = pcall(PushObj.FightAt, bot:GetLocation(), alliesHere, false, true)
+    local ok2, team = pcall(PushObj.FightAt, laneFront, all, true, false)
+    here = ok1 and here or nil
+    team = ok2 and team or nil
+    bot._pushRatios[lane] = { t = t, here = here, team = team }
+    return here, team
+end
+
 function ____exports.GetPushDesireHelper(bot, lane)
     if bot.laneToPush == nil then
         bot.laneToPush = lane
@@ -155,35 +186,44 @@ function ____exports.GetPushDesireHelper(bot, lane)
     if enemiesAtAncient >= 1 then
         return BotModeDesire.ExtraLow
     end
-    if #alliesHere <= 1 and gameState.aliveEnemyCount >= 3 then
-        return BotModeDesire.None
-    end
-    if gameState.aliveAllyCount <= gameState.aliveEnemyCount - 2 then
-        return BotModeDesire.None
-    end
     local enemyFountain = gameState.team == Team.Radiant and DireFountainTpPoint or RadiantFountainTpPoint
     local laneFront = GetLaneFrontLocation(gameState.team, lane, 0)
+    local rHere, rTeam = PushRatios(bot, lane, alliesHere, laneFront)
+    if rHere ~= nil and rTeam ~= nil then
+        -- Alone against what can come, or the whole team outmatched.
+        if rHere < 0.7 or rTeam < 0.6 then
+            return BotModeDesire.None
+        end
+    else
+        if #alliesHere <= 1 and gameState.aliveEnemyCount >= 3 then
+            return BotModeDesire.None
+        end
+        if gameState.aliveAllyCount <= gameState.aliveEnemyCount - 2 then
+            return BotModeDesire.None
+        end
+    end
     if GetLocationToLocationDistance(laneFront, enemyFountain) < 5000 then
         -- Their high ground: by strength, not heads. Match 9102056479: Rubick
         -- walked next to a 29k human Kez, wouldn't go up (2 heroes < 3) and
         -- teleported to our T1. A far-ahead human ally here, or a fight the
         -- heroes here win at the front, is enough.
-        local okObj, Obj = pcall(require, GetScriptDirectory() .. "/FunLib/objectives")
         local okTP, TP = pcall(require, GetScriptDirectory() .. "/FunLib/team_plan")
         local lead = okTP and TP.HumanLead and TP.HumanLead() or nil
         local strong = lead ~= nil and GetUnitToUnitDistance(lead, bot) < 1600
-        if not strong and okObj and Obj.FightAt then
-            local ok, r = pcall(Obj.FightAt, laneFront, alliesHere, false, true)
+        if not strong and PushObj and PushObj.FightAt then
+            local ok, r = pcall(PushObj.FightAt, laneFront, alliesHere, false, true)
             strong = ok and r ~= nil and r >= 1.3
-        end
-        if not strong and (#alliesHere < 3 or gameState.aliveAllyCount < gameState.aliveEnemyCount) then
+            if not strong then nMaxDesire = math.min(nMaxDesire, 0.08) end
+        elseif not strong and (#alliesHere < 3 or gameState.aliveAllyCount < gameState.aliveEnemyCount) then
             nMaxDesire = math.min(nMaxDesire, 0.08)
         end
     end
     if jmz.GetHP(bot) < 0.5 then
         nMaxDesire = math.min(nMaxDesire, 0.25)
     end
-    if gameState.aliveEnemyCount >= 5 and gameState.aliveAllyCount <= gameState.aliveEnemyCount then
+    if rTeam ~= nil then
+        if rTeam < 1.0 then nMaxDesire = math.min(nMaxDesire, 0.41) end
+    elseif gameState.aliveEnemyCount >= 5 and gameState.aliveAllyCount <= gameState.aliveEnemyCount then
         nMaxDesire = math.min(nMaxDesire, 0.41)
     end
     local closeEnemies = getCachedEnemiesNearLoc(
@@ -259,8 +299,14 @@ function ____exports.GetPushDesireHelper(bot, lane)
     local enemyAverageLevel = jmz.GetAverageLevel(true)
     local levelAdvantage = gameState.averageLevel - enemyAverageLevel
     local hasSignificantAdvantage = networthAdvantage > 15000 or levelAdvantage > 2
-    if #alliesHere < #enemiesHere and #alliesHere <= eAliveCount - 1 and aAliveCount < eAliveCount then
-        if hasSignificantAdvantage and #alliesHere >= #enemiesHere - 1 then
+    local losingHere
+    if rHere ~= nil then
+        losingHere = rHere < 1.0
+    else
+        losingHere = #alliesHere < #enemiesHere and #alliesHere <= eAliveCount - 1 and aAliveCount < eAliveCount
+    end
+    if losingHere then
+        if (hasSignificantAdvantage or (rTeam or 0) >= 1.5) and (rHere == nil and #alliesHere >= #enemiesHere - 1 or (rHere or 0) >= 0.85) then
             nMaxDesire = math.min(nMaxDesire, 0.6)
         else
             return BotModeDesire.VeryLow
@@ -301,7 +347,7 @@ function ____exports.GetPushDesireHelper(bot, lane)
     local pushLane = ____exports.WhichLaneToPush(bot, lane)
     local isCurrentLanePushLane = pushLane == lane
     if not jmz.IsCore(bot) and isCurrentLanePushLane or jmz.IsCore(bot) and (jmz.IsLateGame() and isCurrentLanePushLane or isMidOrEarlyGame) then
-        local allowNumbers = eAliveCount == 0 or aAliveCoreCount >= eAliveCoreCount or aAliveCoreCount >= 1 and aAliveCount >= eAliveCount + 2 or networthAdvantage > 8000 and aAliveCount >= eAliveCount - 1 or levelAdvantage > 2 and aAliveCount >= eAliveCount - 1
+        local allowNumbers = eAliveCount == 0 or rTeam ~= nil and rTeam >= 1.0 or rTeam == nil and (aAliveCoreCount >= eAliveCoreCount or aAliveCoreCount >= 1 and aAliveCount >= eAliveCount + 2 or networthAdvantage > 8000 and aAliveCount >= eAliveCount - 1 or levelAdvantage > 2 and aAliveCount >= eAliveCount - 1)
         if allowNumbers then
             if gameState.hasAegis then
                 nPushDesire = nPushDesire + 0.3
@@ -326,7 +372,11 @@ function ____exports.GetPushDesireHelper(bot, lane)
                 )
                 nPushDesire = nPushDesire + levelBonus
             end
-            if aAliveCount > eAliveCount then
+            if rTeam ~= nil then
+                if rTeam > 1.0 then
+                    nPushDesire = nPushDesire + RemapValClamped(rTeam, 1.0, 2.5, 0.1, 0.4)
+                end
+            elseif aAliveCount > eAliveCount then
                 local groupBonus = RemapValClamped(
                     aAliveCount - eAliveCount,
                     1,

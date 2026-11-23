@@ -369,7 +369,15 @@ function X.Update()
 		for _, m in ipairs(gathered) do avgHP = avgHP + J.GetHP(m) end
 		avgHP = #gathered > 0 and avgHP / #gathered or 0
 		local towerGone = S.siegeLane and not EnemyTowerAlive(S.siegeLane, { T1, T2, T3 })
-		local failing = #gathered < math.min(SIEGE_MIN_GROUP - 1, math.max(2, enemyAlive)) or avgHP < 0.4 or allyAlive < enemyAlive
+		-- By strength at the tower, not heads (two strong heroes are a siege,
+		-- four weak ones may not be).
+		local stw = S.siegeLane and (GetTower(GetOpposingTeam(), T1[S.siegeLane]) or GetTower(GetOpposingTeam(), T2[S.siegeLane]) or GetTower(GetOpposingTeam(), T3[S.siegeLane]))
+		local failing
+		if stw and Objectives.FightAt then
+			failing = #gathered < 2 or avgHP < 0.4 or Objectives.FightAt(stw:GetLocation(), gathered, false, true) < 0.9
+		else
+			failing = #gathered < math.min(SIEGE_MIN_GROUP - 1, math.max(2, enemyAlive)) or avgHP < 0.4 or allyAlive < enemyAlive
+		end
 		-- A failure has to last 5 s (heroes stepping in and out of 2500 of the
 		-- group flipped hunt/siege 7 times in 3 minutes); then 60 s without a
 		-- new siege.
@@ -386,7 +394,12 @@ function X.Update()
 		return S
 	end
 
-	if #gathered >= math.max(3, math.min(SIEGE_MIN_GROUP, enemyAlive)) and cores >= 1 and allyAlive >= enemyAlive
+	-- Strength decides (the 1.3 at the tower below, and the whole team vs
+	-- theirs); two heroes are the least that make a siege.
+	local alive = {}
+	for _, m in ipairs(Members()) do if m:IsAlive() then table.insert(alive, m) end end
+	local teamOK = Objectives.FightAt and Objectives.FightAt(center, alive, true, false) >= 1.0 or allyAlive >= enemyAlive
+	if #gathered >= 2 and cores >= 1 and teamOK
 	and t >= (S.noSiegeUntil or -math.huge) then
 		S.siegeLane = ClosestEnemyT2Lane(center)
 		-- Only a siege the group wins at that tower (their heroes elsewhere
@@ -523,6 +536,21 @@ function X.HasPushAdvantage(enemyAlive, allyAlive, hpNeed)
 	if enemyAlive == 0 then return true, 'no enemies alive' end
 	-- Heroes alive weighted by the teams' networth: 5 v 4 while 13k behind
 	-- isn't an advantage (Dire pushed "5 vs 4" into a far stronger Terrorblade).
+	-- Strength of the whole team alive vs theirs (FightAt: damage x HP, fog
+	-- included), not heroes alive: a 29k human and two bots can be ahead of
+	-- four weak enemies.
+	if Objectives.FightAt then
+		local alive, sum = {}, Vector(0, 0, 0)
+		for _, m in ipairs(Members()) do
+			if m:IsAlive() then table.insert(alive, m) sum = sum + m:GetLocation() end
+		end
+		if #alive > 0 then
+			local r = Objectives.FightAt(sum / #alive, alive, true, false)
+			-- Going on needs less than starting (hpNeed 0.3 = a finish already on).
+			if r >= ((hpNeed or 0.45) < 0.4 and 1.1 or 1.3) then return true, string.format('stronger x%.2f, %d vs %d alive', r, allyAlive, enemyAlive) end
+			return false
+		end
+	end
 	local ourNW, theirNW = J.GetInventoryNetworth()
 	local nwFactor = math.max(0.3, math.min(3, (ourNW or 1) / math.max(1, theirNW or 1)))
 	local strength = (allyAlive / math.max(1, enemyAlive)) * nwFactor
