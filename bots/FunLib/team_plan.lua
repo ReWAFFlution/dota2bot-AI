@@ -68,6 +68,23 @@ end
 
 local function IsAliveBot(m) return m and m:IsAlive() and m:IsBot() end
 
+-- A human ally far ahead of our bots (match 9102024904: a human Kez at 19.9k
+-- on 30:00, our bot cores 7.6k; the team pushed and hunted elsewhere and the
+-- human played alone). The plan then moves with them: finishes and sieges
+-- go to the lane nearest that human, and they count in the siege group.
+function X.HumanLead()
+	local human, best = nil, 0
+	for _, m in ipairs(Members()) do
+		if m:IsAlive() then
+			local nw = m:GetNetWorth()
+			if m:IsBot() then best = math.max(best, nw)
+			elseif not human or nw > human:GetNetWorth() then human = m end
+		end
+	end
+	if human and human:GetNetWorth() >= 5000 and human:GetNetWorth() >= best * 1.4 then return human end
+	return nil
+end
+
 local function AliveCount(team)
 	local n = 0
 	for _, id in pairs(GetTeamPlayers(team)) do
@@ -333,6 +350,11 @@ function X.Update()
 	end
 	X.BuySmoke(S, group)
 	local center = GroupCenter(group)
+	local lead = X.HumanLead()
+	if lead and center and GetUnitToLocationDistance(lead, center) > 2500 then
+		-- The group comes to the human instead of sieging without them.
+		center = lead:GetLocation()
+	end
 	local cores = 0
 	local gathered = {}
 	for _, m in ipairs(Members()) do
@@ -527,6 +549,8 @@ function X.FinishLane(near)
 			if m:IsAlive() then sum, n = sum + m:GetLocation(), n + 1 end
 		end
 		if n > 0 then center = sum / n end
+		local lead = X.HumanLead()
+		if lead then center = lead:GetLocation() end
 	end
 	local best, bestScore = LANE_MID, -math.huge
 	for _, lane in ipairs(LANES) do

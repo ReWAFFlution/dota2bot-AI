@@ -435,11 +435,14 @@ function GetDesireHelper()
 			-- Early game: prefer lane farming over jungle
 			-- Lane creeps give more gold/XP per minute than jungle camps,
 			-- especially before the bot has farming items.
-			local bEarlyGame = (J.IsModeTurbo() and DotaTime() < 18 * 60 or DotaTime() < 25 * 60)
-				and bot:GetNetWorth() < 15000
-			local nDeaths = GetHeroDeaths(bot:GetPlayerID())
+			-- Waves stay the main farm until the core has its items: match
+			-- 9102024904, after 20:00 the cores farmed camps only, 280 g/min
+			-- (waves 800 g/min at 15:00), and ended 30:00 on 7.6k. The front
+			-- itself is checked for a pick-off below.
+			local bEarlyGame = (J.IsModeTurbo() and DotaTime() < 25 * 60 or DotaTime() < 40 * 60)
+				and bot:GetNetWorth() < 20000
 
-			if bEarlyGame and nDeaths < 5 then
+			if bEarlyGame then
 				-- Find the closest safe lane front to farm
 				local bestLane = nil
 				local bestDist = 99999
@@ -459,7 +462,8 @@ function GetDesireHelper()
 						end
 					end
 					-- Only consider safe lanes (no enemies or we're stronger)
-					if #nEnemiesAtLane == 0 and not bTaken and dist < bestDist then
+					local risky = Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, laneFront, false)
+					if #nEnemiesAtLane == 0 and not bTaken and not risky and dist < bestDist then
 						bestDist = dist
 						bestLane = lane
 					end
@@ -470,7 +474,9 @@ function GetDesireHelper()
 				-- before 25:00 - they walked from lane to lane).
 				local nearCamp = FarmPlan.BestCamp(bot, availableCamp, J.Site.GetClosestNeutralSpwan)
 				local campDist = nearCamp and GetUnitToLocationDistance(bot, nearCamp.cattr.location) or math.huge
-				if bestLane and (campDist < 2500 or campDist < bestDist) then
+				-- A camp only when it is clearly closer: a wave is worth about
+				-- two camps (the walk to it pays off up to ~2000 more).
+				if bestLane and campDist + 2000 < bestDist then
 					preferedCamp = nearCamp
 					bestLane = nil
 				end
