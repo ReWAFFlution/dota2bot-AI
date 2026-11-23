@@ -2024,8 +2024,8 @@ function X.PickoffRisk(bot, loc, ownSide)
 	if Dist(loc, J.GetTeamFountain()) < 4500 or OurNearestTowerDist(loc) < 2500 then return false end
 	local n = X.EnemiesInReach(loc, 1800)
 	-- By strength too: an enemy that kills this hero alone in 4 s while it
-	-- can't kill him back counts as enough by itself, and is feared for 40 s
-	-- in the fog, not 20. Lifestealer (4.2k at 20:00) farmed a far camp and
+	-- can't kill him back counts as enough by itself, and is feared for 25 s
+	-- in the fog (not 20; 40 s would cover the whole map). Lifestealer (4.2k at 20:00) farmed a far camp and
 	-- the human Phantom Assassin killed him in 2 s (9102662640, 23:20).
 	local myHP, myBurst = nil, 0
 	pcall(function() myHP = bot:GetHealth() + ShieldHP(bot) end)
@@ -2037,7 +2037,7 @@ function X.PickoffRisk(bot, loc, ownSide)
 			local info = GetHeroLastSeenInfo(pid)
 			local d = info and info[1]
 			if d and ((d.time_since_seen < 3 and Dist(d.location, loc) < 1800)
-			or (d.time_since_seen <= 40 and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen)) then
+			or (d.time_since_seen <= 25 and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen)) then
 				killer = true
 			end
 		end
