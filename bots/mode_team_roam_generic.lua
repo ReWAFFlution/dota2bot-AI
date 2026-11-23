@@ -1673,13 +1673,14 @@ function TrySellOrDropItem()
 				local itemSlot = bot:FindItemSlot( itemName )
 				if itemSlot >= 6 and itemSlot <= 8
 				then
-					local distance = bot:DistanceFromFountain()
-					if distance <= 300 then
+					-- Sold at any shop it passes (fountain or secret shop), never
+					-- dropped: half the price back, and dropping it on the map
+					-- made Riki pick it up again in a loop (bot vs bot 9102944605).
+					local atShop = bot:DistanceFromFountain() <= 300
+					pcall(function() atShop = atShop or bot:DistanceFromSecretShop() <= 300 end)
+					pcall(function() atShop = atShop or bot:DistanceFromSideShop() <= 300 end)
+					if atShop then
 						bot:ActionImmediate_SellItem( bot:GetItemInSlot( itemSlot ))
-					elseif distance >= 3000 then
-						bot._droppedOnPurpose = bot._droppedOnPurpose or {}
-						bot._droppedOnPurpose[itemName] = DotaTime()
-						bot:Action_DropItem( bot:GetItemInSlot( itemSlot ), bot:GetLocation() )
 					end
 				end
 			end
