@@ -132,6 +132,14 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 	end
 
 	local waveClear = #bot:GetNearbyLaneCreeps(900, true) == 0
+	-- Not into an enemy we lose to at the rune: Zeus (HP 295) went for the
+	-- water rune with Ember standing by it, backed off, went again - two
+	-- minutes back and forth under his T1 (bot vs bot 9103068510, 2:00-4:00).
+	local okO, Obj = pcall(require, GetScriptDirectory()..'/FunLib/objectives')
+	if okO and Obj and Obj.FightAt and status == RUNE_STATUS_AVAILABLE then
+		local okF, r = pcall(Obj.FightAt, GetRuneSpawnLocation(rune), bot, false, true)
+		if okF and r and r < 0.8 then return BOT_MODE_DESIRE_NONE end
+	end
 	-- The river spots are empty before the first water rune at 2:00 (the game
 	-- still reports them "available").
 	if t < 2 * 60 then return BOT_MODE_DESIRE_NONE end

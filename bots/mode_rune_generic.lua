@@ -97,7 +97,11 @@ local function NearRuneDesire()
 				-- watcher at (-1701, 3972), bot vs bot 9102944605, 31:00).
 				bot._runeProg = bot._runeProg or {}
 				local pr = bot._runeProg[r]
-				if dist < 900 then
+				-- Only while the rune mode is on: backing off from an enemy by
+				-- the rune isn't "can't reach" (Zeus, 9103068510, 2:20).
+				if dist < 900 and bot:GetActiveMode() ~= BOT_MODE_RUNE then
+					bot._runeProg[r] = nil
+				elseif dist < 900 then
 					local now = DotaTime()
 					if not pr or now - pr.seen > 2 then
 						bot._runeProg[r] = { d = dist, t = now, seen = now }
@@ -112,7 +116,10 @@ local function NearRuneDesire()
 					end
 				end
 				if DotaTime() > (bot._runeBan[r] or -math.huge)
-				and loc and (loc.x ~= 0 or loc.y ~= 0) and dist < 900 then
+				and loc and (loc.x ~= 0 or loc.y ~= 0) and dist < 900
+				and not (#J.GetEnemiesNearLoc(loc, 900) > 0 and (function()
+					local ok, v = pcall(Objectives.FightAt, loc, bot, false, true)
+					return ok and v and v < 0.8 end)()) then
 					bot._passRune = r
 					return busy and 0.97 or BOT_MODE_DESIRE_VERYHIGH
 				end
