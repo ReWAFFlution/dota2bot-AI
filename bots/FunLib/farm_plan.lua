@@ -118,7 +118,10 @@ local claims = {}
 local function TakenByOther(bot, camp)
 	local c = claims[CampKey(camp)]
 	if not c or c.bot == bot or DotaTime() - c.t > 10 then return false end
-	if not c.bot:IsAlive() then return false end
+	if c.bot:IsNull() or not c.bot:IsAlive() then return false end
+	-- Our own Tempest Double (same player) farming it: it's ours too.
+	local ok, same = pcall(function() return c.bot:GetPlayerID() == bot:GetPlayerID() end)
+	if ok and same then return false end
 	return GetUnitToLocationDistance(c.bot, camp.location) < GetUnitToLocationDistance(bot, camp.location) + 300
 end
 local function Claim(bot, camp) claims[CampKey(camp)] = { bot = bot, t = DotaTime() } end
@@ -151,6 +154,9 @@ function X.BestCamp(bot, list, fallback)
 			if not TakenByOther(bot, camp) then -- one farmer per camp
 				nFree = nFree + 1
 				local r = X.CampRate(bot, camp)
+				-- Not across the map (Arc Warden walked 10200 for a camp):
+				-- beyond 6000 the lanes are closer gold.
+				if GetUnitToLocationDistance(bot, camp.location) > 6000 then r = 0 end
 				if r > bestRate then best, bestRate = entry, r end
 				if near and r > nearRate then nearBest, nearRate = entry, r end
 			elseif near then table.insert(nearWhy, tostring(camp.type)..' taken')
