@@ -2190,6 +2190,13 @@ local function TryTP(bot, loc)
 	local a = X.Assignment(bot)
 	if a and (a.enemies or 0) < 0.5 and not (a.tier == 5) then return false end
 	if J.GetPosition(bot) >= 4 and DotaTime() < 15 * 60 then return false end -- walk: the lane partner stays
+	-- A push is joined by teleport only when the fight there is ours with
+	-- this hero in it: Legion left the bottom lane at 10:30 by teleport for
+	-- a mid push "lost x0.11" and called off a second later (9102662640);
+	-- the bottom tower stood alone.
+	if a and a.kind == 'push' and X.FightAt(a.loc, bot, false, true) < 1.0 then return false end
+	-- The offlaner in the laning stage stays by its own lane's tower.
+	if J.GetPosition(bot) == 3 and J.IsInLaningPhase() and a and a.kind == 'push' then return false end
 	if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return false end
 	if DotaTime() < (bot._lastFieldTpT or -math.huge) + 60 then return false end -- one field teleport a minute
 	local slot = bot:FindItemSlot('item_tpscroll')
