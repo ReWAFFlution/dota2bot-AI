@@ -1,4 +1,26 @@
 local J = {}
+-- A nil location given to GetUnitToLocationDistance: the engine printed
+-- "parameter 2: expected vectorws but got void" 899 times from 42:21 (bot vs
+-- bot 9103068510) without saying where. Far away instead, and the caller's
+-- stack once per call site.
+if not _G.__GULDGuard then
+	_G.__GULDGuard = true
+	local raw = GetUnitToLocationDistance
+	local seen = {}
+	GetUnitToLocationDistance = function(u, loc)
+		if loc == nil then
+			local tb = debug and debug.traceback and debug.traceback('', 2) or ''
+			local key = tb:sub(1, 300)
+			if not seen[key] then
+				seen[key] = true
+				print('[Bug] GetUnitToLocationDistance(nil):'..tb)
+			end
+			return 99999
+		end
+		return raw(u, loc)
+	end
+end
+
 
 local bDebugMode = ( 1 == 10 )
 local tAllyIDList = GetTeamPlayers( GetTeam() )

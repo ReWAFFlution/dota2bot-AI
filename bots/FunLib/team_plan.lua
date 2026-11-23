@@ -225,7 +225,9 @@ local function PickHuntTarget(group)
 	if carry and GroupMargin(group, carry) >= 0.8 then return carry end
 	local mid = EnemyAtPosition(2)
 	if mid and Huntable(mid) and GroupMargin(group, mid) >= 1.0 then return mid end
-	if carry then return carry end
+	-- (No "the carry anyway": Pudge and Abaddon at 6k hunted a 15-17k carry
+	-- at 45:00, far from their cores, dead 32% of the time - bot vs bot
+	-- 9103068510.)
 	-- Anyone visible that the group can kill.
 	local best, bestM = nil, 1.0
 	for _, h in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
@@ -797,8 +799,25 @@ function X.RoamDesire(bot)
 
 
 	if p == 'hunt' and S.hunt and X.InGroup(bot) then
-		bot._teamAction = 'hunt'
-		return BOT_MODE_DESIRE_VERYHIGH
+		-- By strength where the target is (its friends nearby and in the fog
+		-- count): a hunt the group loses there is dropped, the supports go
+		-- back to the cores.
+		local h = S.hunt
+		local loc = h.lastLoc or (J.IsValidHero(h.target) and h.target:CanBeSeen() and h.target:GetLocation())
+		local alive = {}
+		for _, m in ipairs(S.group or {}) do if m:IsAlive() then table.insert(alive, m) end end
+		local ok, r = true, 99
+		if loc and Objectives.FightAt then ok, r = pcall(Objectives.FightAt, loc, alive, false, true) end
+		if ok and r and r < 1.0 then
+			if DotaTime() - (S.huntDropLogT or -99) > 20 then
+				S.huntDropLogT = DotaTime()
+				Log('drops the hunt on '..(h.target and not h.target:IsNull() and h.target:GetUnitName() or '?')..string.format(' (x%.2f there)', r))
+			end
+			S.hunt = nil
+		else
+			bot._teamAction = 'hunt'
+			return BOT_MODE_DESIRE_VERYHIGH
+		end
 	end
 
 	-- Supports go where the team fights.
