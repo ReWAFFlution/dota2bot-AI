@@ -1254,6 +1254,41 @@ function ItemPurchaseThink()
 		end
 	end
 
+	-- Late game: early items go at any shop once 4 big items are there, full
+	-- inventory or not (meta builds have no sell list: Weaver kept Falcon
+	-- Blade and Magic Stick at 60:00 with 16k, bot vs bot 9103068510).
+	if currentTime > (bot._junkSellT or -99) + 0.5
+	and (botWorth >= 15000 or currentTime > 40 * 60)
+	and (botDistanceFromFountain <= 400 or bot:DistanceFromSecretShop() <= 200)
+	then
+		bot._junkSellT = currentTime
+		local big = 0
+		for slot = 0, 8 do
+			local it = bot:GetItemInSlot(slot)
+			if it ~= nil and GetItemCost(it:GetName()) >= 2500 then big = big + 1 end
+		end
+		if big >= 4 then
+			local tJunk = { item_magic_stick = true, item_magic_wand = true, item_falcon_blade = true, item_wraith_band = true,
+				item_bracer = true, item_null_talisman = true, item_quelling_blade = true, item_orb_of_venom = true,
+				item_orb_of_frost = true, item_ring_of_basilius = true, item_soul_ring = true, item_buckler = true,
+				item_orb_of_corrosion = true, item_ring_of_protection = true, item_branches = true, item_circlet = true,
+				item_slippers = true, item_mantle = true, item_gauntlets = true, item_infused_raindrop = true,
+				item_fluffy_hat = true, item_blight_stone = true, item_stout_shield = true, item_wind_lace = true }
+			for slot = 0, 8 do
+				local it = bot:GetItemInSlot(slot)
+				if it ~= nil then
+					local name = it:GetName()
+					local needed = (bot.currBuyingRequiredCounts and bot.currBuyingRequiredCounts[name]) or _plannedComponent(name)
+					if tJunk[name] and not needed then
+						print('[Items] '..botName..' sells '..name..' (late game, '..big..' big items)')
+						bot:ActionImmediate_SellItem(it)
+						break
+					end
+				end
+			end
+		end
+	end
+
 	--出售过渡装备
 	local countEmptyBackpack = Utils.CountBackpackEmptySpace(bot)
 	if currentTime > bot.sell_time + 0.5
