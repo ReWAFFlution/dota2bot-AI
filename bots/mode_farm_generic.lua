@@ -57,6 +57,10 @@ local runMode = false;
 if bot.farmLocation == nil then bot.farmLocation = bot:GetLocation() end
 
 function GetDesire()
+	-- Losing to the camp itself: out (ancients nearly killed Arc Warden).
+	if J.GetHP(bot) < 0.35 and #bot:GetNearbyNeutralCreeps(600) > 0 and bot:WasRecentlyDamagedByCreep(1.5) then
+		return BOT_MODE_DESIRE_NONE
+	end
 	-- local cacheKey = 'GetFarmDesire'..tostring(bot:GetPlayerID())
 	-- local cachedVar = J.Utils.GetCachedVars(cacheKey, 0.4)
 	-- if DotaTime() > 30 and cachedVar ~= nil then return cachedVar end
@@ -537,6 +541,22 @@ end
 
 function Think()
 	if J.CanNotUseAction(bot) then return end
+	-- A ranged hero at a camp keeps its distance: between attacks it steps
+	-- away from a neutral that is hitting it (Arc Warden walked right into
+	-- the ancients at 20:10 and nearly died).
+	if bot:GetAttackRange() > 400 and not runMode then
+		local close
+		for _, n in pairs(bot:GetNearbyNeutralCreeps(350)) do
+			if J.IsValid(n) and n:GetAttackTarget() == bot then close = n break end
+		end
+		local sinceAttack = GameTime() - bot:GetLastAttackTime()
+		if close and sinceAttack > 0.15 and sinceAttack < bot:GetSecondsPerAttack() - 0.25 then
+			local away = bot:GetLocation() - close:GetLocation()
+			if away:Length2D() < 1 then away = Vector(1, 0, 0) end
+			bot:Action_MoveToLocation(bot:GetLocation() + away:Normalized() * 250)
+			return
+		end
+	end
 	if J.Utils.IsBotThinkingMeaningfulAction(bot, Customize.ThinkLess, "farm") then return end
 	sec = math.floor(DotaTime()) % 60
 	if runMode

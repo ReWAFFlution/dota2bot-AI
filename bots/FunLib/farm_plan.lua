@@ -77,7 +77,7 @@ function X.CampRate(bot, camp)
 	local kind = camp.type or 'medium'
 	local dps = Dps(bot) * (1 + 0.15 * math.max(0, bot:GetLevel() - 6) / 6) -- spells help as levels go up
 	local clear = (HP[kind] or 1500) / math.max(30, dps)
-	if kind == 'ancient' and (bot:GetLevel() < 12 or clear > 35) then return 0 end
+	if kind == 'ancient' and (bot:GetLevel() < 12 or clear > 35 or J.GetHP(bot) < 0.7) then return 0 end
 	local walk = GetUnitToLocationDistance(bot, camp.location) / math.max(250, bot:GetCurrentMovementSpeed())
 	local gold = (GOLD[kind] or 80) * (1 + DotaTime() / 60 / 60) -- bounty grows ~1 g/min
 	return gold / (walk + clear + 2)
