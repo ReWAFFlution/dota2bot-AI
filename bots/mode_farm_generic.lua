@@ -67,6 +67,10 @@ function GetDesire()
 	local res = GetDesireHelper()
 	-- At an open enemy tower (split push): hit the tower, not the camp next to it.
 	if Objectives.SplitPushing(bot) then res = math.min(res, 0.6) end
+	-- Team siege (team plan): the cores come out of the jungle.
+	local TS = TeamPlanState and TeamPlanState[GetTeam()]
+	if TS and TS.phase == 'siege' and TS.siegeAll and J.GetHP(bot) >= 0.3
+	and not (Objectives.CarryFarming and Objectives.CarryFarming(bot)) then res = math.min(res, 0.6) end
 	-- J.Utils.SetCachedVars(cacheKey, res)
 	return res
 end

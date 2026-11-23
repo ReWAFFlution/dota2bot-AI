@@ -395,6 +395,44 @@ function X.Update()
 		end
 	end
 
+	-- Team siege: clearly ahead after 18:00, the whole team (cores out of
+	-- the jungle too) takes the nearest tower, then the next one. Match
+	-- 9102507636: Dire 12k ahead at 45:00 hunted and farmed ancients, the
+	-- sieges waited for a group already at a tower, and 5 towers fell in
+	-- 45 minutes.
+	local alive = {}
+	for _, m in ipairs(Members()) do if m:IsAlive() then table.insert(alive, m) end end
+	local aliveCenter = GroupCenter(alive)
+	if S.phase == 'siege' and S.siegeAll then
+		local stw = S.siegeLane and (GetTower(GetOpposingTeam(), T1[S.siegeLane]) or GetTower(GetOpposingTeam(), T2[S.siegeLane]) or GetTower(GetOpposingTeam(), T3[S.siegeLane]))
+		local r = stw and Objectives.FightAt and Objectives.FightAt(stw:GetLocation(), alive, false, true) or 0
+		local failing = allyAlive < enemyAlive or X.TeamHP() < 0.35 or r < 0.9
+		if failing then S.siegeFailT = S.siegeFailT or t else S.siegeFailT = nil end
+		if failing and t - S.siegeFailT >= 5 then
+			SetPhase(S, 'hunt', 'team siege failed')
+			S.siegeAll, S.siegeFailT, S.noSiegeUntil = nil, nil, t + 60
+		elseif not stw or t - S.phaseT > 120 then
+			S.siegeLane = aliveCenter and ClosestEnemyT2Lane(aliveCenter)
+			S.phaseT = t
+			if S.siegeLane then Log('team siege goes on: lane '..S.siegeLane) else S.siegeAll = nil SetPhase(S, 'hunt', 'nothing left to siege') end
+		end
+		return S
+	end
+	if S.phase ~= 'siege' and t >= 18 * 60 and t >= (S.noSiegeUntil or -math.huge) and allyAlive >= enemyAlive and aliveCenter then
+		local teamR = Objectives.FightAt and Objectives.FightAt(aliveCenter, alive, true, false) or 0
+		if nwDiff >= 6000 or teamR >= 1.3 then
+			local lane = ClosestEnemyT2Lane(aliveCenter)
+			local tw = lane and (GetTower(GetOpposingTeam(), T1[lane]) or GetTower(GetOpposingTeam(), T2[lane]) or GetTower(GetOpposingTeam(), T3[lane]))
+			local r = tw and Objectives.FightAt and Objectives.FightAt(tw:GetLocation(), alive, false, true) or 0
+			if r >= 1.15 then
+				S.siegeLane, S.siegeAll, S.siegeCenter = lane, true, aliveCenter
+				SetPhase(S, 'siege', string.format('team ahead (%d networth, x%.2f), all to lane %d', nwDiff, teamR, lane))
+				return S
+			end
+			S.noSiegeUntil = t + 20
+		end
+	end
+
 	if S.phase == 'siege' then
 		local avgHP = 0
 		for _, m in ipairs(gathered) do avgHP = avgHP + J.GetHP(m) end
@@ -445,6 +483,7 @@ function X.Update()
 			S.noSiegeUntil = t + 20
 		end
 		if S.siegeLane then
+			S.siegeAll = nil
 			SetPhase(S, 'siege', 'a core joined, pushing lane '..S.siegeLane)
 			return S
 		end
@@ -551,7 +590,9 @@ function X.AdjustPushDesire(bot, lane, desire)
 			if not enough then return math.min(desire, 0.3) end
 		end
 	elseif p == 'siege' then
-		if lane == S.siegeLane and X.InGroup(bot) then return math.max(desire, 0.85) end
+		if lane == S.siegeLane and X.InGroup(bot) then return math.max(desire, S.siegeAll and 0.9 or 0.85) end
+		-- Team siege: the other lanes wait.
+		if S.siegeAll and X.InGroup(bot) and J.GetHP(bot) >= 0.3 then return math.min(desire, 0.2) end
 	elseif p == 'hunt' then
 		if X.InGroup(bot) then return math.min(desire, 0.3) end
 	end
@@ -657,6 +698,10 @@ function X.InGroup(bot)
 	local S = TeamPlanState[GetTeam()]
 	if not S or not S.group then return false end
 	for _, m in ipairs(S.group) do if m == bot then return true end end
+	-- Team siege: everyone (but the carry still farming its items).
+	if S.phase == 'siege' and S.siegeAll then
+		return bot:IsAlive() and not (Objectives.CarryFarming and Objectives.CarryFarming(bot))
+	end
 	-- Cores that joined the group count as well during a siege.
 	if S.phase == 'siege' then
 		-- Not the carry still farming its items (it farms on).

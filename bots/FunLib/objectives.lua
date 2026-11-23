@@ -2194,8 +2194,10 @@ end
 -- pushed alone at 5 vs 2).
 function X.FinishTravel(bot, lane)
 	local S = TeamPlanState and TeamPlanState[GetTeam()]
-	if not S or S.phase ~= 'finish' or S.finishLane ~= lane then return false end
-	if (S.finishUntil or 0) - DotaTime() < 15 then return false end
+	if not S then return false end
+	local finish = S.phase == 'finish' and S.finishLane == lane and (S.finishUntil or 0) - DotaTime() >= 15
+	local teamSiege = S.phase == 'siege' and S.siegeAll and S.siegeLane == lane
+	if not finish and not teamSiege then return false end
 	local front = GetLaneFrontLocation(GetTeam(), lane, 0)
 	if GetUnitToLocationDistance(bot, front) < 5000 or J.CanNotUseAction(bot) then return false end
 	if bot:IsChanneling() or bot:IsUsingAbility() then return true end -- the teleport is on
@@ -2217,7 +2219,7 @@ function X.FinishTravel(bot, lane)
 	end
 	if not best or bd > GetUnitToLocationDistance(bot, front) - 3000 then return false end
 	bot:Action_UseAbilityOnLocation(item, best:GetLocation())
-	ObjLog(bot:GetUnitName()..' teleports to the finish (lane '..lane..')')
+	ObjLog(bot:GetUnitName()..' teleports to the '..(teamSiege and 'team siege' or 'finish')..' (lane '..lane..')')
 	return true
 end
 
