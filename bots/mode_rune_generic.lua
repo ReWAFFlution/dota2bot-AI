@@ -92,6 +92,25 @@ local function NearRuneDesire()
 					bot._runeAtT[r] = nil
 				end
 				local dist = loc and GetUnitToLocationDistance(bot, loc) or math.huge
+				-- No closer for 3 s: it can't be reached from here, or the
+				-- status lies (Enigma circled 8 s within 169 next to the
+				-- watcher at (-1701, 3972), bot vs bot 9102944605, 31:00).
+				bot._runeProg = bot._runeProg or {}
+				local pr = bot._runeProg[r]
+				if dist < 900 then
+					local now = DotaTime()
+					if not pr or now - pr.seen > 2 then
+						bot._runeProg[r] = { d = dist, t = now, seen = now }
+					elseif dist < pr.d - 60 then
+						pr.d, pr.t, pr.seen = dist, now, now
+					elseif now - pr.t <= 3 then
+						pr.seen = now
+					else
+						bot._runeBan[r] = DotaTime() + 60
+						bot._runeProg[r] = nil
+						print(string.format('[Diag] %s can\'t reach rune %d (%d away, no closer in 3 s): skips it for 60 s', bot:GetUnitName(), r, dist))
+					end
+				end
 				if DotaTime() > (bot._runeBan[r] or -math.huge)
 				and loc and (loc.x ~= 0 or loc.y ~= 0) and dist < 900 then
 					bot._passRune = r
