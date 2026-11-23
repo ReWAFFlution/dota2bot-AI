@@ -373,9 +373,15 @@ function GetDesireHelper()
 
     local nHealth = 0
     if botName == 'npc_dota_hero_medusa' then
-        local unitHealth    = botHealth - bot:GetMana()
-        local unitMaxHealth = bot:GetMaxHealth() - bot:GetMaxMana()
-        nHealth = (unitHealth / unitMaxHealth) * 0.2 + botMP * 0.8
+        -- Effective HP with Mana Shield: each point of mana soaks ~2 damage.
+        -- (It was "HP minus mana" weighted 20% and mana 80%: the shield
+        -- drains mana, so Medusa at full HP retreated - 17-38% of her first
+        -- 20 minutes in 9102358727, 70 last hits and 5.2k at 20:00.)
+        local shield = bot:HasModifier('modifier_medusa_mana_shield')
+        local k = shield and 2.0 or 0
+        local eff    = bot:GetHealth() + bot:GetMana() * k
+        local effMax = bot:GetMaxHealth() + bot:GetMaxMana() * k
+        nHealth = math.min(1, eff / math.max(1, effMax) + (botHealthRegen * 5.0 / bot:GetMaxHealth()))
     elseif botName == 'npc_dota_hero_huskar' then
         nHealth = botHP
     else
