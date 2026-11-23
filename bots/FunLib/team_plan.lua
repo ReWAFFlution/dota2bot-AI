@@ -304,7 +304,22 @@ function X.Update()
 			for _, dt in pairs(S.deadAt) do back = math.min(back, dt + 6 + 2.2 * lvl) end
 			if back < math.huge and back > (S.finishUntil or -math.huge) then S.finishUntil = back end
 		end
-		local holding = t < (S.finishUntil or -math.huge) and allyAlive >= enemyAlive
+		-- At their base: held while the heroes there win there (the whole-team
+		-- check counted their fog heroes; Radiant at 36-37k left Dire's base
+		-- at 4 vs 4 after the first T4, bot vs bot 9103068510, 67:56).
+		local eAnc = GetAncient(GetOpposingTeam())
+		local atBase = false
+		if eAnc and Objectives.FightAt then
+			local near = {}
+			for _, m in ipairs(Members()) do
+				if m:IsAlive() and GetUnitToUnitDistance(m, eAnc) < 4000 then table.insert(near, m) end
+			end
+			if #near >= 2 then
+				local ok, r = pcall(Objectives.FightAt, eAnc:GetLocation(), near, false, true)
+				atBase = ok and r ~= nil and r >= 1.0 and X.TeamHP() >= 0.3
+			end
+		end
+		local holding = atBase or t < (S.finishUntil or -math.huge) and allyAlive >= enemyAlive
 			and (X.TeamHP() >= 0.2 or allyAlive - enemyAlive >= 2)
 		if not advantage and not holding then
 			SetPhase(S, 'regroup', 'advantage lost: '..allyAlive..' vs '..enemyAlive)

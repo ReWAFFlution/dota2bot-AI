@@ -1018,6 +1018,13 @@ function X.IdlePushLane(bot)
 	-- In their base with them outnumbered: the lane nearest their ancient
 	-- (it ends the game), not the nearest lane (the bots walked to the top
 	-- lane while their ancient was open).
+	-- The team's finish/siege lane first (PL "idle: pushes lane 1" during
+	-- the finish at Dire's mid T4s, 9103068510, 67:01).
+	local tl = X.TeamPlanLane()
+	if tl then
+		bot._idlePushLane, bot._idleNoLane = tl, false
+		return tl
+	end
 	local eAnc = GetAncient(GetOpposingTeam())
 	if eAnc and GetUnitToUnitDistance(bot, eAnc) < 7000 and GetNumAlive(GetOpposingTeam()) < GetNumAlive(GetTeam()) then
 		local bl, bd2 = nil, math.huge
@@ -2360,6 +2367,12 @@ local function TryTP(bot, loc)
 	-- back from there.
 	local eAnc = GetAncient(GetOpposingTeam())
 	local nearTheirBase = eAnc and GetUnitToUnitDistance(bot, eAnc) < 7000
+	-- Nor away from their base while we win there, unless our own base is hit
+	-- (Ember and PL teleported off Dire's T4s at 4 vs 4, 9103068510, 67:56).
+	if nearTheirBase and not (a and a.kind == 'defend' and (a.tier or 0) >= 3) then
+		local okB, rB = pcall(X.FightAt, eAnc:GetLocation(), bot, false, true)
+		if okB and rB and rB >= 1.0 then return false end
+	end
 	if best and bd < myDist - 3500 and bd < 4000 and not (nearTheirBase and GetNumAlive(GetOpposingTeam()) < GetNumAlive(GetTeam())) then
 		bot._lastFieldTpT = DotaTime()
 		bot:Action_UseAbilityOnLocation(item, best:GetLocation())
