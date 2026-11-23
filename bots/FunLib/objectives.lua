@@ -2023,15 +2023,34 @@ function X.PickoffRisk(bot, loc, ownSide)
 	end
 	if Dist(loc, J.GetTeamFountain()) < 4500 or OurNearestTowerDist(loc) < 2500 then return false end
 	local n = X.EnemiesInReach(loc, 1800)
+	-- By strength too: an enemy that kills this hero alone in 4 s while it
+	-- can't kill him back counts as enough by itself, and is feared for 40 s
+	-- in the fog, not 20. Lifestealer (4.2k at 20:00) farmed a far camp and
+	-- the human Phantom Assassin killed him in 2 s (9102662640, 23:20).
+	local myHP, myBurst = nil, 0
+	pcall(function() myHP = bot:GetHealth() + ShieldHP(bot) end)
+	pcall(function() myBurst = (bot:GetAttackDamage() or 0) * 4 / math.max(0.3, bot:GetSecondsPerAttack() or 1.7) end)
+	local killer = false
+	for _, pid in pairs(myHP and GetTeamPlayers(GetOpposingTeam()) or {}) do
+		local snap = enemySnap[pid]
+		if IsHeroAlive(pid) and snap and snap.power >= myHP * 0.9 and myBurst < snap.hp * 0.5 then
+			local info = GetHeroLastSeenInfo(pid)
+			local d = info and info[1]
+			if d and ((d.time_since_seen < 3 and Dist(d.location, loc) < 1800)
+			or (d.time_since_seen <= 40 and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen)) then
+				killer = true
+			end
+		end
+	end
 	local enemyFountain = J.GetEnemyFountain and J.GetEnemyFountain() or GetAncient(GetOpposingTeam()):GetLocation()
 	local enemySide = not ownSide and Dist(loc, enemyFountain) < Dist(loc, J.GetTeamFountain())
 	-- Our half: three of them (the farm there is what the carry lives on);
 	-- their half: two, one for a support.
 	local need = enemySide and (J.GetPosition(bot) >= 4 and 1 or 2) or 3
-	local risky = n >= need
+	local risky = n >= need or killer
 	if risky and DotaTime() - (bot._pickoffLogT or -math.huge) > 30 then
 		bot._pickoffLogT = DotaTime()
-		print(string.format('[Obj] %s pickoff risk at (%d, %d): %d enemies may be there', bot:GetUnitName(), loc.x, loc.y, n))
+		print(string.format('[Obj] %s pickoff risk at (%d, %d): %d enemies may be there%s', bot:GetUnitName(), loc.x, loc.y, n, killer and ' (one kills us alone)' or ''))
 	end
 	return risky
 end
