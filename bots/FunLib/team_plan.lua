@@ -926,20 +926,29 @@ end
 function X.PushFormationThink(bot, lane)
 	local loc = bot:GetLocation()
 	if #RealEnemiesNear(loc, 1200) > 0 then return false end -- fighting: free play
-	local allies = {}
-	for _, m in ipairs(Members()) do
-		if m:IsAlive() and GetUnitToUnitDistance(m, bot) < 1500 then table.insert(allies, m) end
-	end
-	if #allies < 3 then return false end
-	local tank = Tank(allies)
-	if not tank or tank == bot then return false end
-
 	local building = nil
 	for _, tbl in ipairs({ T1, T2, T3 }) do
 		building = GetTower(GetOpposingTeam(), tbl[lane])
 		if building then break end
 	end
 	local bLoc = building and building:GetLocation() or GetAncient(GetOpposingTeam()):GetLocation()
+	-- Our creeps already at the building tank it: everyone hits it.
+	for _, c in ipairs(bot:GetNearbyLaneCreeps(1600, false)) do
+		if c:IsAlive() and GetUnitToLocationDistance(c, bLoc) < 800 then return false end
+	end
+	-- The tank is a bot pushing this same lane. Match 9102056479: the
+	-- human Kez (29k) was the "tank"; while they stood back, every pushing
+	-- bot walked 350 behind them - back and forth under our T1, then
+	-- circling at the enemy T2 while our creeps hit it.
+	local pushMode = ({ [LANE_TOP] = BOT_MODE_PUSH_TOWER_TOP, [LANE_MID] = BOT_MODE_PUSH_TOWER_MID, [LANE_BOT] = BOT_MODE_PUSH_TOWER_BOT })[lane]
+	local allies = {}
+	for _, m in ipairs(Members()) do
+		if m:IsAlive() and m:IsBot() and GetUnitToUnitDistance(m, bot) < 1500
+		and (m == bot or m:GetActiveMode() == pushMode) then table.insert(allies, m) end
+	end
+	if #allies < 3 then return false end
+	local tank = Tank(allies)
+	if not tank or tank == bot then return false end
 	local dTank = GetUnitToLocationDistance(tank, bLoc)
 	local dBot = GetUnitToLocationDistance(bot, bLoc)
 	-- Until the tank is at the building, stay behind it.
