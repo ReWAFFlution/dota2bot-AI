@@ -1547,6 +1547,39 @@ local function DownDamage(u)
 	return sum
 end
 
+-- Damage each enemy hero was seen to deal: our hero's HP lost over ~1 s
+-- while only that enemy hit it (no creep or tower damage), per second, the
+-- highest recent (halved every 60 s). The engine's estimate missed damage
+-- over time: a human Viper killed bots that read "they kill us in 5-6 s"
+-- within 2 s (9102714471: DK at 95 HP, "est 524", dead a second later).
+local observedDps = {} -- [player id] = { dps, t }
+function X.NoteDamageTaken(bot)
+	local t = DotaTime()
+	local hp = bot:GetHealth()
+	local last = bot._dmgSample
+	bot._dmgSample = { t = t, hp = hp }
+	if not last or t - last.t < 0.4 or t - last.t > 1.5 or hp >= last.hp then return end
+	local okC, byCreep = pcall(function() return bot:WasRecentlyDamagedByCreep(1.0) end)
+	local okT, byTower = pcall(function() return bot:WasRecentlyDamagedByTower(1.0) end)
+	if (okC and byCreep) or (okT and byTower) then return end
+	local who, n = nil, 0
+	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+		if J.IsValidHero(e) and not e:IsIllusion() and bot:WasRecentlyDamagedByHero(e, 1.0) then who, n = e, n + 1 end
+	end
+	if n ~= 1 then return end
+	local dps = (last.hp - hp) / (t - last.t)
+	local pid = who:GetPlayerID()
+	local o = observedDps[pid]
+	local cur = o and o.dps * 0.5 ^ ((t - o.t) / 60) or 0
+	if dps > cur then observedDps[pid] = { dps = dps, t = t } end
+end
+local function ObservedDps(u)
+	local ok, pid = pcall(function() return u:GetPlayerID() end)
+	local o = ok and observedDps[pid]
+	if not o then return 0 end
+	return o.dps * 0.5 ^ ((DotaTime() - o.t) / 60)
+end
+
 local function Estimate(u, victim, secs, dtype)
 	local enemy = u.GetTeam and u:GetTeam() ~= GetTeam()
 	local ready = u:GetEstimatedDamageToTarget(true, victim, secs, dtype)
@@ -1570,7 +1603,11 @@ local function Estimate(u, victim, secs, dtype)
 	pcall(function() atk = u:GetAttackDamage() or 0 end)
 	pcall(function() spa = math.max(0.3, u:GetSecondsPerAttack() or 1.7) end)
 	local cap = atk * (math.floor(secs / spa) + 1) + 110 * u:GetLevel()
-	return math.min(v, cap), ready, all, cap
+	v = math.min(v, cap)
+	-- Never under what it was seen to deal (80%), cap or not.
+	local obs = ObservedDps(u) * secs * 0.8
+	if obs > v then v = obs end
+	return v, ready, all, cap
 end
 
 local function Burst(dealers, victim, secs, magicCut)
@@ -1798,6 +1835,7 @@ end
 
 function X.Combat(bot)
 	X.NoteEnemyCasts()
+	pcall(X.NoteDamageTaken, bot)
 	if not bot:IsAlive() then return nil end
 	local myLoc = bot:GetLocation()
 	local enemies = HeroesNear(GetOpposingTeam(), myLoc, 1400)
@@ -2155,8 +2193,8 @@ function X.FightHint(bot)
 						local ok, v, rdy, all, cap = pcall(Estimate, e, bot, 2, DAMAGE_TYPE_ALL)
 						local sm = SummonDamage(e, 2)
 						local il = IllusionDamage(e, bot, 2)
-						table.insert(parts, string.format('%s L%d: est %d (ready %d, all %d, cap %d) summons %d illusions %d',
-							string.gsub(e:GetUnitName(), 'npc_dota_hero_', ''), e:GetLevel(), ok and v or -1, ok and rdy or -1, ok and all or -1, ok and cap or -1, sm, il))
+						table.insert(parts, string.format('%s L%d: est %d (ready %d, all %d, cap %d, seen %d/s) summons %d illusions %d',
+							string.gsub(e:GetUnitName(), 'npc_dota_hero_', ''), e:GetLevel(), ok and v or -1, ok and rdy or -1, ok and all or -1, ok and cap or -1, ObservedDps(e), sm, il))
 					end
 				end
 				print(string.format('[Diag] %s HP %d (+%d shield): %s', bot:GetUnitName(), bot:GetHealth(), ShieldHP(bot), table.concat(parts, ' | ')))
@@ -2229,6 +2267,9 @@ local function TryTP(bot, loc)
 	-- a mid push "lost x0.11" and called off a second later (9102662640);
 	-- the bottom tower stood alone.
 	if a and a.kind == 'push' and X.FightAt(a.loc, bot, false, true) < 1.0 then return false end
+	-- Nor into a defense we lose with this hero there (Alchemist teleported
+	-- to a T2 at 30:34 and died to the human Viper 6 s later, x0.13).
+	if a and a.kind == 'defend' and (a.enemies or 0) > 0 and X.FightAt(a.loc, bot, false, true) < 0.8 then return false end
 	-- The offlaner in the laning stage stays by its own lane's tower.
 	if J.GetPosition(bot) == 3 and J.IsInLaningPhase() and a and a.kind == 'push' then return false end
 	if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return false end
