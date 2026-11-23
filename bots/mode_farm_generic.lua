@@ -489,6 +489,7 @@ function GetDesireHelper()
 					local laneFront = GetLaneFrontLocation(GetTeam(), bestLane, 0)
 					bot.farmLocation = laneFront
 					bot._farmBranch = 'front'
+					bot._farmLane = bestLane
 					return Min(RemapValClamped(J.GetHP(bot), 0.2, 0.7, 0.35, BOT_MODE_DESIRE_HIGH), nFarmCap)
 				end
 			end
@@ -667,6 +668,23 @@ function Think()
 				end
 			end
 		end
+	end
+
+	-- The wave the desire picked: go to it. Think went to the camp logic
+	-- whenever no enemy creep was within 900, so the bot walked towards a
+	-- camp while the desire kept choosing the wave ("front" 49% of the farm
+	-- time, 211 g/min for Slark by 20:00, bot vs bot 9102944605).
+	if bot._farmBranch == 'front' and bot._farmLane then
+		local front = GetLaneFrontLocation(GetTeam(), bot._farmLane, -200)
+		if front then
+			if GetUnitToLocationDistance(bot, front) > 250 then bot:Action_MoveToLocation(front) end
+			return -- there: wait for the wave
+		end
+	end
+	-- The wave seen 900-1600 away: walk to it, not to a camp.
+	if bot._farmBranch == 'wave' and bot.farmLocation and GetUnitToLocationDistance(bot, bot.farmLocation) > 250 then
+		bot:Action_MoveToLocation(bot.farmLocation)
+		return
 	end
 
 	bot._farm_repick_at = bot._farm_repick_at or 0
