@@ -597,17 +597,37 @@ function X.CoreThink(bot)
 
 	-- Last hits first: a creep we kill now (DK chased Troll toward his tower
 	-- in a harass window and lost two last hits and a deny).
-	local walkTo
+	local walkTo, waitFor
+	-- Still on attack cooldown: the swing would start late and the HP
+	-- forecast over 1.1-1.3 s missed (Ember missed 4 of 9 in two minutes,
+	-- 120-150 away, bot vs bot 9103068510). Wait next to the creep and
+	-- decide once the attack can start.
+	local cdLeft = 0
+	pcall(function()
+		local point = bot:GetAttackPoint() / math.max(0.1, bot:GetAttackSpeed())
+		local idle = bot:GetSecondsPerAttack() - point
+		cdLeft = math.max(0, idle - (GameTime() - bot:GetLastAttackTime()))
+	end)
 	for _, c in pairs(bot:GetNearbyLaneCreeps(800, true)) do
 		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
 			local delay = J.GetAttackProDelayTime(bot, c) + X.TurnTime(bot, c)
-			if X.KillsOnSwing(c, dmg, delay) then
+			if cdLeft > 0.25 then
+				if c:GetHealth() < dmg * 1.6 and (not waitFor or c:GetHealth() < waitFor:GetHealth()) then waitFor = c end
+			elseif X.KillsOnSwing(c, dmg, delay) then
 				X.NoteLastHitTry(bot, c, dmg, delay)
 				bot:Action_AttackUnit(c, true)
 				return
 			end
 			if c:GetHealth() < dmg * 2.2 and (not walkTo or c:GetHealth() < walkTo:GetHealth()) then walkTo = c end
 		end
+	end
+	if waitFor then
+		if GetUnitToUnitDistance(bot, waitFor) > range + 60 then
+			bot:Action_MoveToLocation(waitFor:GetLocation())
+		else
+			bot:Action_ClearActions(true) -- no auto-attack on another creep meanwhile
+		end
+		return
 	end
 	-- A deny now beats a hit on a hero too.
 	for _, c in pairs(bot:GetNearbyLaneCreeps(range + 150, false)) do
