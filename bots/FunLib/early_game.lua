@@ -360,8 +360,12 @@ function X.GetDesire(bot)
 	local loc = GetRuneSpawnLocation(rune)
 	if GetUnitToLocationDistance(bot, loc) > 1200 then return 0.9 end
 	local enemies = RealHeroesNear(loc, 1000, true)
-	-- The rune may show up a moment after the horn: wait 3 s for it.
+	-- The rune may show up a moment after the horn: wait 3 s for it. And a
+	-- status that doesn't say "available" isn't proof it's gone: done only
+	-- once we stood on the spot and tried (Slark 199 and Nyx 99 from the
+	-- bounties left them at 0:03 and they lay there, bot vs bot 9104356633).
 	if GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE or #enemies > 0 or t < 3 then return 0.9 end
+	if not bot._runeTried and t < 12 then return 0.9 end
 	bot._earlyDone = true
 	Log(bot, 'bounty done, going to lane')
 	return nil
@@ -390,6 +394,16 @@ function X.Think(bot)
 	local enemies = RealHeroesNear(myLoc, 1200, true)
 	local allies = RealHeroesNear(myLoc, 1400, false)
 
+	-- Next to the rune after the horn: take it before any fight or retreat
+	-- (it's a moment; Nyx fought 99 from the bounty and Lina took it).
+	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 400 and (bot._runeTryT or -math.huge) < DotaTime() - 0.5
+	and (GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE or Dist(myLoc, runeLoc) <= 250) then
+		bot._runeTryT = DotaTime()
+		if Dist(myLoc, runeLoc) <= 250 then bot._runeTried = true end
+		bot:Action_PickUpRune(rune)
+		return true
+	end
+
 	-- Outnumbered: back off toward the own tower.
 	local close = 0
 	for _, e in ipairs(enemies) do if Dist(e:GetLocation(), myLoc) < 900 then close = close + 1 end end
@@ -417,7 +431,13 @@ function X.Think(bot)
 	-- status may not say "available" for a rune right under the hero).
 	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 250 and (bot._runeTryT or -math.huge) < DotaTime() - 0.5 then
 		bot._runeTryT = DotaTime()
+		bot._runeTried = true
 		bot:Action_PickUpRune(rune)
+		return true
+	end
+	-- After the horn, not sure it's gone: walk onto the spot and try.
+	if DotaTime() >= 3 and not bot._runeTried and GetRuneStatus(rune) ~= RUNE_STATUS_AVAILABLE and #enemies == 0 then
+		bot:Action_MoveToLocation(runeLoc)
 		return true
 	end
 
