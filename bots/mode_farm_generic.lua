@@ -65,6 +65,26 @@ function GetDesire()
 	-- local cachedVar = J.Utils.GetCachedVars(cacheKey, 0.4)
 	-- if DotaTime() > 30 and cachedVar ~= nil then return cachedVar end
 	local res = GetDesireHelper()
+	-- A camp we started: finish it (up to 12 s) unless an enemy hero is near.
+	-- Slark hit a camp at 15:24, a push took over and he walked off, the camp
+	-- half dead behind him (bot vs bot 9104356633).
+	if bot:GetActiveMode() == BOT_MODE_FARM and J.GetHP(bot) > 0.4 then
+		local started = false
+		for _, n in pairs(bot:GetNearbyNeutralCreeps(500)) do
+			if J.IsValid(n) and n:GetHealth() < n:GetMaxHealth() then started = true break end
+		end
+		local t = DotaTime()
+		if started then
+			bot._campHoldT = bot._campHoldT or t
+			if t - bot._campHoldT < 12 and #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) == 0 then
+				res = math.max(res, 0.8)
+			end
+		else
+			bot._campHoldT = nil
+		end
+	else
+		bot._campHoldT = nil
+	end
 	-- At an open enemy tower (split push): hit the tower, not the camp next to it.
 	if Objectives.SplitPushing(bot) then res = math.min(res, 0.6) end
 	-- Team siege (team plan): the cores come out of the jungle.
