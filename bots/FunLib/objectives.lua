@@ -1777,7 +1777,15 @@ function X.RememberEnemies()
 	if #ours == 0 then return end
 	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
 		if J.IsValidHero(e) and not e:IsIllusion() and not J.IsSuspiciousIllusion(e) then
-			enemySnap[e:GetPlayerID()] = { power = TeamPower({ e }, ours), hp = e:GetMaxHealth() + ShieldHP(e) }
+			-- peak: the best of the last 2 min, for the fog - seen right after a
+			-- fight with its spells spent, a hero read weak until seen again
+			-- (Dire started finishes "x15-22 stronger" at 3-4 vs 4 and lost
+			-- them in seconds, bot vs bot 9103201907).
+			local id, now = e:GetPlayerID(), DotaTime()
+			local power, old = TeamPower({ e }, ours), enemySnap[e:GetPlayerID()]
+			local peak, peakT = power, now
+			if old and old.peak and old.peak > power and now - old.peakT < 120 then peak, peakT = old.peak, old.peakT end
+			enemySnap[id] = { power = power, hp = e:GetMaxHealth() + ShieldHP(e), peak = peak, peakT = peakT }
 		end
 	end
 end
@@ -1796,7 +1804,7 @@ local function FogEnemies(loc, visible, all, half)
 			if d and d.time_since_seen <= 10 then w = Dist(d.location, loc) < 3000 and 0.9 or 0.2 end
 			if all then w = 1 end -- at their base they all come
 			if half then w = math.max(w, 0.5) end -- their tower: they may teleport in
-			power, hp, n = power + snap.power * w, hp + snap.hp * w, n + w
+			power, hp, n = power + (snap.peak or snap.power) * w, hp + snap.hp * w, n + w
 		end
 	end
 	return power, hp, n

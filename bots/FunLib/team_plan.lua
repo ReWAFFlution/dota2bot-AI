@@ -104,8 +104,37 @@ local function RealEnemiesNear(loc, radius)
 end
 
 -- Inventory networth (enemy items are known once seen), cached by jmz_func.
+-- The real networth where the engine gives it (GetNetWorth of an enemy hero
+-- seen; 0 if hidden): inventory networth stops at 6 slots - Radiant, 40k
+-- ahead at 90:00, held "behind by 13990" for 20 min and defended at home
+-- with Dire's ancient open (bot vs bot 9103201907).
+local seenNW = {}
+local function RealNetworthDiff()
+	local ally, enemy, n = 0, 0, 0
+	for i = 1, #GetTeamPlayers(GetTeam()) do
+		local m = GetTeamMember(i)
+		if m then ally = ally + (m:GetNetWorth() or 0) end
+	end
+	for _, e in pairs(GetUnitList(UNIT_LIST_ENEMY_HEROES)) do
+		if J.IsValidHero(e) and not e:IsIllusion() and not J.IsSuspiciousIllusion(e) then
+			local ok, nw = pcall(function() return e:GetNetWorth() end)
+			if ok and nw and nw > 0 then seenNW[e:GetPlayerID()] = nw end
+		end
+	end
+	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+		if type(seenNW[pid]) == 'number' then enemy, n = enemy + seenNW[pid], n + 1 end
+	end
+	if n < #GetTeamPlayers(GetOpposingTeam()) or ally <= 0 then return nil end
+	return ally - enemy
+end
+
 local lastNW = { 0, 0 }
 local function NetworthDiff()
+	local real = RealNetworthDiff()
+	if real then
+		if not seenNW.logged then seenNW.logged = true print('[Team '..GetTeam()..'] networth: real (GetNetWorth of enemies works), diff '..math.floor(real)) end
+		return real
+	end
 	local ally, enemy = J.GetInventoryNetworth()
 	if ally and enemy and (ally > 0 or enemy > 0) then lastNW = { ally, enemy } end
 	return lastNW[1] - lastNW[2]
@@ -369,7 +398,10 @@ function X.Update()
 	local nwDiff = NetworthDiff()
 	local lvlDiff = J.GetAverageLevel(false) - J.GetAverageLevel(true)
 	local behind = nwDiff < -BEHIND_NETWORTH or lvlDiff < -BEHIND_LEVELS
-	if behind and t > 15 * 60 then
+	-- Their ancient open (both T4 down): no "defend" - the finish decides by
+	-- the fight there (Radiant defended for 19 min after Dire's last T4).
+	local ancientOpen = GetTower(GetOpposingTeam(), TOWER_BASE_1) == nil and GetTower(GetOpposingTeam(), TOWER_BASE_2) == nil
+	if behind and t > 15 * 60 and not ancientOpen then
 		local goodDefense = S.recentEnemyDeaths and S.recentEnemyDeaths >= 2 and t - (S.recentEnemyDeathsT or -100) < 30 and enemyAlive <= 3
 		if not goodDefense then
 			SetPhase(S, 'defend', 'behind by '..math.floor(-nwDiff)..' networth')
