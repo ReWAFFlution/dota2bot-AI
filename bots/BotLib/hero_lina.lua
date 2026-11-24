@@ -343,11 +343,29 @@ function X.ConsiderQ()
 			return BOT_ACTION_DESIRE_HIGH, nTargetLocation, 'Q对线消耗'
 		end
 
-		--对线补刀
-		if #hAllyList == 1 and nMP > 0.38
+		-- One enemy hero (mid): Q him when it also hits creeps or he is
+		-- hurt - the nuke is for him, not for the wave (at 1:23 Lina burned
+		-- it on three lane creeps, bot vs bot 9104356633).
+		local nEnemyInRange = nil
+		for _, e in pairs( nInRangeEnemyList ) do
+			if J.IsValidHero( e ) and J.CanCastOnNonMagicImmune( e ) and not J.IsSuspiciousIllusion( e ) then nEnemyInRange = e break end
+		end
+		if nEnemyInRange ~= nil and nMP > 0.5 and ( nSkillLV >= 2 or J.GetHP( nEnemyInRange ) < 0.6 )
+		then
+			local eLoc = nEnemyInRange:GetExtrapolatedLocation( nCastPoint + GetUnitToUnitDistance( bot, nEnemyInRange ) / 1200 )
+			if J.IsInLocRange( bot, eLoc, nCastRange )
+			then
+				return BOT_ACTION_DESIRE_HIGH, eLoc, 'Q对线消耗单'..J.Chat.GetNormName( nEnemyInRange )
+			end
+		end
+
+		--对线补刀: early on only when the line also hits an enemy hero
+		-- or kills a big wave (4+), and with mana to spare.
+		local nKillNeed = DotaTime() < 8 * 60 and 4 or 3
+		if #hAllyList == 1 and nMP > ( DotaTime() < 8 * 60 and 0.7 or 0.38 )
 		then
 			local locationAoEKill = bot:FindAoELocation( true, false, bot:GetLocation(), nCastRange, nRadius + 50, 0, nDamage )
-			if locationAoEKill.count >= 3
+			if locationAoEKill.count >= nKillNeed
 			then
 				nTargetLocation = locationAoEKill.targetloc
 				return BOT_ACTION_DESIRE_HIGH, nTargetLocation, "Q对线补刀"..locationAoEKill.count
