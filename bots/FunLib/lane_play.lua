@@ -523,16 +523,22 @@ function X.KillsOnSwing(c, dmg, delay, ownOnly)
 	pcall(function() others = J.GetTotalAttackWillRealDamage(c, delay) or 0 end)
 	local okD, ours = pcall(function() return c:GetActualIncomingDamage(dmg, DAMAGE_TYPE_PHYSICAL) end)
 	if not okD or not ours then return J.WillKillTarget(c, dmg, DAMAGE_TYPE_PHYSICAL, delay) end
-	if others >= hp - 1 then return false end -- dies without us
-	if ours > hp then return true end
-	if ownOnly then return false end
-	-- Short of it alone: only the other hits that land well before ours
-	-- (the first 60% of the swing) count. DK missed at HP 82 with our hit 78
-	-- and "others 22 within 1.01 s" counted at 70% (bot vs bot 9102944605):
-	-- those hits landed after ours.
+	-- Only the other hits that land well before ours (the first 60% of the
+	-- swing) can take it first. "Dies without us" on all the hits within the
+	-- swing kept ranged cores from swinging at all: with a 0.8-1 s swing and
+	-- projectile the wave's hits always summed past the creep's HP (Shadow
+	-- Fiend went for 6 of his 51 last hits by 10:00, no misses, bot vs bot
+	-- 9104356633).
 	local early = 0
 	pcall(function() early = J.GetTotalAttackWillRealDamage(c, delay * 0.6) or 0 end)
-	return ours + math.min(early, others) * 0.85 > hp
+	early = math.min(early, others)
+	if early >= hp - 1 then return false end -- dies before our hit lands
+	if ours > hp then return true end
+	if ownOnly then return false end
+	-- Short of it alone: those early hits make up the rest. DK missed at HP
+	-- 82 with our hit 78 and "others 22 within 1.01 s" counted at 70% (bot vs
+	-- bot 9102944605): those hits landed after ours.
+	return ours + early * 0.85 > hp
 end
 
 function X.CoreThink(bot)
