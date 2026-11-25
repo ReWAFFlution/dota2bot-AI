@@ -70,6 +70,33 @@ local function EnemyTowerNear(loc, radius)
 	return nil
 end
 
+-- Their tower is busy with our creeps: it shoots one of ours and two of
+-- ours stand in its range (or one healthy one). Then its range is safe for
+-- last hits and for hitting the tower itself - not for hitting a hero, which
+-- turns it on us. Dragon Knight left every creep under their T1 to it and
+-- never hit the tower while our wave tanked it (9105606782).
+local function TowerTanked(tw)
+	if not tw then return false end
+	local okT, tgt = pcall(function() return tw:GetAttackTarget() end)
+	if not okT or not tgt or tgt:IsNull() then return false end
+	local okH, isHero = pcall(function() return tgt:IsHero() end)
+	if not okH or isHero or tgt:GetTeam() ~= GetTeam() then return false end
+	local n, strong = 0, false
+	for _, c in pairs(GetUnitList(UNIT_LIST_ALLIED_CREEPS) or {}) do
+		if c and not c:IsNull() and c:IsAlive() and Dist(c:GetLocation(), tw:GetLocation()) < 750 then
+			n = n + 1
+			if J.GetHP(c) > 0.5 then strong = true end
+		end
+	end
+	return n >= 2 or (n == 1 and strong)
+end
+-- EnemyTowerNear, but a tower busy with our creeps doesn't count.
+local function UnsafeTowerNear(loc, radius)
+	local tw = EnemyTowerNear(loc, radius)
+	if tw and TowerTanked(tw) then return nil end
+	return tw
+end
+
 local function IsSupport(bot) return J.GetPosition(bot) >= 4 end
 
 local function EnemyPos(h)
@@ -138,7 +165,7 @@ function X.TradeRisk(bot, enemies)
 		local ok, d = pcall(function() return e:GetEstimatedDamageToTarget(true, bot, 2.0, DAMAGE_TYPE_ALL) end)
 		if ok and d then dmg = dmg + d end
 	end
-	if EnemyTowerNear(bot:GetLocation(), 850) then dmg = dmg + 300 end
+	if UnsafeTowerNear(bot:GetLocation(), 850) then dmg = dmg + 300 end
 	local r = dmg / math.max(1, bot:GetHealth())
 	-- Alone vs two: back from the wave, in only for a creep about to die.
 	if alone then r = math.max(r, 0.65) end
@@ -694,7 +721,7 @@ function X.CoreThink(bot)
 		cdLeft = math.max(0, idle - (GameTime() - bot:GetLastAttackTime()))
 	end)
 	for _, c in pairs(bot:GetNearbyLaneCreeps(800, true)) do
-		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
+		if J.IsValid(c) and J.CanBeAttacked(c) and not UnsafeTowerNear(c:GetLocation(), 700) then
 			local delay = J.GetAttackProDelayTime(bot, c) + X.TurnTime(bot, c)
 			-- The step in, if any: Abaddon swung from 245 (a melee reach of
 			-- ~200), the hit landed late and the wave took the creep (HP 30,
@@ -856,10 +883,10 @@ function X.CoreThink(bot)
 	-- over: clear the wave instead of waiting for last hits. Medusa stood in
 	-- an enemy wave for seconds ("stands still 5 s in mode laning") hitting
 	-- nothing until each creep was low enough.
-	if (#enemies == 0 or (not J.IsInLaningPhase() and risk < 0.6)) and not EnemyTowerNear(bot:GetLocation(), 850) then
+	if (#enemies == 0 or (not J.IsInLaningPhase() and risk < 0.6)) and not UnsafeTowerNear(bot:GetLocation(), 850) then
 		local weakest
 		for _, c in pairs(bot:GetNearbyLaneCreeps(range + 300, true)) do
-			if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 800)
+			if J.IsValid(c) and J.CanBeAttacked(c) and not UnsafeTowerNear(c:GetLocation(), 800)
 			and (not weakest or c:GetHealth() < weakest:GetHealth()) then weakest = c end
 		end
 		if weakest then
@@ -868,8 +895,19 @@ function X.CoreThink(bot)
 		end
 	end
 
+	-- Their tower busy with our wave, nothing to last hit and no enemy hero
+	-- close: hit the tower.
+	do
+		local tw = EnemyTowerNear(bot:GetLocation(), range + 400)
+		if tw and not walkTo and TowerTanked(tw) and J.GetHP(bot) > 0.5 and #RealHeroes(true, bot:GetLocation(), 800) == 0
+		and J.CanBeAttacked(tw) then
+			bot:Action_AttackUnit(tw, true)
+			return
+		end
+	end
+
 	-- Out of enemy tower range.
-	local tower = EnemyTowerNear(bot:GetLocation(), 800)
+	local tower = UnsafeTowerNear(bot:GetLocation(), 800)
 	if tower then
 		bot:Action_MoveToLocation(bot:GetLocation() + (bot:GetLocation() - tower:GetLocation()):Normalized() * 300)
 		return
@@ -882,7 +920,7 @@ function X.CoreThink(bot)
 	local back = risk < 0.6 and -(range + 50) or -500
 	local loc = GetLaneFrontLocation(GetTeam(), lane, back)
 	for _, b in ipairs({ -700, -1000, -1300, -1600 }) do
-		if not EnemyTowerNear(loc, 850) then break end
+		if not UnsafeTowerNear(loc, 850) then break end
 		loc = GetLaneFrontLocation(GetTeam(), lane, math.min(back, b))
 	end
 	if GetUnitToLocationDistance(bot, loc) > 150 then
