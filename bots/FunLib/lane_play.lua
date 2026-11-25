@@ -166,6 +166,16 @@ function X.Harass(bot)
 	local target = PickHarassTarget(bot)
 	if not target then return end
 	if not support and J.GetHP(target) > J.GetHP(bot) + 0.15 then return end
+	-- A melee core walks into their wave to hit a hero: not with 2+ of their
+	-- creeps by the target (they all turn on us; Riki and Spectre lost half
+	-- their HP in the first minute, bot vs bot 9105279794).
+	if not support and bot:GetAttackRange() < 350 then
+		local n = 0
+		for _, c in pairs(bot:GetNearbyLaneCreeps(1200, true)) do
+			if J.IsValid(c) and GetUnitToUnitDistance(c, target) < 500 then n = n + 1 end
+		end
+		if n >= 2 then return end
+	end
 	-- Not into a trade we'd lose: a harass is a short trade, so what counts is
 	-- the enemies' burst over ~2 s (the 4 s all-in estimate made supports
 	-- skip almost every trade at low levels).
@@ -697,7 +707,16 @@ function X.CoreThink(bot)
 		end
 	end
 	if harasser and J.GetHP(bot) < 0.95 then
-		if hd <= range + 60 and risk < 0.6 and J.CanBeAttacked(harasser) and not EnemyTowerNear(harasser:GetLocation(), 900) then
+		-- Hitting a hero next to their wave draws its creeps: at levels 1-3
+		-- that's most of the damage (Riki at 43% HP by 0:37 against Legion
+		-- Commander and Windranger, Spectre at 47% by 1:00 - "rule 7", hit
+		-- by creeps while on a hero; 10 and 16 last hits at 10:00, bot vs
+		-- bot 9105279794). Hit back only with few of their creeps around,
+		-- or healthier than the harasser by a margin.
+		local theirCreeps = #bot:GetNearbyLaneCreeps(500, true)
+		local aggroOk = theirCreeps <= 1 or (J.GetHP(bot) > 0.7 and J.GetHP(bot) > J.GetHP(harasser) + 0.2)
+		local alone = #enemies >= 2 and #RealHeroes(false, bot:GetLocation(), 1200) <= 1
+		if hd <= range + 60 and risk < 0.6 and aggroOk and not alone and J.CanBeAttacked(harasser) and not EnemyTowerNear(harasser:GetLocation(), 900) then
 			bot:Action_AttackUnit(harasser, true)
 			return
 		end

@@ -5140,7 +5140,13 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 
 	if bot:GetLevel() > 12 and bot:DistanceFromFountain() < 600 then nMinTPDistance = nMinTPDistance + 600 end
 
+	-- The laning TP is for the laning stage: at 80:00 a hero briefly in the
+	-- laning mode teleported to its starting lane, off the team's finish
+	-- (Riki 6 times, Legion Commander and Spectre 6 each, bot vs bot
+	-- 9105279794).
 	if nMode == BOT_MODE_LANING
+	and DotaTime() < 12 * 60
+	and not (Objectives and Objectives.TeamPlanLane and Objectives.TeamPlanLane())
 	then
 		hEffectTarget, shouldTp = X.GetLaningTPLocation(bot, nMinTPDistance, botLocation)
 		sCastMotive = '出去发育'
@@ -5162,13 +5168,29 @@ X.ConsiderItemDesire["item_tpscroll"] = function( hItem )
 		end
 	end
 
-	-- Go complete items
-	if X.IsInvFull(bot) and X.GetNumStashItem(bot) >= 1
+	-- Go complete items. Once per stash/inventory state: with every slot
+	-- full and nothing that combines, the trip changes nothing and came back
+	-- every TP cooldown (Undying teleported home 14 times in the last 33
+	-- minutes, at 64-100% HP, off Dire's base at 30k ahead; bot vs bot
+	-- 9105279794). The mode check was 'or' (always true): not while
+	-- pushing, fighting or in the team's siege/finish.
+	local stashSig = nil
+	if X.IsInvFull(bot) and X.GetNumStashItem(bot) >= 1 then
+		local names = {}
+		for i = 0, 14 do
+			local it = bot:GetItemInSlot(i)
+			names[#names + 1] = it and it:GetName() or '-'
+		end
+		stashSig = table.concat(names, ',')
+	end
+	if stashSig and stashSig ~= bot._stashTpSig
 	and (X.IsThereRecipeInStash(bot) or (bot:GetStashValue() >= 1000 and bot:GetGold() > 1100))
-	and (bot:GetActiveMode() ~= BOT_MODE_PUSH_TOWER_TOP or bot:GetActiveMode() ~= BOT_MODE_PUSH_TOWER_MID or bot:GetActiveMode() ~= BOT_MODE_PUSH_TOWER_BOT or bot:GetActiveMode() ~= BOT_MODE_ATTACK)
+	and nMode ~= BOT_MODE_PUSH_TOWER_TOP and nMode ~= BOT_MODE_PUSH_TOWER_MID and nMode ~= BOT_MODE_PUSH_TOWER_BOT and nMode ~= BOT_MODE_ATTACK
+	and not (Objectives and Objectives.TeamPlanLane and Objectives.TeamPlanLane())
 	and not J.IsInTeamFight(bot, 1000)
 	and nEnemyCount == 0
 	then
+		bot._stashTpSig = stashSig
 		hEffectTarget = J.GetTeamFountain()
 		sCastMotive = '撤退:1'
 
