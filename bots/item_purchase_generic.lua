@@ -61,7 +61,7 @@ end
 
 if sPurchaseList == nil then
 	print("[ERROR] Can't load purchase list for: " .. botName)
-	print("Stack Trace:", debug.traceback())
+	print("Stack Trace:", ((debug and debug.traceback) and debug.traceback() or ''))
 	return
 end
 
