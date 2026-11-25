@@ -119,7 +119,12 @@ function X.TradeRisk(bot, enemies)
 	-- The exchange decides first: when they can't kill us within 4 s, or we
 	-- kill first, there's nothing to fear (WK wouldn't walk up to his creeps
 	-- next to a Legion Commander who was no threat to him).
-	if Objectives and Objectives.Combat and #enemies > 0 then
+	-- Alone against two: the exchange isn't the measure, their harass is
+	-- (Viper alone at the top vs Gyrocopter and Disruptor walked up at full
+	-- HP - "they kill us in 4+ s" - and died at 0:54 and 1:22, bot vs bot
+	-- 9105159777).
+	local alone = #enemies >= 2 and #RealHeroes(false, bot:GetLocation(), 1200) <= 1
+	if Objectives and Objectives.Combat and #enemies > 0 and not alone then
 		local c = Objectives.Combat(bot)
 		if c and (c.ttkThem > 4 or c.ttkUs <= c.ttkThem) then return 0 end
 	end
@@ -129,7 +134,10 @@ function X.TradeRisk(bot, enemies)
 		if ok and d then dmg = dmg + d end
 	end
 	if EnemyTowerNear(bot:GetLocation(), 850) then dmg = dmg + 300 end
-	return dmg / math.max(1, bot:GetHealth())
+	local r = dmg / math.max(1, bot:GetHealth())
+	-- Alone vs two: back from the wave, in only for a creep about to die.
+	if alone then r = math.max(r, 0.65) end
+	return r
 end
 
 -- Called from mode_laning_generic.GetDesire every frame.
@@ -194,6 +202,10 @@ local function ShouldPull(bot)
 	local t = DotaTime()
 	if t < PULL_FROM or t > PULL_UNTIL then return false end
 	if t < (bot._pullNext or 0) then return false end
+	-- Two failed pulls: stay with the core (Undying failed 7 of 7, up to 40 s
+	-- each, Spectre alone against Batrider and Wraith King: 1 last hit by
+	-- 3:00, 24 by 10:00, bot vs bot 9105159777).
+	if (bot._pullFails or 0) >= 2 then return false end
 	local pos, lane = J.GetPosition(bot), X.Lane(bot)
 	local safe = GetTeam() == TEAM_RADIANT and LANE_BOT or LANE_TOP
 	if not ((pos == 5 and lane == safe) or (pos == 4 and lane ~= safe and lane ~= LANE_MID)) then return false end
@@ -210,6 +222,10 @@ local function ShouldPull(bot)
 	if ownT1 and Dist(front, ownT1:GetLocation()) < 1300 then return false end
 	if Dist(front, enemyT1:GetLocation()) > 1700 then return false end
 	if #RealHeroes(true, camp.location, 1200) > 0 then return false end
+	-- Not with two enemy heroes at our core: leaving makes it a 1 v 2.
+	for _, a in ipairs(RealHeroes(false, bot:GetLocation(), 2500)) do
+		if a ~= bot and J.GetPosition(a) <= 3 and #RealHeroes(true, a:GetLocation(), 1400) >= 2 then return false end
+	end
 	return true
 end
 
@@ -226,6 +242,10 @@ end
 
 local function EndPull(bot, why)
 	if why then Log(bot, 'pull: '..why) end
+	if why == 'done' then bot._pullFails = 0
+	elseif why == 'enemies, aborted' or why == 'timeout' or why == 'camp is empty' or why == 'no wave to pull into' then
+		bot._pullFails = (bot._pullFails or 0) + 1
+	end
 	bot._pull = nil
 	bot._pullNext = DotaTime() + PULL_GAP
 end
