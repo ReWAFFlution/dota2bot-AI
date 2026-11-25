@@ -215,7 +215,18 @@ end
 -- minute: another roam desire came first, so the time limit below never ran).
 local STAND_MAX = 12
 function X.Expire(bot)
-	if bot._lotusStandT and (DotaTime() - bot._lotusStandT >= STAND_MAX or J.GetHP(bot) <= 0.25) then
+	-- Also when hit or with their creeps/heroes at the pool: Silencer stood
+	-- in the empty top pool while a wave of their creeps hit him (bot vs
+	-- bot 9105560137).
+	local threat = false
+	if bot._lotusStandT then
+		local ok, r = pcall(function()
+			return bot:WasRecentlyDamagedByCreep(1.0) or bot:WasRecentlyDamagedByAnyHero(1.5)
+				or #bot:GetNearbyLaneCreeps(700, true) > 0 or #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0
+		end)
+		threat = ok and r or false
+	end
+	if bot._lotusStandT and (threat or DotaTime() - bot._lotusStandT >= STAND_MAX or J.GetHP(bot) <= 0.25) then
 		Log(bot:GetUnitName()..' leaves the lotus pool ('..math.floor(DotaTime() - bot._lotusStandT)..' s there)')
 		bot._lotusStandT, bot._mapTarget, bot._mapUseT, bot._lotusGoT = nil, nil, nil, nil
 		bot._lotusGiveUpUntil = DotaTime() + 30
@@ -315,7 +326,7 @@ function X.LotusThink(bot, pool, S, key)
 		bot._lotusGot = bot._lotusGot + (n - bot._lotusCount)
 		bot._lotusCount, bot._lotusLastT = n, t
 	end
-	local done = (bot._lotusGot > 0 and t - bot._lotusLastT > 2.5) or (bot._lotusGot == 0 and t - bot._lotusStandT > 7.0)
+	local done = (bot._lotusGot > 0 and t - bot._lotusLastT > 2.5) or (bot._lotusGot == 0 and t - bot._lotusStandT > 4.0)
 	if done or d > 400 then
 		S.poolTaken[key] = t
 		Log(bot:GetUnitName()..(bot._lotusGot > 0 and (' picked '..bot._lotusGot..' lotus(es)') or ' got no lotus from the pool'))
