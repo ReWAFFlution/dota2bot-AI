@@ -1396,6 +1396,18 @@ function X.DefendDesire(bot, lane)
 		-- Nothing to defend there any more: no standing guard.
 		if a.tier ~= 5 and a.tower and not a.tower:IsNull() and not X.TowerThreatened(a.tower)
 		and #HeroesNear(GetOpposingTeam(), a.tower:GetLocation(), 1600) == 0 then return 0 end
+		-- Nobody hitting it and no enemy hero coming (within 1200): the fading
+		-- HP rate alone isn't a threat (35:50 of 9105606782).
+		if a.tier ~= 5 and a.tower and not a.tower:IsNull() then
+			local tloc = a.tower:GetLocation()
+			local busy = #HeroesNear(GetOpposingTeam(), tloc, 1200) > 0
+			if not busy then
+				for _, c in pairs(GetUnitList(UNIT_LIST_ENEMY_CREEPS) or {}) do
+					if c and not c:IsNull() and c:IsAlive() and Dist(c:GetLocation(), tloc) < 900 then busy = true break end
+				end
+			end
+			if not busy then return 0 end
+		end
 		return 0.88
 	end
 	return 0
@@ -2603,6 +2615,16 @@ function X.DefendThink(bot, lane)
 			losing = h ~= nil and h.rate > 5
 		end
 	end
+	-- Nobody there to hit it: done, whatever the smoothed HP rate says (it
+	-- fades over ~6 s after the last hit - Sven, CM and Keeper stood behind
+	-- our mid T2 for seconds after Dire had walked off, 9105606782, 35:50).
+	local attackers = #HeroesNear(GetOpposingTeam(), tloc, 750) > 0
+	if not attackers then
+		for _, c in pairs(bot:GetNearbyCreeps(1600, true)) do
+			if J.IsValid(c) and Dist(c:GetLocation(), tloc) < 900 then attackers = true break end
+		end
+	end
+	if not attackers then return false end
 	if not losing and #HeroesNear(GetOpposingTeam(), tloc, 750) == 0 then return false end
 	local strong = #allies + 1 >= #enemies -- +1: the tower
 	if #enemies > 0 then
