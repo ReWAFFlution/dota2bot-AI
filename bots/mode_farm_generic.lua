@@ -1308,13 +1308,28 @@ function X.ShouldRun(bot)
 			 nLongEnemyTowers = bot:GetNearbyTowers(988, true); 
 			 nEnemyTowers     = bot:GetNearbyTowers(966, true); 
 		end
+		-- An enemy tower near: run only when it shoots us or will (in its
+		-- reach, ~830 from its center, with none of our creeps under it).
+		-- "Within 999 / 898" ran the offlaner off every creep meeting by
+		-- their T1 (Dragon Knight, "rule 15" from 1:00, lost last hits,
+		-- 9105606782).
+		local function TowerThreat(tw)
+			if not tw then return false end
+			local okT, tgt = pcall(function() return tw:GetAttackTarget() end)
+			if okT and tgt == bot then return true end
+			if GetUnitToUnitDistance(bot, tw) > 830 then return false end
+			for _, c in pairs(bot:GetNearbyLaneCreeps(1600, false)) do
+				if J.IsValid(c) and GetUnitToUnitDistance(c, tw) < 750 then return false end
+			end
+			return true
+		end
 		if ( botLevel <= 2 or DotaTime() < 2 * 60 )
-			and nLongEnemyTowers[1] ~= nil
+			and TowerThreat(nLongEnemyTowers[1])
 		then
 			return X.RunWhy(bot, 1, 'rule 15')
 		end	
 		if ( botLevel <= 4 or DotaTime() < 3 * 60 )
-			and nEnemyTowers[1] ~= nil
+			and TowerThreat(nEnemyTowers[1])
 		then
 			return X.RunWhy(bot, 1, 'rule 16')
 		end	
