@@ -1516,7 +1516,25 @@ function ItemPurchaseThink()
 				-- needs 2 branches, not 1 (the owned branch used to satisfy it).
 				bot.currBuyingRequiredCounts = _fullBasicCounts(bot.currBuyingItemInPurchaseList)
 				_popIfNoLongerNeeded()
-				print('[Items] '..botName..' rebuilding '..tostring(bot.currBuyingItemInPurchaseList)..', missing: '..table.concat(bot.currBuyingBasicItemList, ', '))
+				-- What it holds (slots 0-14), to see why a rebuild is needed: Vengeful
+				-- rebought a Buckler for Vladmir twice in 35 s, nothing in the log
+				-- said where the first went (9105606782).
+				local held = {}
+				for i = 0, 14 do
+					local it = bot:GetItemInSlot(i)
+					if it then held[#held + 1] = i..':'..string.gsub(it:GetName(), 'item_', '') end
+				end
+				print('[Items] '..botName..' rebuilding '..tostring(bot.currBuyingItemInPurchaseList)..', missing: '..table.concat(bot.currBuyingBasicItemList, ', ')..' | holds '..table.concat(held, ' '))
+				-- The same parts missing again after a rebuild: buying them a third
+				-- time won't assemble it (they go somewhere else) - drop the item.
+				local key = tostring(bot.currBuyingItemInPurchaseList)..'|'..table.concat(bot.currBuyingBasicItemList, ',')
+				bot._rebuildSeen = bot._rebuildSeen or {}
+				bot._rebuildSeen[key] = (bot._rebuildSeen[key] or 0) + 1
+				if bot._rebuildSeen[key] >= 2 then
+					print('[Items] '..botName..' gives up on '..tostring(bot.currBuyingItemInPurchaseList)..': the same parts missing after a rebuild')
+					bot.currBuyingBasicItemList = {}
+					bot.countInvCheck = 121
+				end
 			elseif botCourierValue == 0 and botStashValue == 0 then
 				-- Can't finish it: give up after a while instead of blocking
 				-- every later purchase.
