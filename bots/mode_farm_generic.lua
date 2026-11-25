@@ -447,6 +447,15 @@ function GetDesireHelper()
 	local nFarmRampStart = J.IsModeTurbo() and 8 * 60 or 10 * 60
 	local nFarmRampEnd   = J.IsModeTurbo() and 14 * 60 or 20 * 60
 	local nFarmCap = RemapValClamped(DotaTime(), nFarmRampStart, nFarmRampEnd, 0.3, 0.6)
+	-- Cores farm unless the team calls them: the team plan's calls are 0.85+
+	-- (finish/siege pushes, defend assignments 0.88), and a 0.3-0.5 cap lost
+	-- to every default push/defend/roam desire - carries farmed 35-50% of the
+	-- time, 126-334 gold/min, PA 10k and Gyrocopter 7.6k at 30:00 (bot vs
+	-- bot 9105560137).
+	local pos = J.GetPosition(bot)
+	if pos == 1 then nFarmCap = RemapValClamped(DotaTime(), nFarmRampStart, nFarmRampEnd, 0.55, 0.7)
+	elseif pos == 2 then nFarmCap = RemapValClamped(DotaTime(), nFarmRampStart, nFarmRampEnd, 0.5, 0.65)
+	elseif pos == 3 then nFarmCap = RemapValClamped(DotaTime(), nFarmRampStart, nFarmRampEnd, 0.45, 0.6) end
 
 	if GetGameMode() ~= GAMEMODE_MO
 	and J.Site.IsTimeToFarm(bot)
