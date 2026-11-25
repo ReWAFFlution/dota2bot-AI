@@ -421,19 +421,10 @@ function GetDesireHelper()
 		if (beHighFarmer or (beNormalFarmer and J.IsMidGame()) or J.IsLateGame() or bot:GetNetWorth() >= 15000) then
 			if bot:GetActiveMode() == BOT_MODE_ASSEMBLE then assembleTime = DotaTime() end
 			if DotaTime() - assembleTime < 15.0 then return BOT_MODE_DESIRE_NONE end
-			-- Three allies together anywhere on the map stopped the carry's farm
-			-- everywhere: PA stood in a top camp at 15:10-15:45, not hitting it,
-			-- "retreat 0.13" the winner, while the others finished at mid and
-			-- the team plan left her to farm (bot vs bot 9105560137). Only a
-			-- group within 3000 (she'd join it) holds the farm back.
-			local groupNear = false
-			for i = 1, #GetTeamPlayers(GetTeam()) do
-				local m = GetTeamMember(i)
-				if m and m:IsAlive() and m ~= bot and GetUnitToUnitDistance(m, bot) < 3000 and J.GetAllyCount(m, 1600) >= 3 then
-					groupNear = true break
-				end
-			end
-			if groupNear then return BOT_MODE_DESIRE_NONE end
+			-- No "allies together, so no farm": the team plan calls the cores
+			-- to a fight (finish/siege desires 0.85-0.95, hunts); otherwise
+			-- they farm (PA stood in a top camp 15:10-15:45 at "retreat 0.13"
+			-- while three allies finished at mid, bot vs bot 9105560137).
 		end
 	end
 

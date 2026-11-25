@@ -236,7 +236,20 @@ end
 -- their lane for 2.5-3.5 gold/s camps and lost lane XP; without it they
 -- stood in the laning mode by an empty lane 35-50% of 10-15 min, Sand King
 -- and Viper farming 78-92 g/min). The wave coming back calls them back.
-local WAVE_FARM_FROM = { [1] = 7 * 60, [2] = 8 * 60, [3] = 8 * 60 }
+-- From the first minutes: a camp between waves when the hero clears it fast
+-- (rate and time checks below; 7-8 minutes was a rule, not a measure).
+local WAVE_FARM_FROM = { [1] = 2 * 60, [2] = 3 * 60, [3] = 2.5 * 60 }
+-- The camp an ally support is pulling: its neutrals fight our wave, half
+-- the clear is done for us.
+local function BeingPulled(bot, camp)
+	for i = 1, 5 do
+		local m = GetTeamMember(i)
+		local P = m and m ~= bot and m._pull
+		if P and P.camp and P.camp.location and (P.state == 'aggro' or P.state == 'drag')
+		and Dist(P.camp.location, camp.location) < 300 then return true end
+	end
+	return false
+end
 -- Their wave in our lane within reach: lane creeps near our lane front
 -- (within 3000 of us). Troll walked to a small camp while a whole wave died
 -- under our tower: he had backed off from two heroes, the creeps were 1300+
@@ -259,7 +272,7 @@ function X.BetweenWaves(bot, list)
 	local from = WAVE_FARM_FROM[pos]
 	if not from or DotaTime() < from then return nil end
 	if not list or #list == 0 then list = AllCamps() end
-	if J.GetHP(bot) < 0.5 then bot._waveCamp = nil return nil end
+	if J.GetHP(bot) < (DotaTime() < 7 * 60 and 0.6 or 0.5) then bot._waveCamp = nil return nil end
 	local t = DotaTime()
 	local w = bot._waveCamp
 	if w then
@@ -288,6 +301,7 @@ function X.BetweenWaves(bot, list)
 		and not TakenByOther(bot, camp)
 		and GetUnitToLocationDistance(bot, camp.location) < (DotaTime() > 10 * 60 and 2500 or 1500) then
 			local rate = X.CampRate(bot, camp)
+			if BeingPulled(bot, camp) then rate = rate * 1.5 end
 			local gold = (GOLD[camp.type or 'medium'] or 80) * (1 + DotaTime() / 3600)
 			local secs = rate > 0 and gold / rate - 2 or 99 -- walk + clear
 			if secs <= 30 and rate >= 3.5 and (not bestRate or rate > bestRate) then best, bestRate = entry, rate end
