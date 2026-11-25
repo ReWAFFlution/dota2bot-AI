@@ -22,3 +22,11 @@ local far = d(0.4, 0.3, false, 3000) local here = d(1, 1, false, 600)
 print('full bottle', full, 'empty bottle', empty, 'no bottle full HP', nob, 'low HP', low, 'low HP far', far, 'right here', here)
 assert(full == nil and nob == nil and empty > 0 and low > 0 and far == nil and here > 0)
 print('water ok')
+-- Out of mana, the rune out of sight 20 s after the 4:00 spawn: still worth a
+-- look (Arc Warden at 0 mana never went for one, 9105652499).
+SIM_T = 4 * 60 + 20
+local dry = M.PowerRuneDesire(sf, 0, RUNE_STATUS_UNKNOWN, RUNE_WATER, 1800, 0.8, 0.05, false)
+local fullMana = M.PowerRuneDesire(sf, 0, RUNE_STATUS_UNKNOWN, RUNE_WATER, 1800, 0.9, 0.9, false)
+print('unseen, 20 s in: no mana', dry, 'full mana', fullMana)
+assert(dry and dry > 0 and fullMana == nil)
+print('dry mid ok')

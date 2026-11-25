@@ -135,10 +135,22 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 	-- Not into an enemy we lose to at the rune: Zeus (HP 295) went for the
 	-- water rune with Ember standing by it, backed off, went again - two
 	-- minutes back and forth under his T1 (bot vs bot 9103068510, 2:00-4:00).
+	-- Why the mid passes on a water rune it needs (once per spawn): Arc Warden
+	-- at 0 mana never went for one and nothing said why (9105652499).
+	local function Skip(why)
+		if runeType == RUNE_WATER or t < 6 * 60 - 15 then
+			local key = minute..':'..tostring(rune)
+			if (hp < 0.7 or mp < 0.6) and bot._waterSkipLog ~= key and (minute == 2 or minute == 4) then
+				bot._waterSkipLog = key
+				Log(bot, string.format('skips water rune %s: %s (HP %d%%, mana %d%%, %d away, status %s)', tostring(rune), why,
+					math.floor(hp * 100), math.floor(mp * 100), math.floor(dist), tostring(status)))
+			end
+		end
+	end
 	local okO, Obj = pcall(require, GetScriptDirectory()..'/FunLib/objectives')
 	if okO and Obj and Obj.FightAt and status == RUNE_STATUS_AVAILABLE then
 		local okF, r = pcall(Obj.FightAt, GetRuneSpawnLocation(rune), bot, false, true)
-		if okF and r and r < 0.8 then return BOT_MODE_DESIRE_NONE end
+		if okF and r and r < 0.8 then Skip(string.format('we lose there (x%.2f)', r)) return BOT_MODE_DESIRE_NONE end
 	end
 	-- The river spots are empty before the first water rune at 2:00 (the game
 	-- still reports them "available").
@@ -149,13 +161,18 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 		-- Out of sight right after it spawns, and close: it's probably there.
 		-- Later in the minute the enemy mid has likely taken it (Viper spent
 		-- 28% of the first 5 minutes in the rune mode).
+		-- Needing it (low mana/HP): a look for 30 s after the spawn, not 12.
+		local needs = hp < 0.5 or mp < 0.35
 		local up = status == RUNE_STATUS_AVAILABLE
-			or (status == RUNE_STATUS_UNKNOWN and (minute == 2 or minute == 4) and second < 12 and dist < 2500)
-		if not up then return nil end
+			or (status == RUNE_STATUS_UNKNOWN and (minute == 2 or minute == 4) and second < (needs and 30 or 12) and dist < 2500)
+		if not up then
+			if status ~= RUNE_STATUS_AVAILABLE then Skip('not seen ('..math.floor(second)..' s into the minute)') end
+			return nil
+		end
 		-- The mid always takes it (the enemy mid would): with a Bottle it
 		-- refills it, without one it heals. It goes right away when it needs
 		-- it or the wave is dead, and still goes otherwise (lower desire).
-		if dist > 4000 then return nil end
+		if dist > 4000 then Skip('too far') return nil end
 		local bottleLow = false
 		if hasBottle then
 			local slot = bot:FindItemSlot('item_bottle')
@@ -172,6 +189,9 @@ function X.PowerRuneDesire(bot, rune, status, runeType, dist, hp, mp, hasBottle)
 		-- 12 and 10 last hits.
 		if dist < 900 then return Scaled(BOT_MODE_DESIRE_VERYHIGH, dist, 2000) end
 		if dist < 2000 and (need or waveClear) then return Scaled(BOT_MODE_DESIRE_VERYHIGH, dist, 2000) end
+		-- Out of mana/HP: from further too (2000-3000), the lane can wait.
+		if dist < 3000 and needs then return Scaled(BOT_MODE_DESIRE_VERYHIGH, dist, 3000) end
+		Skip('wave up and not needed enough')
 		return nil
 	end
 
