@@ -1110,6 +1110,18 @@ end
 
 
 local enemyPids = nil;
+-- An enemy tower that shoots us or will: its target is us, or we're in its
+-- reach (~830 from its center) with none of our creeps under it.
+function X.TowerThreat(bot, tw)
+	if not tw then return false end
+	local okT, tgt = pcall(function() return tw:GetAttackTarget() end)
+	if okT and tgt == bot then return true end
+	if GetUnitToUnitDistance(bot, tw) > 830 then return false end
+	for _, c in pairs(bot:GetNearbyLaneCreeps(1600, false)) do
+		if J.IsValid(c) and GetUnitToUnitDistance(c, tw) < 750 then return false end
+	end
+	return true
+end
 -- Which escape rule fired (printed at most every 20 s per bot).
 function X.RunWhy(bot, secs, why)
 	if secs > 0 and (bot._runLogT or -math.huge) < DotaTime() - 20 then
@@ -1239,7 +1251,10 @@ function X.ShouldRun(bot)
 			and enemyAncientDistance < GetUnitToUnitDistance(nEnemyTowers[1],enemyAncient) - rushEnemyTowerDistance
 		then
 			local nTarget = J.GetProperTarget(bot);
-			if nTarget == nil
+			-- Past their tower: only when it's on us (or will be). A melee
+			-- hero walking round the tower with our wave under it counted as
+			-- "past it" and ran 3.9 s (Wraith King at their T1, 9105652499).
+			if nTarget == nil and X.TowerThreat(bot, nEnemyTowers[1])
 			then
 				return X.RunWhy(bot, 3.9, 'rule 10')
 			end
@@ -1316,16 +1331,7 @@ function X.ShouldRun(bot)
 		-- "Within 999 / 898" ran the offlaner off every creep meeting by
 		-- their T1 (Dragon Knight, "rule 15" from 1:00, lost last hits,
 		-- 9105606782).
-		local function TowerThreat(tw)
-			if not tw then return false end
-			local okT, tgt = pcall(function() return tw:GetAttackTarget() end)
-			if okT and tgt == bot then return true end
-			if GetUnitToUnitDistance(bot, tw) > 830 then return false end
-			for _, c in pairs(bot:GetNearbyLaneCreeps(1600, false)) do
-				if J.IsValid(c) and GetUnitToUnitDistance(c, tw) < 750 then return false end
-			end
-			return true
-		end
+		local function TowerThreat(tw) return X.TowerThreat(bot, tw) end
 		if ( botLevel <= 2 or DotaTime() < 2 * 60 )
 			and TowerThreat(nLongEnemyTowers[1])
 		then
