@@ -242,6 +242,7 @@ local WAVE_FARM_FROM = { [1] = 2 * 60, [2] = 3 * 60, [3] = 2.5 * 60 }
 -- The camp an ally support is pulling: its neutrals fight our wave, half
 -- the clear is done for us.
 local function BeingPulled(bot, camp)
+	if not GetTeamMember then return false end
 	for i = 1, 5 do
 		local m = GetTeamMember(i)
 		local P = m and m ~= bot and m._pull

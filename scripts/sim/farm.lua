@@ -58,9 +58,9 @@ local still = F.BetweenWaves(bot, list)
 print('30 s into a slow clear: same camp', still and still.idx == e.idx)
 assert(still and still.idx == e.idx)
 pos = 2 bot._waveCamp = nil creeps = {} neutrals = { {} } bot.loc = Vector(0, 0)
-local later = SIM_T SIM_T = 7 * 60
+local later = SIM_T SIM_T = 2.5 * 60
 assert(F.BetweenWaves(bot, list) == nil)
-print('mid before 8:00: no camp')
+print('mid before 3:00: no camp')
 SIM_T = later bot._waveCamp = nil
 print('mid after 8:00: camp', F.BetweenWaves(bot, list) ~= nil)
 print('farm ok')
