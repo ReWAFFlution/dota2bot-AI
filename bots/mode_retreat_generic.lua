@@ -154,6 +154,10 @@ function GetDesire()
     if res > 0.3 and J.IsInLaningPhase() and J.GetHP(bot) > 0.35 and not bot:IsChanneling() then
         local c = bot._combat
         local danger = c and c.ttkThem and c.ttkThem <= 2
+        -- Being hit by a hero under 60% HP is danger too: Crystal Maiden
+        -- last hit at 26% inside Pudge's Rot ("they kill us in 3.0 s") and
+        -- died (a human Pudge, 9105594922, 2:50).
+        if bot:WasRecentlyDamagedByAnyHero(1.5) and J.GetHP(bot) < 0.6 then danger = true end
         if not danger and LastHitReady() then
             bot._retreatHold = { kind = 'lasthit', untilT = now + 1.5 }
             return 0.3

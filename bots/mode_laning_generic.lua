@@ -53,7 +53,16 @@ function GetDesire()
 	if J.GetPosition(bot) >= 4 and bot._laneDeaths then
 		local recent = 0
 		for _, dt in ipairs(bot._laneDeaths) do if DotaTime() - dt < 240 then recent = recent + 1 end end
-		if recent >= 2 then
+		-- Not while our core in that lane is being hit by their heroes: Crystal
+		-- Maiden went for a lotus and a ward while Pudge and Abaddon killed
+		-- her Gyrocopter (9105594922, 4:30).
+		local coreHit = false
+		for i = 1, 5 do
+			local m = GetTeamMember(i)
+			if m and m ~= bot and m:IsAlive() and J.GetPosition(m) <= 3 and m:GetAssignedLane() == bot:GetAssignedLane()
+			and GetUnitToUnitDistance(m, bot) < 2500 and m:WasRecentlyDamagedByAnyHero(2.0) then coreHit = true end
+		end
+		if recent >= 2 and not coreHit then
 			local front = GetLaneFrontLocation(GetTeam(), bot:GetAssignedLane(), 0)
 			local ok, ratio = pcall(Objectives.FightAt, front, bot)
 			if ok and ratio and ratio < 0.8 then

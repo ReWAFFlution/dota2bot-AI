@@ -64,3 +64,19 @@ L.SupportThink(bot)
 print('no core in lane ->', log[#log])
 assert(log[#log] == 'attack enemy creep', 'support should last hit without the core')
 print('solo lane ok')
+
+-- Our carry is being hit by an enemy hero next to us: the support goes on
+-- that hero (Crystal Maiden cast nothing on a Pudge killing her Gyrocopter).
+carry.alive = true carry.loc = bot.loc + Vector(300, 0)
+local pudge = { loc = carry.loc + Vector(150, 0), name = 'pudge' }
+function pudge:GetLocation() return self.loc end function pudge:IsIllusion() return false end function pudge:GetUnitName() return 'npc_dota_hero_pudge' end
+function carry:GetUnitName() return 'npc_dota_hero_gyrocopter' end
+function carry:WasRecentlyDamagedByAnyHero() return true end
+function carry:WasRecentlyDamagedByHero(e) return e == pudge end
+GetUnitList = function(kind) if kind == UNIT_LIST_ENEMY_HEROES then return { pudge } end return {} end
+bot.GetNearbyLaneCreeps = function() return {} end
+log = {}
+L.SupportThink(bot)
+print('carry hit by pudge ->', log[#log])
+assert(log[#log] == 'attack pudge', 'support should hit the hero hitting its carry')
+print('save the carry ok')

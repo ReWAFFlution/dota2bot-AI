@@ -162,6 +162,17 @@ local function LotusDesire(bot, S)
 	-- Not past enemies or into a fight we lose there: Lion went 3400 for a
 	-- lotus with Viper and Techies on his way and died, twice in 3 minutes.
 	if J.GetHP(bot) < 0.6 or #J.GetNearbyHeroes(bot, 1400, true, BOT_MODE_NONE) > 0 then return nil end
+	-- Not while an ally nearby is being hit by heroes (CM walked to a lotus
+	-- as Pudge hooked her Gyrocopter, 9105594922).
+	if GetTeamMember then
+		for i = 1, 5 do
+			local m = GetTeamMember(i)
+			if m and m ~= bot and m:IsAlive() then
+				local ok, hit = pcall(function() return GetUnitToUnitDistance(m, bot) < 2500 and m:WasRecentlyDamagedByAnyHero(2.0) end)
+				if ok and hit then return nil end
+			end
+		end
+	end
 	local support = J.GetPosition(bot) >= 4
 	local best, bestDist
 	for _, pool in ipairs(S.pools) do

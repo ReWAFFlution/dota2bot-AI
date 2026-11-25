@@ -403,6 +403,40 @@ function X.SupportThink(bot)
 		return
 	end
 
+	-- Our core is being hit by an enemy hero: on that hero (right clicks;
+	-- the spells come from the hero file through the target), when the
+	-- fight there isn't lost. Crystal Maiden cast nothing on a Pudge killing
+	-- her Gyrocopter (9105594922).
+	do
+		local core
+		for i = 1, 5 do
+			local m = GetTeamMember(i)
+			if m and m ~= bot and m:IsAlive() and J.GetPosition(m) <= 3 and GetUnitToUnitDistance(m, bot) < 1400 then core = m break end
+		end
+		if core and core:WasRecentlyDamagedByAnyHero(2.0) and J.GetHP(bot) > 0.3 then
+			local attacker, ad
+			for _, e in ipairs(RealHeroes(true, core:GetLocation(), 900)) do
+				if core:WasRecentlyDamagedByHero(e, 2.0) and J.CanBeAttacked(e) and not EnemyTowerNear(e:GetLocation(), 700) then
+					local d = GetUnitToUnitDistance(bot, e)
+					if not ad or d < ad then attacker, ad = e, d end
+				end
+			end
+			local okF, ratio = true, 1
+			if attacker and Objectives.FightAt then okF, ratio = pcall(Objectives.FightAt, attacker:GetLocation(), bot) end
+			if attacker and ad < bot:GetAttackRange() + 700 and (not okF or (ratio or 0) >= 0.6) then
+				if t - (bot._saveLogT or -math.huge) > 10 then
+					bot._saveLogT = t
+					Log(bot, 'helps '..core:GetUnitName()..' against '..attacker:GetUnitName())
+				end
+				bot.forceFightUntil = t + 2.0
+				bot._harassTarget = attacker
+				bot:SetTarget(attacker)
+				bot:Action_AttackUnit(attacker, true)
+				return
+			end
+		end
+	end
+
 	-- Harass window: right-click the target (spells come from the hero file).
 	local target = bot._harassTarget
 	if (bot.forceFightUntil or -math.huge) > t and J.IsValidHero(target) and J.CanBeAttacked(target)
