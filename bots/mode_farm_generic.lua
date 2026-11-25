@@ -57,6 +57,7 @@ local runMode = false;
 if bot.farmLocation == nil then bot.farmLocation = bot:GetLocation() end
 
 function GetDesire()
+	if FarmPlan.NoteLife then pcall(FarmPlan.NoteLife, bot) end
 	-- Losing to the camp itself: out (ancients nearly killed Arc Warden).
 	if J.GetHP(bot) < 0.35 and #bot:GetNearbyNeutralCreeps(600) > 0 and bot:WasRecentlyDamagedByCreep(1.5) then
 		return BOT_MODE_DESIRE_NONE
@@ -488,8 +489,9 @@ function GetDesireHelper()
 					local risky = Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, laneFront, false)
 					local committed = Objectives and Objectives.CommittedLane and Objectives.CommittedLane(bot)
 					if committed and committed ~= lane then risky = true end
-					if #nEnemiesAtLane == 0 and not bTaken and not risky then
-						local r = FarmPlan.WaveRate(bot, lane)
+					local danger = FarmPlan.LaneDanger and FarmPlan.LaneDanger(bot, lane, laneFront) or 1
+					if #nEnemiesAtLane == 0 and not bTaken and not risky and danger > 0 then
+						local r = FarmPlan.WaveRate(bot, lane) * danger
 						if lane == bot:GetAssignedLane() then r = r * 1.15 end
 						-- Stick to the lane picked: Weaver switched 1 -> 3 -> 2 -> 1
 						-- in five minutes for 1-2 gold/s more on paper, walked

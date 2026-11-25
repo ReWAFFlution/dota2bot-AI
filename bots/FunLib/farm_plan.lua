@@ -159,6 +159,64 @@ function X.WaveRate(bot, lane)
 	return rate, front
 end
 
+-- Deaths per lane and enemies lurking at a front: a wave where we keep
+-- dying isn't 20-35 gold/s (Gyrocopter took the bottom wave again and again
+-- after the laning stage and died there to Omniknight and Skywrath, 10
+-- deaths by 21:42, bot vs bot 9105560137; only visible enemies counted).
+local function NearestLane(loc)
+	local best, bd
+	for _, lane in ipairs({ LANE_TOP, LANE_MID, LANE_BOT }) do
+		local ok, a = pcall(GetAmountAlongLane, lane, loc)
+		local d = ok and a and a.distance
+		if d and (not bd or d < bd) then best, bd = lane, d end
+	end
+	return best, bd
+end
+-- By the death count (a mode's GetDesire may not run while dead): a new
+-- death happened where we were last alive.
+function X.NoteLife(bot)
+	local okD, deaths = pcall(GetHeroDeaths, bot:GetPlayerID())
+	deaths = okD and deaths or 0
+	local new = deaths > (bot._deathsSeen or deaths)
+	bot._deathsSeen = deaths
+	if bot:IsAlive() and not new then
+		bot._lastAliveLoc = bot:GetLocation()
+	elseif new then
+		local lane, d = NearestLane(bot._lastAliveLoc or bot:GetLocation())
+		if lane and d and d < 2000 then
+			bot._laneDeaths = bot._laneDeaths or {}
+			table.insert(bot._laneDeaths, { lane = lane, t = DotaTime() })
+		end
+	end
+end
+-- 1 = safe, lower = riskier, 0 = not now.
+function X.LaneDanger(bot, lane, front)
+	local t = DotaTime()
+	local mult = 1
+	local recent, older = 0, 0
+	for _, dth in ipairs(bot._laneDeaths or {}) do
+		if dth.lane == lane then
+			if t - dth.t < 180 then recent = recent + 1 elseif t - dth.t < 480 then older = older + 1 end
+		end
+	end
+	if recent > 0 then return 0 end
+	if older >= 2 then mult = mult * 0.4 elseif older == 1 then mult = mult * 0.7 end
+	-- Enemies last seen at that front in the last 20 s (fog included).
+	local seen = 0
+	if front then
+		for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+			if IsHeroAlive(pid) then
+				local info = GetHeroLastSeenInfo(pid)
+				local d = info and info[1]
+				if d and d.time_since_seen < 20 and Dist(d.location, front) < 1800 then seen = seen + 1 end
+			end
+		end
+	end
+	if seen >= 2 then return 0 end
+	if seen == 1 then mult = mult * 0.6 end
+	return mult
+end
+
 -- Every camp on the map as { idx, cattr } entries, straight from the game:
 -- the farm mode's own list (J.Role.availableCampTable) is refreshed only once
 -- a minute from inside its GetDesire and was empty all game long (no bot
