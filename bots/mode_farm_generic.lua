@@ -513,14 +513,17 @@ function GetDesireHelper()
 					if committed and committed ~= lane then risky = true end
 					local danger = FarmPlan.LaneDanger and FarmPlan.LaneDanger(bot, lane, laneFront) or 1
 					if #nEnemiesAtLane == 0 and not bTaken and not risky and danger > 0 then
-						local r = FarmPlan.WaveRate(bot, lane) * danger
+						local wr, _, seen = FarmPlan.WaveRate(bot, lane)
+						local r = wr * danger
 						if lane == bot:GetAssignedLane() then r = r * 1.15 end
 						-- Stick to the lane picked: Weaver switched 1 -> 3 -> 2 -> 1
 						-- in five minutes for 1-2 gold/s more on paper, walked
 						-- across the map each time ("front" 42% of the farm time,
 						-- 198 g/min, bot vs bot 9103068510). Another lane only
 						-- for 1.6x, and not within 60 s.
-						if lane == bot._farmLane and DotaTime() - (bot._farmLaneT or -math.huge) < 120 then
+						-- (A wave there to farm, not one to wait for: the boost kept
+						-- the bots waiting at an empty front.)
+						if seen and lane == bot._farmLane and DotaTime() - (bot._farmLaneT or -math.huge) < 120 then
 							r = r * (DotaTime() - bot._farmLaneT < 60 and 3 or 1.6)
 						end
 						if r > bestRate then bestLane, bestRate = lane, r end

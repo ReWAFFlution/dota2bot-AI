@@ -143,20 +143,28 @@ function X.WaveRate(bot, lane)
 			if g > 0 then gold, hp, n = gold + g, hp + c:GetHealth(), n + 1 end
 		end
 	end
-	-- A wave not seen: maybe there, maybe not (60%).
-	if n == 0 then gold, hp = (3 * CREEP_GOLD.melee + CREEP_GOLD.ranged) * 0.6, 1950 end
+	-- A wave not seen: the next one, after its wait - spawned every 30 s,
+	-- ~12 s to the front. Without the wait the bots stood at an empty front
+	-- between waves ("front" 57-85% of the farm time: Sven 230 and Keeper
+	-- of the Light 366 gold/min while farming, 8.3k at 25:00, bot vs bot
+	-- 9105606782) with camps next to them.
+	local wait = 0
+	if n == 0 then
+		gold, hp = (3 * CREEP_GOLD.melee + CREEP_GOLD.ranged), 1950
+		wait = (30 - DotaTime() % 30) + 12
+	end
 	gold = gold * (1 + DotaTime() / 60 / 60) * 1.2
 	-- Waves bunch up: hits splash over several creeps with most cores' spells.
 	local dps = Dps(bot) * (1 + 0.25 * math.max(0, bot:GetLevel() - 6) / 6)
 	local clear = hp / math.max(30, dps)
 	local walk = GetUnitToLocationDistance(bot, front) / math.max(250, bot:GetCurrentMovementSpeed())
-	local rate = gold / (walk + clear + 2)
+	local rate = gold / (math.max(walk, wait) + clear + 2)
 	-- Across the map the wave moves and meets ours elsewhere: lane-to-lane
 	-- walks were what kept the cores poor.
 	-- Our creeps kill much of it on the way, and the next wave is a walk back.
 	local far = walk * math.max(250, bot:GetCurrentMovementSpeed())
 	if far > 5000 then rate = rate * 0.5 elseif far > 3000 then rate = rate * 0.7 end
-	return rate, front
+	return rate, front, n > 0
 end
 
 -- Deaths per lane and enemies lurking at a front: a wave where we keep

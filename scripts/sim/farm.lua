@@ -81,3 +81,20 @@ local j = F.BetweenWaves(bot, list)
 print('lane lost, wave there: camp', j and j.cattr.type)
 assert(j ~= nil)
 bot._lostLaneUntil = nil
+-- The wave estimate: a wave at the front vs one still to come (its wait).
+do
+	SIM_T = 20 * 60 + 2 -- the next wave spawns in 28 s
+	function GetLaneFrontLocation() return Vector(300, 0) end
+	local seenCreeps = {}
+	function GetUnitList() return seenCreeps end
+	local unseenRate, _, seen0 = F.WaveRate(bot, LANE_BOT)
+	local function creep(name) local c = { name = name } function c:IsNull() return false end function c:IsAlive() return true end
+		function c:GetLocation() return Vector(400, 0) end function c:GetUnitName() return self.name end function c:GetHealth() return 450 end return c end
+	seenCreeps = { creep('creep_badguys_melee'), creep('creep_badguys_melee'), creep('creep_badguys_melee'), creep('creep_badguys_ranged') }
+	local seenRate, _, seen1 = F.WaveRate(bot, LANE_BOT)
+	local camp = F.CampRate(bot, list[2].cattr)
+	print(string.format('wave rate at 20:02: seen %.1f g/s, still to come %.1f g/s (camp next door %.1f)', seenRate, unseenRate, camp))
+	assert(seen1 and not seen0)
+	assert(seenRate > camp and unseenRate < seenRate * 0.5)
+end
+print('wave estimate ok')
