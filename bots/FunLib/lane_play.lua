@@ -607,7 +607,9 @@ function X.KillsOnSwing(c, dmg, delay, ownOnly)
 	-- Short of it alone: those early hits make up the rest. DK missed at HP
 	-- 82 with our hit 78 and "others 22 within 1.01 s" counted at 70% (bot vs
 	-- bot 9102944605): those hits landed after ours.
-	return ours + early * 0.85 > hp
+	-- With a margin: Abaddon swung at a ranged creep of 89 with his 73 and
+	-- 'early' hits making 90, they landed late and he missed (9105594922).
+	return ours + early * 0.75 > hp + 3
 end
 
 function X.CoreThink(bot)
@@ -694,6 +696,11 @@ function X.CoreThink(bot)
 	for _, c in pairs(bot:GetNearbyLaneCreeps(800, true)) do
 		if J.IsValid(c) and J.CanBeAttacked(c) and not EnemyTowerNear(c:GetLocation(), 700) then
 			local delay = J.GetAttackProDelayTime(bot, c) + X.TurnTime(bot, c)
+			-- The step in, if any: Abaddon swung from 245 (a melee reach of
+			-- ~200), the hit landed late and the wave took the creep (HP 30,
+			-- others 40 within 0.91 s; 9105594922).
+			local gap = GetUnitToUnitDistance(bot, c) - (range + Hull(bot) + Hull(c))
+			if gap > 0 then delay = delay + gap / math.max(250, bot:GetCurrentMovementSpeed()) end
 			-- On cooldown: the swing lands late, so only our own hit counts (the
 			-- others' share missed for Ember); never a wait instead of a swing.
 			-- From within range only: a swing from 500-750 away (Spectre, melee,
