@@ -291,3 +291,20 @@ do
 	J.IsInLaningPhase = function() return false end
 end
 print('lane calm ok')
+
+-- Out of lane: hit by two we can't kill, dead in ~6 s -> leave (Vengeful
+-- kept hitting a tower under Keeper and Dragon Knight, 9105606782).
+do
+	J.IsInLaningPhase = function() return false end
+	local k = hero('keeper_of_the_light', 3, Vector(500, 0), 1800, 120) k.pid = 5
+	local d = hero('dragon_knight', 3, Vector(300, 200), 2400, 140) d.pid = 6
+	me.loc, me.hp = Vector(0, 0), 1500
+	me.GetAttackDamage = function() return 5 end me.dps = 5
+	allies = { me } enemies = { k, d }
+	me.WasRecentlyDamagedByAnyHero = function() return true end
+	local c = O.Combat(me)
+	print(string.format('hit by two, can\'t kill: us %.0f s, them %.1f s, retreat=%s', c.ttkUs, c.ttkThem, tostring(c.retreat)))
+	assert(c.retreat, 'should leave')
+	me.dps = 250 me.GetAttackDamage = function() return 60 end
+end
+print('outmatched retreat ok')

@@ -2059,8 +2059,13 @@ function X.Combat(bot)
 	local teamWins = teamRatio >= 1.2
 	-- A tie goes to us: we strike first (finishing an almost dead hero).
 	c.go = J.GetHP(bot) > 0.3 and ((bestT <= 4 and bestT <= ttkThem) or (teamWins and bestT <= 6))
+	-- Also: hit by heroes we can't kill, dead within 8 s - nothing to stay for
+	-- (Vengeful kept hitting a tower under Keeper and Dragon Knight, 6 s).
+	local hitNow = false
+	pcall(function() hitNow = bot:WasRecentlyDamagedByAnyHero(1.5) end)
 	c.retreat = (ttkThem <= 1.5 and hp < 0.4)
 		or (not teamWins and ((ttkThem < bestT and ttkThem <= 4) or (ttkThem <= 3 and bestT >= 99)))
+		or (not teamWins and hitNow and bestT >= 99 and ttkThem <= 8)
 	-- Pushing the win (team plan "finish"): only a real personal danger.
 	local S = TeamPlanState and TeamPlanState[GetTeam()]
 	if S and S.phase == 'finish' and not (ttkThem <= 1.5 and hp < 0.35) and teamRatio >= 0.6 then c.retreat = false end
@@ -2293,18 +2298,22 @@ function X.FightHint(bot)
 	bot._fightHint = 0
 	-- A support alone deep on the enemy side while enemies are unaccounted
 	-- for walks back toward the team instead of feeding.
+	-- (The exchange below still runs: returning 0.75 here skipped it, and
+	-- Vengeful Spirit, "alone on the enemy side", kept at the tower and her
+	-- ward while Keeper and Dragon Knight killed her, 9105606782.)
+	local lone = 0
 	if X.LoneDanger(bot) and not finishing then
 		if not bot._loneLogT or t - bot._loneLogT > 15 then
 			bot._loneLogT = t
 			print('[Fight] '..bot:GetUnitName()..' is alone on the enemy side, falling back to the team')
 		end
-		bot._fightHint = 0.75
-		return bot._fightHint
+		lone = 0.75
+		bot._fightHint = lone
 	end
 	-- Exchange: who kills whom first (X.Combat), then the long-term value.
 	local c = X.Combat(bot)
 	bot._combat = c
-	if not c then return 0 end
+	if not c then return lone end
 	local target, ttkUs, ttkThem = c.target, c.ttkUs, c.ttkThem
 	local ev = X.FightValue(bot, target)
 	-- In lane, enemies standing nearby is normal: back off only when they're
@@ -2383,6 +2392,8 @@ function X.FightHint(bot)
 		Say('backs off from')
 		if not (d and d.kind == 'retreat' and d.untilT > t) then bot._decision = { kind = 'retreat', untilT = t + 3 } end
 		bot._fightHint = ttkThem < 2.5 and 0.95 or 0.9
+	elseif lone > 0 then
+		bot._fightHint = lone
 	elseif c.go and ev > -5 and J.IsValidHero(target) then
 		Say('goes for')
 		if not (d and d.kind == 'go' and d.untilT > t) then bot._decision = { kind = 'go', untilT = t + 2 } end
