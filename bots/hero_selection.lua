@@ -94,10 +94,13 @@ local DEFAULT_WEAK_PENALTY = { type = "exp", base = 0.6 }
 -- Draft director (data: FunLib/meta_draft_data.lua). Each value can be
 -- overridden from Customize with the key in brackets.
 -- Every bot team takes 1 meta and 1 popular hero; the team facing a human also
--- takes 1 counter to the human's hero. One of these categories may get a second
--- hero with this chance, checked in priority order counter -> meta -> popular;
--- the first that rolls gets it [Second_Pick_Chance].
+-- takes 1 counter to the human's hero. Counter or popular may get a second
+-- hero with this chance, checked in priority order counter -> popular; the
+-- first that rolls gets it [Second_Pick_Chance].
 local SECOND_PICK_CHANCE = 20
+-- A second meta hero, rolled on its own [Meta_Second_Chance]. A meta hero may
+-- also be a counter: one hero counts for both.
+local META_SECOND_CHANCE = 60
 -- These categories go to cores (pos 1-3) first. With this chance one meta or
 -- counter hero goes to a support slot instead and one core slot gets a free
 -- hero [Support_Swap_Chance].
@@ -171,6 +174,7 @@ if Customize and not Customize.Enable then Customize = nil end
 
 if Customize then
 	SECOND_PICK_CHANCE = tonumber(Customize.Second_Pick_Chance) or SECOND_PICK_CHANCE
+	META_SECOND_CHANCE = tonumber(Customize.Meta_Second_Chance) or META_SECOND_CHANCE
 	SYNERGY_CHANCE     = tonumber(Customize.Synergy_Chance)     or SYNERGY_CHANCE
 	SUPPORT_SWAP_CHANCE = tonumber(Customize.Support_Swap_Chance) or SUPPORT_SWAP_CHANCE
 	FREE_PICK_CHANCE   = tonumber(Customize.Free_Pick_Chance)   or FREE_PICK_CHANCE
@@ -712,8 +716,10 @@ end
 --     synergy  - optional, human's team only: good with the human's hero
 --     pool     - one of up to 40 popular heroes of the position (other slots)
 --     free     - any hero that plays the position, however rare
---   Quotas: 1 of each of counter/meta/popular; one of them may get a second
---   hero (SECOND_PICK_CHANCE, priority counter -> meta -> popular). Quotas go
+--   Quotas: 1 of each of counter/meta/popular; a second meta hero with
+--   META_SECOND_CHANCE, and counter or popular may get a second hero
+--   (SECOND_PICK_CHANCE, priority counter -> popular). A meta hero may also be
+--   the counter. Quotas go
 --   to cores (pos 1-3) first; with SUPPORT_SWAP_CHANCE one meta/counter goes to
 --   a support and a core gets a free hero. Remaining slots: pool, or free with
 --   FREE_PICK_CHANCE. Heroes are drawn uniformly so the same hero doesn't show
@@ -863,7 +869,8 @@ local function CategoryHeroes(team, cat, pos)
 	elseif cat == 'counter' then
 		return PickableAtPos(team, CounterNames(team), pos)
 	elseif cat == 'meta' then
-		return PickableAtPos(team, MetaDraft.MetaByPosition[pos] or {}, pos, nil, counterSet)
+		-- A meta hero that also counters the human is fine (one hero, both).
+		return PickableAtPos(team, MetaDraft.MetaByPosition[pos] or {}, pos)
 	elseif cat == 'popular' then
 		return PickableAtPos(team, MetaDraft.PopularByPosition[pos] or {}, pos, nil, counterSet)
 	elseif cat == 'synergy' then
@@ -900,12 +907,20 @@ local function BuildDraftPlan(team, botSlots)
 	-- bots' picks (decided at pick time when they haven't picked yet).
 	local order = { 'counter', 'meta', 'popular' }
 
-	-- Quotas: 1 each; the first category whose roll succeeds gets a second hero.
+	-- Quotas: 1 each; a second meta hero on its own roll, then the first of
+	-- counter/popular whose roll succeeds gets a second hero.
 	local cats = {}
 	for _, cat in ipairs(order) do table.insert(cats, { cat = cat, second = false }) end
-	for idx, cat in ipairs(order) do
+	if RandomInt(1, 100) <= META_SECOND_CHANCE then
+		for idx, c in ipairs(cats) do
+			if c.cat == 'meta' then table.insert(cats, idx + 1, { cat = 'meta', second = true }) break end
+		end
+	end
+	for _, cat in ipairs({ 'counter', 'popular' }) do
 		if RandomInt(1, 100) <= SECOND_PICK_CHANCE then
-			table.insert(cats, idx + 1, { cat = cat, second = true })
+			for idx, c in ipairs(cats) do
+				if c.cat == cat then table.insert(cats, idx + 1, { cat = cat, second = true }) break end
+			end
 			break
 		end
 	end

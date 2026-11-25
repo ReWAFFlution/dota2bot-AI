@@ -11,8 +11,8 @@ local X = {}
 X.Builds = {
 	['npc_dota_hero_abaddon'] = {
 		[3] = {
-			buy = { 'item_branches', 'item_magic_stick', 'item_circlet', 'item_quelling_blade', 'item_magic_wand', 'item_null_talisman', 'item_phase_boots', 'item_radiance', 'item_echo_sabre', 'item_harpoon', 'item_yasha', 'item_blade_mail', 'item_ultimate_scepter', 'item_basher' },
-			known = { abyssal_blade = 10, aghanims_shard = 7, assault = 12, basher = 14, black_king_bar = 7, blade_mail = 23, blink = 22, bloodthorn = 8, boots = 28, buckler = 12, echo_sabre = 37, harpoon = 36, heart = 5, infused_raindrop = 6, magic_wand = 66, manta = 19, null_talisman = 39, oblivion_staff = 8, orchid = 13, phase_boots = 87, radiance = 48, ring_of_basilius = 6, sange = 12, sange_and_yasha = 9, soul_ring = 5, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 17, wind_lace = 6, yasha = 32 },
+			buy = { 'item_quelling_blade', 'item_sobi_mask', 'item_circlet', 'item_mantle', 'item_magic_stick', 'item_magic_wand', 'item_phase_boots', 'item_ultimate_scepter', 'item_blink', 'item_radiance', 'item_soul_booster' },
+			known = { abyssal_blade = 5, aghanims_shard = 6, assault = 6, basher = 8, black_king_bar = 7, blade_mail = 5, blink = 29, boots = 18, bracer = 17, buckler = 20, dragon_lance = 16, echo_sabre = 17, force_staff = 6, harpoon = 15, heart = 5, heavens_halberd = 8, infused_raindrop = 6, mage_slayer = 8, magic_wand = 65, manta = 8, oblivion_staff = 7, octarine_core = 19, orb_of_corrosion = 17, orchid = 5, pers = 14, phase_boots = 95, phylactery = 7, radiance = 24, ring_of_basilius = 16, sange = 6, shivas_guard = 5, skadi = 10, soul_booster = 22, travel_boots = 2, travel_boots_2 = 0, ultimate_scepter = 73, ultimate_scepter_2 = 6, vladmir = 17, wind_lace = 5, wraith_band = 14, yasha = 12 },
 		},
 		[4] = {
 			buy = { 'item_blood_grenade', 'item_clarity', 'item_branches', 'item_magic_stick', 'item_enchanted_mango', 'item_flask', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_holy_locket', 'item_mekansm', 'item_headdress', 'item_guardian_greaves', 'item_ultimate_scepter' },
@@ -117,8 +117,8 @@ X.Builds = {
 	},
 	['npc_dota_hero_bounty_hunter'] = {
 		[4] = {
-			buy = { 'item_boots', 'item_blood_grenade', 'item_wind_lace', 'item_branches', 'item_magic_stick', 'item_magic_wand', 'item_urn_of_shadows', 'item_tranquil_boots', 'item_cyclone', 'item_spirit_vessel', 'item_ancient_janggo', 'item_pers', 'item_boots_of_bearing' },
-			known = { aghanims_shard = 6, ancient_janggo = 25, boots = 60, boots_of_bearing = 25, consecrated_wraps = 7, cyclone = 27, essence_distiller = 5, force_staff = 8, headdress = 23, infused_raindrop = 12, lotus_orb = 11, magic_wand = 48, orchid = 17, pers = 23, phylactery = 9, pipe = 6, ring_of_basilius = 11, sheepstick = 11, soul_booster = 5, spirit_vessel = 27, tranquil_boots = 76, ultimate_scepter = 10, urn_of_shadows = 45, wind_lace = 9, wind_waker = 6 },
+			buy = { 'item_boots', 'item_blood_grenade', 'item_faerie_fire', 'item_wind_lace', 'item_magic_wand', 'item_urn_of_shadows', 'item_tranquil_boots', 'item_ancient_janggo', 'item_spirit_vessel', 'item_headdress', 'item_pers' },
+			known = { aghanims_shard = 5, ancient_janggo = 26, boots = 59, boots_of_bearing = 24, buckler = 7, consecrated_wraps = 5, cyclone = 20, essence_distiller = 6, force_staff = 12, headdress = 21, infused_raindrop = 9, lotus_orb = 9, magic_wand = 46, orchid = 15, pavise = 6, pers = 20, phylactery = 8, pipe = 5, ring_of_basilius = 11, sheepstick = 9, solar_crest = 6, spirit_vessel = 23, tranquil_boots = 75, ultimate_scepter = 10, urn_of_shadows = 37, vladmir = 7, wind_lace = 6 },
 		},
 		[5] = {
 			buy = { 'item_orb_of_venom', 'item_wind_lace', 'item_blood_grenade', 'item_faerie_fire', 'item_boots', 'item_magic_wand', 'item_urn_of_shadows', 'item_tranquil_boots', 'item_spirit_vessel', 'item_pers', 'item_ancient_janggo', 'item_headdress' },
@@ -181,12 +181,12 @@ X.Builds = {
 	},
 	['npc_dota_hero_crystal_maiden'] = {
 		[4] = {
-			buy = { 'item_circlet', 'item_mantle', 'item_branches', 'item_magic_stick', 'item_magic_wand', 'item_tranquil_boots', 'item_blink', 'item_glimmer_cape', 'item_black_king_bar', 'item_ultimate_scepter' },
-			known = { aeon_disk = 7, aghanims_shard = 14, ancient_janggo = 6, black_king_bar = 27, blink = 61, boots = 28, boots_of_bearing = 6, bracer = 5, force_staff = 10, glimmer_cape = 41, headdress = 6, infused_raindrop = 8, kaya = 5, magic_wand = 56, null_talisman = 17, ring_of_basilius = 7, tranquil_boots = 91, ultimate_scepter = 32, wind_lace = 19 },
+			buy = { 'item_circlet', 'item_mantle', 'item_branches', 'item_blood_grenade', 'item_sobi_mask', 'item_magic_stick', 'item_magic_wand', 'item_tranquil_boots', 'item_blink', 'item_glimmer_cape', 'item_ultimate_scepter', 'item_black_king_bar' },
+			known = { aeon_disk = 6, aghanims_shard = 12, ancient_janggo = 5, black_king_bar = 27, blink = 58, boots = 25, boots_of_bearing = 5, force_staff = 13, glimmer_cape = 39, headdress = 5, infused_raindrop = 8, magic_wand = 53, null_talisman = 12, ring_of_basilius = 7, tranquil_boots = 91, ultimate_scepter = 30, wind_lace = 17 },
 		},
 		[5] = {
-			buy = { 'item_flask', 'item_circlet', 'item_mantle', 'item_branches', 'item_blood_grenade', 'item_magic_wand', 'item_tranquil_boots', 'item_blink', 'item_glimmer_cape', 'item_ultimate_scepter', 'item_black_king_bar' },
-			known = { aeon_disk = 6, aghanims_shard = 13, ancient_janggo = 6, black_king_bar = 28, blink = 61, boots = 25, boots_of_bearing = 6, bracer = 5, force_staff = 13, glimmer_cape = 47, headdress = 6, infused_raindrop = 11, magic_wand = 61, null_talisman = 13, ring_of_basilius = 6, tranquil_boots = 92, ultimate_scepter = 31, wind_lace = 19 },
+			buy = { 'item_circlet', 'item_branches', 'item_flask', 'item_magic_stick', 'item_enchanted_mango', 'item_magic_wand', 'item_tranquil_boots', 'item_blink', 'item_glimmer_cape', 'item_ultimate_scepter', 'item_black_king_bar' },
+			known = { aeon_disk = 6, aghanims_shard = 12, ancient_janggo = 5, black_king_bar = 26, blink = 56, boots = 23, boots_of_bearing = 6, force_staff = 15, glimmer_cape = 44, headdress = 6, infused_raindrop = 9, magic_wand = 57, null_talisman = 10, ring_of_basilius = 6, tranquil_boots = 92, ultimate_scepter = 29, wind_lace = 17 },
 		},
 	},
 	['npc_dota_hero_dark_seer'] = {
@@ -217,8 +217,8 @@ X.Builds = {
 			known = { aeon_disk = 8, aether_lens = 18, aghanims_shard = 8, arcane_boots = 93, blink = 10, boots = 25, cyclone = 5, force_staff = 16, glimmer_cape = 35, guardian_greaves = 42, headdress = 35, holy_locket = 37, infused_raindrop = 5, magic_wand = 70, mekansm = 42, orb_of_corrosion = 5, pers = 5, ring_of_basilius = 87, soul_booster = 5, spirit_vessel = 6, ultimate_scepter = 8, urn_of_shadows = 9, wind_lace = 5 },
 		},
 		[5] = {
-			buy = { 'item_circlet', 'item_orb_of_frost', 'item_branches', 'item_blood_grenade', 'item_magic_stick', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_holy_locket', 'item_mekansm', 'item_headdress', 'item_glimmer_cape', 'item_guardian_greaves' },
-			known = { aeon_disk = 8, aether_lens = 15, aghanims_shard = 7, arcane_boots = 94, blink = 11, boots = 24, cyclone = 5, force_staff = 15, glimmer_cape = 36, guardian_greaves = 43, headdress = 38, holy_locket = 46, infused_raindrop = 6, lotus_orb = 5, magic_wand = 76, mekansm = 44, pers = 5, ring_of_basilius = 88, ultimate_scepter = 6, urn_of_shadows = 7, wind_lace = 5 },
+			buy = { 'item_orb_of_frost', 'item_magic_stick', 'item_circlet', 'item_branches', 'item_blood_grenade', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_holy_locket', 'item_glimmer_cape', 'item_mekansm', 'item_headdress', 'item_guardian_greaves' },
+			known = { aeon_disk = 6, aether_lens = 11, aghanims_shard = 7, arcane_boots = 91, blink = 10, boots = 18, force_staff = 21, glimmer_cape = 32, guardian_greaves = 32, headdress = 29, holy_locket = 44, infused_raindrop = 5, magic_wand = 73, mekansm = 30, orb_of_corrosion = 5, pers = 8, phylactery = 5, ring_of_basilius = 83, ultimate_scepter = 6, urn_of_shadows = 5 },
 		},
 	},
 	['npc_dota_hero_death_prophet'] = {
@@ -249,8 +249,8 @@ X.Builds = {
 	},
 	['npc_dota_hero_dragon_knight'] = {
 		[2] = {
-			buy = { 'item_quelling_blade', 'item_branches', 'item_circlet', 'item_gauntlets', 'item_soul_ring', 'item_bracer', 'item_power_treads', 'item_blink', 'item_black_king_bar', 'item_soul_booster', 'item_octarine_core', 'item_ultimate_scepter', 'item_shivas_guard' },
-			known = { aghanims_shard = 11, assault = 11, black_king_bar = 73, blink = 71, bloodthorn = 8, boots = 19, bracer = 69, buckler = 10, greater_crit = 6, infused_raindrop = 11, lesser_crit = 6, magic_wand = 64, oblivion_staff = 8, octarine_core = 32, orchid = 16, overwhelming_blink = 11, power_treads = 98, radiance = 6, shivas_guard = 17, soul_booster = 37, soul_ring = 81, travel_boots = 4, travel_boots_2 = 0, ultimate_scepter = 30, ultimate_scepter_2 = 12, yasha = 7 },
+			buy = { 'item_quelling_blade', 'item_branches', 'item_circlet', 'item_gauntlets', 'item_magic_stick', 'item_soul_ring', 'item_bracer', 'item_power_treads', 'item_blink', 'item_black_king_bar', 'item_soul_booster', 'item_ultimate_scepter' },
+			known = { aghanims_shard = 11, assault = 11, black_king_bar = 65, blink = 63, bloodthorn = 7, boots = 21, bracer = 65, buckler = 10, greater_crit = 6, infused_raindrop = 9, lesser_crit = 6, maelstrom = 7, magic_wand = 61, mjollnir = 6, oblivion_staff = 6, octarine_core = 19, orchid = 14, overwhelming_blink = 6, power_treads = 91, radiance = 8, sange = 6, shivas_guard = 12, soul_booster = 23, soul_ring = 77, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 25, ultimate_scepter_2 = 7, yasha = 8 },
 		},
 		[3] = {
 			buy = { 'item_quelling_blade', 'item_branches', 'item_magic_stick', 'item_gauntlets', 'item_soul_ring', 'item_bracer', 'item_magic_wand', 'item_power_treads', 'item_black_king_bar', 'item_blink', 'item_soul_booster', 'item_octarine_core', 'item_ultimate_scepter', 'item_shivas_guard' },
@@ -349,12 +349,12 @@ X.Builds = {
 	},
 	['npc_dota_hero_grimstroke'] = {
 		[4] = {
-			buy = { 'item_faerie_fire', 'item_boots', 'item_mantle', 'item_circlet', 'item_branches', 'item_magic_stick', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_blink', 'item_glimmer_cape', 'item_aether_lens', 'item_ultimate_scepter', 'item_sheepstick' },
-			known = { aeon_disk = 8, aether_lens = 26, aghanims_shard = 12, arcane_boots = 95, blink = 57, boots = 25, cyclone = 7, force_staff = 8, glimmer_cape = 38, guardian_greaves = 7, headdress = 6, infused_raindrop = 9, magic_wand = 61, mekansm = 6, null_talisman = 8, pers = 5, ring_of_basilius = 92, sheepstick = 15, ultimate_scepter = 24, urn_of_shadows = 8, wind_lace = 6 },
+			buy = { 'item_faerie_fire', 'item_flask', 'item_mantle', 'item_branches', 'item_blood_grenade', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_blink', 'item_glimmer_cape', 'item_ultimate_scepter' },
+			known = { aeon_disk = 7, aether_lens = 17, aghanims_shard = 10, arcane_boots = 93, blink = 50, boots = 21, cyclone = 6, force_staff = 12, glimmer_cape = 37, headdress = 5, infused_raindrop = 7, magic_wand = 59, mekansm = 5, null_talisman = 6, pers = 6, ring_of_basilius = 89, sheepstick = 12, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 24, urn_of_shadows = 6, wind_lace = 5 },
 		},
 		[5] = {
-			buy = { 'item_branches', 'item_magic_stick', 'item_blood_grenade', 'item_tango', 'item_enchanted_mango', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_blink', 'item_glimmer_cape', 'item_aether_lens', 'item_ultimate_scepter', 'item_sheepstick' },
-			known = { aeon_disk = 8, aether_lens = 26, aghanims_shard = 12, arcane_boots = 95, blink = 53, boots = 25, cyclone = 8, force_staff = 9, glimmer_cape = 44, headdress = 6, infused_raindrop = 9, magic_wand = 62, mekansm = 6, null_talisman = 7, ring_of_basilius = 93, sheepstick = 14, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 24, urn_of_shadows = 7, wind_lace = 6 },
+			buy = { 'item_wind_lace', 'item_faerie_fire', 'item_branches', 'item_branches', 'item_magic_stick', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_blink', 'item_glimmer_cape', 'item_ultimate_scepter' },
+			known = { aeon_disk = 7, aether_lens = 17, aghanims_shard = 10, arcane_boots = 94, blink = 46, boots = 22, cyclone = 6, force_staff = 13, glimmer_cape = 42, headdress = 5, infused_raindrop = 8, magic_wand = 59, mekansm = 5, null_talisman = 5, pers = 6, ring_of_basilius = 90, sheepstick = 11, travel_boots = 2, travel_boots_2 = 0, ultimate_scepter = 23, urn_of_shadows = 6, wind_lace = 5 },
 		},
 	},
 	['npc_dota_hero_gyrocopter'] = {
@@ -435,8 +435,8 @@ X.Builds = {
 	},
 	['npc_dota_hero_legion_commander'] = {
 		[3] = {
-			buy = { 'item_circlet', 'item_branches', 'item_gauntlets', 'item_quelling_blade', 'item_tango', 'item_magic_stick', 'item_bracer', 'item_magic_wand', 'item_phase_boots', 'item_blink', 'item_blade_mail', 'item_black_king_bar', 'item_assault', 'item_buckler' },
-			known = { aghanims_shard = 9, assault = 21, black_king_bar = 55, blade_mail = 63, blink = 51, boots = 25, bracer = 74, buckler = 18, desolator = 9, echo_sabre = 8, greater_crit = 12, harpoon = 5, infused_raindrop = 6, invis_sword = 7, lesser_crit = 17, magic_wand = 64, monkey_king_bar = 7, phase_boots = 88, soul_ring = 11, travel_boots = 8, travel_boots_2 = 1, ultimate_scepter = 10 },
+			buy = { 'item_circlet', 'item_branches', 'item_branches', 'item_gauntlets', 'item_quelling_blade', 'item_tango', 'item_bracer', 'item_magic_wand', 'item_phase_boots', 'item_blink', 'item_blade_mail', 'item_black_king_bar', 'item_assault', 'item_buckler' },
+			known = { aghanims_shard = 8, armlet = 6, assault = 20, black_king_bar = 50, blade_mail = 63, blink = 50, boots = 24, bracer = 72, buckler = 17, desolator = 9, dragon_lance = 5, echo_sabre = 8, greater_crit = 10, harpoon = 5, infused_raindrop = 6, invis_sword = 7, lesser_crit = 15, magic_wand = 64, monkey_king_bar = 7, phase_boots = 90, soul_ring = 10, travel_boots = 6, travel_boots_2 = 0, ultimate_scepter = 9 },
 		},
 	},
 	['npc_dota_hero_leshrac'] = {
@@ -451,8 +451,8 @@ X.Builds = {
 			known = { aeon_disk = 13, aether_lens = 14, aghanims_shard = 21, ancient_janggo = 5, blink = 45, boots = 28, cyclone = 5, force_staff = 16, glimmer_cape = 47, headdress = 6, infused_raindrop = 10, magic_wand = 55, pers = 5, refresher = 7, ring_of_basilius = 11, tranquil_boots = 87, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 27, wind_lace = 18 },
 		},
 		[5] = {
-			buy = { 'item_blood_grenade', 'item_faerie_fire', 'item_branches', 'item_magic_stick', 'item_circlet', 'item_magic_wand', 'item_tranquil_boots', 'item_glimmer_cape', 'item_blink', 'item_aghanims_shard', 'item_ultimate_scepter' },
-			known = { aeon_disk = 13, aether_lens = 13, aghanims_shard = 20, blink = 47, boots = 26, cyclone = 5, force_staff = 17, glimmer_cape = 50, headdress = 5, infused_raindrop = 12, magic_wand = 58, refresher = 6, ring_of_basilius = 10, tranquil_boots = 88, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 28, wind_lace = 19 },
+			buy = { 'item_blood_grenade', 'item_branches', 'item_magic_stick', 'item_circlet', 'item_faerie_fire', 'item_magic_wand', 'item_tranquil_boots', 'item_glimmer_cape', 'item_blink', 'item_force_staff', 'item_ultimate_scepter' },
+			known = { aeon_disk = 12, aether_lens = 11, aghanims_shard = 16, blink = 41, boots = 23, force_staff = 20, glimmer_cape = 45, headdress = 5, infused_raindrop = 10, magic_wand = 55, pers = 6, ring_of_basilius = 10, tranquil_boots = 88, travel_boots = 2, travel_boots_2 = 0, ultimate_scepter = 26, wind_lace = 16 },
 		},
 	},
 	['npc_dota_hero_life_stealer'] = {
@@ -611,14 +611,14 @@ X.Builds = {
 			known = { aether_lens = 5, aghanims_shard = 12, angels_demise = 11, boots = 34, bottle = 10, bracer = 5, cyclone = 11, dagon = 41, dagon_2 = 43, dagon_3 = 40, dagon_4 = 33, dagon_5 = 28, infused_raindrop = 9, kaya = 19, magic_wand = 56, null_talisman = 29, octarine_core = 11, pers = 33, phylactery = 25, power_treads = 9, radiance = 9, ring_of_basilius = 40, soul_booster = 10, travel_boots = 13, travel_boots_2 = 0, ultimate_scepter = 32, yasha = 6, yasha_and_kaya = 6 },
 		},
 		[4] = {
-			buy = { 'item_faerie_fire', 'item_boots', 'item_blood_grenade', 'item_magic_stick', 'item_branches', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_dagon', 'item_dagon_2', 'item_dagon_3', 'item_cyclone', 'item_ultimate_scepter', 'item_dagon_5', 'item_dagon_4' },
-			known = { aether_lens = 7, aghanims_shard = 8, arcane_boots = 63, blink = 10, boots = 42, cyclone = 22, dagon = 45, dagon_2 = 32, dagon_3 = 26, dagon_4 = 18, dagon_5 = 16, infused_raindrop = 8, kaya = 7, magic_wand = 52, null_talisman = 12, pers = 18, phylactery = 18, ring_of_basilius = 60, soul_booster = 7, travel_boots = 2, travel_boots_2 = 0, ultimate_scepter = 23, urn_of_shadows = 16, wind_lace = 10 },
+			buy = { 'item_wind_lace', 'item_sobi_mask', 'item_boots', 'item_clarity', 'item_blood_grenade', 'item_magic_wand', 'item_ring_of_basilius', 'item_arcane_boots', 'item_dagon', 'item_dagon_2', 'item_dagon_3', 'item_cyclone', 'item_ultimate_scepter', 'item_dagon_5' },
+			known = { aether_lens = 5, aghanims_shard = 7, arcane_boots = 54, blink = 10, boots = 39, consecrated_wraps = 9, cyclone = 20, dagon = 38, dagon_2 = 27, dagon_3 = 21, dagon_4 = 15, dagon_5 = 14, essence_distiller = 5, force_staff = 9, infused_raindrop = 7, kaya = 10, magic_wand = 52, meteor_hammer = 8, null_talisman = 9, pers = 14, phylactery = 14, ring_of_basilius = 52, spirit_vessel = 5, travel_boots = 2, travel_boots_2 = 0, ultimate_scepter = 23, urn_of_shadows = 15, wind_lace = 9 },
 		},
 	},
 	['npc_dota_hero_obsidian_destroyer'] = {
 		[2] = {
-			buy = { 'item_faerie_fire', 'item_crown', 'item_circlet', 'item_branches', 'item_mantle', 'item_tango', 'item_magic_wand', 'item_power_treads', 'item_oblivion_staff', 'item_witch_blade', 'item_blink', 'item_dragon_lance', 'item_force_staff', 'item_hurricane_pike', 'item_devastator', 'item_sheepstick', 'item_ultimate_scepter' },
-			known = { aghanims_shard = 8, black_king_bar = 35, blink = 73, boots = 25, devastator = 29, dragon_lance = 59, force_staff = 56, hand_of_midas = 5, hurricane_pike = 51, infused_raindrop = 13, kaya = 18, magic_wand = 43, meteor_hammer = 15, moon_shard = 7, null_talisman = 26, oblivion_staff = 64, pers = 7, power_treads = 96, sheepstick = 26, sphere = 6, swift_blink = 5, travel_boots = 6, travel_boots_2 = 0, ultimate_scepter = 20, ultimate_scepter_2 = 10, witch_blade = 47 },
+			buy = { 'item_crown', 'item_faerie_fire', 'item_branches', 'item_circlet', 'item_magic_stick', 'item_mantle', 'item_magic_wand', 'item_power_treads', 'item_oblivion_staff', 'item_witch_blade', 'item_blink', 'item_dragon_lance', 'item_force_staff', 'item_hurricane_pike', 'item_devastator', 'item_sheepstick', 'item_black_king_bar' },
+			known = { aghanims_shard = 7, black_king_bar = 28, blink = 71, boots = 26, devastator = 26, dragon_lance = 55, force_staff = 52, hurricane_pike = 44, infused_raindrop = 12, kaya = 24, magic_wand = 41, meteor_hammer = 21, moon_shard = 6, null_talisman = 21, oblivion_staff = 56, pers = 6, power_treads = 95, sheepstick = 22, travel_boots = 5, travel_boots_2 = 0, ultimate_scepter = 17, ultimate_scepter_2 = 6, witch_blade = 45 },
 		},
 	},
 	['npc_dota_hero_ogre_magi'] = {
@@ -637,8 +637,8 @@ X.Builds = {
 	},
 	['npc_dota_hero_omniknight'] = {
 		[3] = {
-			buy = { 'item_quelling_blade', 'item_blood_grenade', 'item_circlet', 'item_ring_of_protection', 'item_branches', 'item_gauntlets', 'item_magic_wand', 'item_bracer', 'item_soul_ring', 'item_phase_boots', 'item_harpoon', 'item_echo_sabre', 'item_blink', 'item_radiance', 'item_black_king_bar' },
-			known = { aghanims_shard = 11, assault = 6, black_king_bar = 18, blade_mail = 6, blink = 41, boots = 26, bracer = 55, buckler = 6, echo_sabre = 50, harpoon = 62, heart = 9, infused_raindrop = 6, magic_wand = 66, pers = 7, phase_boots = 89, radiance = 27, sange = 23, sange_and_yasha = 16, shivas_guard = 8, soul_ring = 48, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 9, yasha = 18 },
+			buy = { 'item_branches', 'item_circlet', 'item_gauntlets', 'item_gauntlets', 'item_magic_stick', 'item_quelling_blade', 'item_magic_wand', 'item_bracer', 'item_soul_ring', 'item_phase_boots', 'item_harpoon', 'item_dragon_lance', 'item_echo_sabre', 'item_blink', 'item_black_king_bar' },
+			known = { aghanims_shard = 7, armlet = 10, black_king_bar = 19, blink = 38, boots = 22, bracer = 54, buckler = 5, dragon_lance = 68, echo_sabre = 52, harpoon = 68, heart = 10, heavens_halberd = 13, infused_raindrop = 6, magic_wand = 67, pers = 5, phase_boots = 95, radiance = 26, sange = 27, sange_and_yasha = 14, shivas_guard = 6, soul_ring = 51, travel_boots = 1, travel_boots_2 = 0, ultimate_scepter = 6, wind_lace = 6, yasha = 17 },
 		},
 		[4] = {
 			buy = { 'item_branches', 'item_boots', 'item_wind_lace', 'item_faerie_fire', 'item_sobi_mask', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_mekansm', 'item_headdress', 'item_guardian_greaves', 'item_ultimate_scepter' },
@@ -671,14 +671,14 @@ X.Builds = {
 	},
 	['npc_dota_hero_phantom_assassin'] = {
 		[1] = {
-			buy = { 'item_circlet', 'item_branches', 'item_magic_stick', 'item_quelling_blade', 'item_tango', 'item_magic_wand', 'item_power_treads', 'item_bfury', 'item_pers', 'item_black_king_bar', 'item_desolator', 'item_basher', 'item_sange', 'item_abyssal_blade', 'item_satanic', 'item_aghanims_shard' },
-			known = { abyssal_blade = 39, aghanims_shard = 14, basher = 55, bfury = 62, black_king_bar = 83, blight_stone = 10, boots = 20, desolator = 80, infused_raindrop = 5, magic_wand = 69, monkey_king_bar = 12, nullifier = 8, pers = 80, power_treads = 92, sange = 35, satanic = 38, travel_boots = 5, travel_boots_2 = 1, ultimate_scepter = 13, ultimate_scepter_2 = 12, wraith_band = 22, yasha = 5 },
+			buy = { 'item_quelling_blade', 'item_blight_stone', 'item_circlet', 'item_branches', 'item_magic_stick', 'item_branches', 'item_magic_wand', 'item_wraith_band', 'item_power_treads', 'item_bfury', 'item_pers', 'item_black_king_bar', 'item_desolator', 'item_basher', 'item_abyssal_blade', 'item_satanic', 'item_dragon_lance' },
+			known = { abyssal_blade = 39, aghanims_shard = 12, basher = 52, bfury = 66, black_king_bar = 83, blight_stone = 10, boots = 15, desolator = 83, dragon_lance = 37, infused_raindrop = 6, magic_wand = 69, manta = 3, monkey_king_bar = 10, moon_shard = 3, nullifier = 8, orb_of_corrosion = 9, pers = 80, power_treads = 93, rapier = 5, sange = 3, sange_and_yasha = 2, satanic = 39, travel_boots = 4, travel_boots_2 = 1, ultimate_scepter = 12, ultimate_scepter_2 = 11, wraith_band = 35, yasha = 5 },
 		},
 	},
 	['npc_dota_hero_phantom_lancer'] = {
 		[1] = {
-			buy = { 'item_quelling_blade', 'item_circlet', 'item_branches', 'item_magic_stick', 'item_magic_wand', 'item_wraith_band', 'item_power_treads', 'item_yasha', 'item_ultimate_scepter', 'item_manta', 'item_orchid', 'item_skadi', 'item_heart', 'item_bloodthorn', 'item_oblivion_staff' },
-			known = { abyssal_blade = 8, aghanims_shard = 10, basher = 11, bloodthorn = 34, boots = 13, butterfly = 14, heart = 37, infused_raindrop = 6, magic_wand = 66, manta = 80, oblivion_staff = 31, orchid = 51, power_treads = 99, sange = 9, skadi = 33, travel_boots = 3, travel_boots_2 = 1, ultimate_scepter = 87, ultimate_scepter_2 = 20, wraith_band = 31, yasha = 83 },
+			buy = { 'item_circlet', 'item_branches', 'item_branches', 'item_slippers', 'item_quelling_blade', 'item_magic_stick', 'item_magic_wand', 'item_wraith_band', 'item_power_treads', 'item_diffusal_blade', 'item_manta', 'item_ultimate_scepter', 'item_yasha', 'item_skadi', 'item_heart', 'item_bloodthorn', 'item_oblivion_staff' },
+			known = { abyssal_blade = 5, aghanims_shard = 10, basher = 8, bloodthorn = 23, boots = 12, butterfly = 8, diffusal_blade = 51, disperser = 21, dragon_lance = 6, heart = 29, infused_raindrop = 5, magic_wand = 73, manta = 81, monkey_king_bar = 7, oblivion_staff = 22, orb_of_corrosion = 5, orchid = 20, power_treads = 99, skadi = 33, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 73, ultimate_scepter_2 = 16, wraith_band = 42, yasha = 51 },
 		},
 	},
 	['npc_dota_hero_phoenix'] = {
@@ -763,8 +763,8 @@ X.Builds = {
 	},
 	['npc_dota_hero_riki'] = {
 		[1] = {
-			buy = { 'item_branches', 'item_magic_stick', 'item_circlet', 'item_quelling_blade', 'item_tango', 'item_magic_wand', 'item_wraith_band', 'item_power_treads', 'item_diffusal_blade', 'item_yasha', 'item_manta', 'item_basher', 'item_disperser', 'item_abyssal_blade', 'item_sange', 'item_greater_crit' },
-			known = { abyssal_blade = 20, aghanims_shard = 8, basher = 32, black_king_bar = 16, boots = 24, butterfly = 13, diffusal_blade = 59, disperser = 24, falcon_blade = 5, greater_crit = 16, infused_raindrop = 8, lesser_crit = 19, magic_wand = 72, manta = 58, monkey_king_bar = 11, nullifier = 7, orb_of_corrosion = 13, pers = 18, phylactery = 11, power_treads = 96, sange = 20, skadi = 7, travel_boots = 4, travel_boots_2 = 1, ultimate_scepter = 7, wraith_band = 64, yasha = 67 },
+			buy = { 'item_quelling_blade', 'item_slippers', 'item_slippers', 'item_branches', 'item_branches', 'item_magic_stick', 'item_tango', 'item_magic_wand', 'item_wraith_band', 'item_power_treads', 'item_diffusal_blade', 'item_yasha', 'item_manta', 'item_disperser', 'item_basher', 'item_abyssal_blade', 'item_dragon_lance', 'item_black_king_bar' },
+			known = { abyssal_blade = 20, aghanims_shard = 9, basher = 29, black_king_bar = 17, boots = 15, butterfly = 10, desolator = 5, diffusal_blade = 60, disperser = 30, dragon_lance = 20, greater_crit = 15, infused_raindrop = 8, lesser_crit = 15, magic_wand = 74, manta = 70, monkey_king_bar = 10, nullifier = 7, orb_of_corrosion = 49, pers = 8, power_treads = 98, skadi = 14, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 8, wraith_band = 54, yasha = 76 },
 		},
 		[2] = {
 			buy = { 'item_quelling_blade', 'item_blood_grenade', 'item_magic_stick', 'item_circlet', 'item_blight_stone', 'item_branches', 'item_magic_wand', 'item_wraith_band', 'item_power_treads', 'item_diffusal_blade', 'item_yasha', 'item_manta', 'item_disperser', 'item_basher', 'item_sange', 'item_abyssal_blade', 'item_black_king_bar' },
@@ -813,12 +813,12 @@ X.Builds = {
 	},
 	['npc_dota_hero_shadow_shaman'] = {
 		[4] = {
-			buy = { 'item_faerie_fire', 'item_branches', 'item_blood_grenade', 'item_circlet', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_blink', 'item_aether_lens', 'item_glimmer_cape', 'item_refresher', 'item_ultimate_scepter' },
-			known = { aeon_disk = 8, aether_lens = 48, aghanims_shard = 16, arcane_boots = 86, blink = 80, boots = 35, cyclone = 5, force_staff = 8, glimmer_cape = 32, guardian_greaves = 6, headdress = 5, infused_raindrop = 7, magic_wand = 53, mekansm = 5, refresher = 16, ring_of_basilius = 83, ultimate_scepter = 16, wind_lace = 7 },
+			buy = { 'item_faerie_fire', 'item_branches', 'item_magic_stick', 'item_blood_grenade', 'item_tango', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_blink', 'item_aether_lens', 'item_glimmer_cape', 'item_ultimate_scepter', 'item_refresher' },
+			known = { aeon_disk = 7, aether_lens = 44, aghanims_shard = 14, arcane_boots = 86, blink = 80, boots = 31, force_staff = 8, glimmer_cape = 29, guardian_greaves = 6, headdress = 5, infused_raindrop = 6, magic_wand = 52, mekansm = 5, refresher = 14, ring_of_basilius = 82, ultimate_scepter = 15, wind_lace = 6 },
 		},
 		[5] = {
-			buy = { 'item_blood_grenade', 'item_branches', 'item_magic_stick', 'item_faerie_fire', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_blink', 'item_aether_lens', 'item_glimmer_cape', 'item_refresher', 'item_ultimate_scepter' },
-			known = { aeon_disk = 8, aether_lens = 46, aghanims_shard = 16, arcane_boots = 89, blink = 83, boots = 32, cyclone = 5, force_staff = 8, glimmer_cape = 34, guardian_greaves = 6, headdress = 6, infused_raindrop = 7, magic_wand = 56, mekansm = 6, refresher = 15, ring_of_basilius = 86, ultimate_scepter = 14, wind_lace = 6 },
+			buy = { 'item_blood_grenade', 'item_branches', 'item_magic_stick', 'item_faerie_fire', 'item_tango', 'item_ring_of_basilius', 'item_magic_wand', 'item_arcane_boots', 'item_blink', 'item_aether_lens', 'item_glimmer_cape', 'item_ultimate_scepter' },
+			known = { aeon_disk = 7, aether_lens = 42, aghanims_shard = 14, arcane_boots = 88, blink = 82, boots = 28, force_staff = 8, glimmer_cape = 31, guardian_greaves = 6, headdress = 6, infused_raindrop = 6, magic_wand = 55, mekansm = 6, refresher = 13, ring_of_basilius = 84, ultimate_scepter = 14, wind_lace = 6 },
 		},
 	},
 	['npc_dota_hero_shredder'] = {
@@ -839,12 +839,12 @@ X.Builds = {
 	},
 	['npc_dota_hero_skeleton_king'] = {
 		[1] = {
-			buy = { 'item_circlet', 'item_branches', 'item_gauntlets', 'item_quelling_blade', 'item_tango', 'item_magic_wand', 'item_bracer', 'item_phase_boots', 'item_radiance', 'item_blink', 'item_black_king_bar', 'item_desolator', 'item_buckler', 'item_ultimate_scepter', 'item_assault', 'item_sange' },
-			known = { abyssal_blade = 14, aghanims_shard = 17, armlet = 6, assault = 21, basher = 15, black_king_bar = 32, blink = 81, bloodthorn = 13, boots = 22, bracer = 41, buckler = 27, desolator = 31, echo_sabre = 16, harpoon = 13, infused_raindrop = 5, magic_wand = 72, monkey_king_bar = 13, oblivion_staff = 15, orchid = 22, overwhelming_blink = 6, phase_boots = 88, radiance = 72, sange = 15, soul_ring = 5, swift_blink = 12, travel_boots = 5, travel_boots_2 = 1, ultimate_scepter = 20, ultimate_scepter_2 = 15 },
+			buy = { 'item_branches', 'item_quelling_blade', 'item_magic_stick', 'item_gauntlets', 'item_branches', 'item_magic_wand', 'item_bracer', 'item_phase_boots', 'item_radiance', 'item_blink', 'item_armlet', 'item_desolator', 'item_black_king_bar', 'item_assault', 'item_buckler', 'item_ultimate_scepter' },
+			known = { abyssal_blade = 11, aghanims_shard = 15, armlet = 33, assault = 18, basher = 13, black_king_bar = 26, blade_mail = 3, blight_stone = 4, blink = 77, bloodthorn = 7, boots = 19, bracer = 34, buckler = 22, desolator = 31, dragon_lance = 14, echo_sabre = 15, hand_of_midas = 2, harpoon = 12, infused_raindrop = 4, invis_sword = 9, magic_wand = 71, monkey_king_bar = 12, nullifier = 5, oblivion_staff = 8, orchid = 13, overwhelming_blink = 4, phase_boots = 93, radiance = 68, sange = 3, sange_and_yasha = 2, silver_edge = 6, soul_ring = 10, swift_blink = 7, travel_boots = 2, travel_boots_2 = 0, ultimate_scepter = 15, ultimate_scepter_2 = 9, wraith_band = 3, yasha = 3 },
 		},
 		[3] = {
-			buy = { 'item_circlet', 'item_branches', 'item_quelling_blade', 'item_magic_stick', 'item_gauntlets', 'item_tango', 'item_magic_wand', 'item_bracer', 'item_phase_boots', 'item_radiance', 'item_blink', 'item_black_king_bar', 'item_buckler', 'item_desolator', 'item_ultimate_scepter', 'item_assault' },
-			known = { abyssal_blade = 8, aghanims_shard = 15, armlet = 6, assault = 22, basher = 10, black_king_bar = 27, blade_mail = 10, blink = 76, bloodthorn = 6, boots = 25, bracer = 56, buckler = 23, desolator = 22, echo_sabre = 16, harpoon = 12, invis_sword = 8, magic_wand = 69, monkey_king_bar = 7, oblivion_staff = 5, orchid = 13, overwhelming_blink = 5, phase_boots = 87, radiance = 65, sange = 10, soul_ring = 7, travel_boots = 5, travel_boots_2 = 0, ultimate_scepter = 23, ultimate_scepter_2 = 12 },
+			buy = { 'item_branches', 'item_circlet', 'item_gauntlets', 'item_quelling_blade', 'item_tango', 'item_magic_wand', 'item_bracer', 'item_phase_boots', 'item_radiance', 'item_blink', 'item_armlet', 'item_black_king_bar', 'item_desolator', 'item_assault', 'item_ultimate_scepter', 'item_buckler' },
+			known = { abyssal_blade = 6, aghanims_shard = 14, armlet = 24, assault = 20, basher = 9, black_king_bar = 22, blade_mail = 8, blink = 73, boots = 23, bracer = 49, buckler = 18, desolator = 22, dragon_lance = 12, echo_sabre = 15, harpoon = 11, invis_sword = 8, magic_wand = 70, monkey_king_bar = 7, orchid = 8, phase_boots = 93, radiance = 61, soul_ring = 11, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 19, ultimate_scepter_2 = 6 },
 		},
 	},
 	['npc_dota_hero_skywrath_mage'] = {
@@ -885,14 +885,14 @@ X.Builds = {
 	},
 	['npc_dota_hero_sniper'] = {
 		[2] = {
-			buy = { 'item_branches', 'item_circlet', 'item_faerie_fire', 'item_slippers', 'item_wraith_band', 'item_magic_wand', 'item_power_treads', 'item_maelstrom', 'item_dragon_lance', 'item_force_staff', 'item_mjollnir', 'item_hurricane_pike', 'item_lesser_crit', 'item_greater_crit', 'item_monkey_king_bar', 'item_satanic' },
-			known = { aghanims_shard = 8, black_king_bar = 13, boots = 27, dragon_lance = 58, force_staff = 39, greater_crit = 23, hurricane_pike = 38, hydras_breath = 22, infused_raindrop = 11, invis_sword = 24, lesser_crit = 28, maelstrom = 37, magic_wand = 33, mask_of_madness = 17, mjollnir = 38, monkey_king_bar = 19, moon_shard = 8, power_treads = 92, satanic = 14, silver_edge = 12, specialists_array = 21, travel_boots = 9, travel_boots_2 = 1, ultimate_scepter = 12, wraith_band = 81 },
+			buy = { 'item_slippers', 'item_branches', 'item_faerie_fire', 'item_quelling_blade', 'item_slippers', 'item_circlet', 'item_wraith_band', 'item_magic_wand', 'item_power_treads', 'item_maelstrom', 'item_dragon_lance', 'item_force_staff', 'item_hurricane_pike', 'item_mjollnir', 'item_lesser_crit', 'item_greater_crit', 'item_monkey_king_bar' },
+			known = { aghanims_shard = 8, black_king_bar = 12, blink = 7, boots = 26, butterfly = 5, desolator = 9, dragon_lance = 57, force_staff = 39, greater_crit = 23, hurricane_pike = 36, hydras_breath = 22, infused_raindrop = 10, invis_sword = 26, lesser_crit = 26, maelstrom = 38, magic_wand = 32, mask_of_madness = 18, mjollnir = 34, monkey_king_bar = 19, moon_shard = 7, orb_of_corrosion = 5, pers = 5, power_treads = 91, satanic = 12, silver_edge = 13, specialists_array = 22, travel_boots = 8, travel_boots_2 = 1, ultimate_scepter = 14, wraith_band = 35 },
 		},
 	},
 	['npc_dota_hero_spectre'] = {
 		[1] = {
-			buy = { 'item_magic_stick', 'item_branches', 'item_quelling_blade', 'item_circlet', 'item_tango', 'item_magic_wand', 'item_urn_of_shadows', 'item_power_treads', 'item_radiance', 'item_yasha', 'item_manta', 'item_skadi', 'item_orchid', 'item_basher', 'item_sange', 'item_abyssal_blade' },
-			known = { abyssal_blade = 28, aghanims_shard = 12, basher = 30, black_king_bar = 8, blade_mail = 7, bloodthorn = 16, boots = 22, bracer = 5, butterfly = 18, diffusal_blade = 5, heart = 11, infused_raindrop = 8, magic_wand = 70, manta = 87, nullifier = 10, oblivion_staff = 15, orchid = 20, power_treads = 95, radiance = 83, sange = 29, skadi = 33, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 9, urn_of_shadows = 38, wraith_band = 17, yasha = 90 },
+			buy = { 'item_circlet', 'item_branches', 'item_magic_stick', 'item_quelling_blade', 'item_tango', 'item_magic_wand', 'item_urn_of_shadows', 'item_power_treads', 'item_radiance', 'item_yasha', 'item_manta', 'item_skadi', 'item_basher', 'item_abyssal_blade', 'item_dragon_lance' },
+			known = { abyssal_blade = 24, aghanims_shard = 9, basher = 28, black_king_bar = 7, blade_mail = 7, bloodthorn = 14, boots = 21, bracer = 4, butterfly = 14, diffusal_blade = 13, disperser = 9, dragon_lance = 24, heart = 11, infused_raindrop = 7, magic_wand = 70, manta = 85, monkey_king_bar = 6, nullifier = 7, oblivion_staff = 13, orb_of_corrosion = 3, orchid = 16, pers = 4, power_treads = 94, radiance = 81, skadi = 36, travel_boots = 2, travel_boots_2 = 0, ultimate_scepter = 7, ultimate_scepter_2 = 5, urn_of_shadows = 29, wraith_band = 3, yasha = 89 },
 		},
 	},
 	['npc_dota_hero_spirit_breaker'] = {
@@ -909,8 +909,8 @@ X.Builds = {
 	},
 	['npc_dota_hero_sven'] = {
 		[1] = {
-			buy = { 'item_gauntlets', 'item_circlet', 'item_quelling_blade', 'item_branches', 'item_magic_wand', 'item_bracer', 'item_power_treads', 'item_echo_sabre', 'item_blink', 'item_black_king_bar', 'item_lesser_crit', 'item_greater_crit', 'item_swift_blink', 'item_satanic', 'item_harpoon' },
-			known = { aghanims_shard = 13, black_king_bar = 85, blink = 92, boots = 14, bracer = 27, echo_sabre = 64, greater_crit = 65, harpoon = 48, lesser_crit = 81, magic_wand = 57, monkey_king_bar = 19, moon_shard = 8, power_treads = 99, satanic = 34, swift_blink = 34, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 8, ultimate_scepter_2 = 8 },
+			buy = { 'item_slippers', 'item_gauntlets', 'item_circlet', 'item_gauntlets', 'item_quelling_blade', 'item_branches', 'item_magic_wand', 'item_phase_boots', 'item_mask_of_madness', 'item_echo_sabre', 'item_blink', 'item_black_king_bar', 'item_lesser_crit', 'item_greater_crit', 'item_satanic', 'item_swift_blink', 'item_harpoon' },
+			known = { aghanims_shard = 10, armlet = 15, black_king_bar = 78, blink = 84, boots = 14, bracer = 27, dragon_lance = 45, echo_sabre = 67, greater_crit = 53, harpoon = 44, lesser_crit = 71, magic_wand = 55, mask_of_madness = 88, monkey_king_bar = 16, moon_shard = 5, phase_boots = 28, sange = 5, sange_and_yasha = 5, satanic = 31, swift_blink = 27, travel_boots = 2, travel_boots_2 = 0, ultimate_scepter = 8, ultimate_scepter_2 = 7, wraith_band = 7, yasha = 5 },
 		},
 	},
 	['npc_dota_hero_techies'] = {
@@ -973,8 +973,8 @@ X.Builds = {
 	},
 	['npc_dota_hero_troll_warlord'] = {
 		[1] = {
-			buy = { 'item_branches', 'item_magic_stick', 'item_circlet', 'item_faerie_fire', 'item_quelling_blade', 'item_magic_wand', 'item_wraith_band', 'item_power_treads', 'item_bfury', 'item_pers', 'item_black_king_bar', 'item_yasha', 'item_sange', 'item_sange_and_yasha', 'item_satanic', 'item_abyssal_blade', 'item_monkey_king_bar' },
-			known = { abyssal_blade = 22, aghanims_shard = 13, basher = 32, bfury = 47, black_king_bar = 72, blink = 19, boots = 24, greater_crit = 5, infused_raindrop = 7, invis_sword = 10, maelstrom = 6, magic_wand = 71, manta = 20, monkey_king_bar = 19, pers = 69, power_treads = 56, sange = 41, sange_and_yasha = 36, satanic = 25, silver_edge = 5, swift_blink = 11, travel_boots = 5, travel_boots_2 = 1, ultimate_scepter = 10, ultimate_scepter_2 = 10, wraith_band = 32, yasha = 61 },
+			buy = { 'item_circlet', 'item_faerie_fire', 'item_branches', 'item_magic_stick', 'item_slippers', 'item_quelling_blade', 'item_magic_wand', 'item_wraith_band', 'item_power_treads', 'item_bfury', 'item_pers', 'item_black_king_bar', 'item_yasha', 'item_sange', 'item_sange_and_yasha', 'item_satanic', 'item_abyssal_blade', 'item_dragon_lance' },
+			known = { abyssal_blade = 22, aghanims_shard = 11, basher = 32, bfury = 47, black_king_bar = 71, blink = 17, boots = 21, diffusal_blade = 8, dragon_lance = 21, infused_raindrop = 7, invis_sword = 7, maelstrom = 6, magic_wand = 72, manta = 19, mjollnir = 6, monkey_king_bar = 17, pers = 73, power_treads = 54, sange = 45, sange_and_yasha = 44, satanic = 23, swift_blink = 10, travel_boots = 3, travel_boots_2 = 0, ultimate_scepter = 11, ultimate_scepter_2 = 9, wraith_band = 42, yasha = 66 },
 		},
 	},
 	['npc_dota_hero_tusk'] = {
@@ -1013,8 +1013,8 @@ X.Builds = {
 			known = { aether_lens = 21, aghanims_shard = 10, ancient_janggo = 7, boots = 27, boots_of_bearing = 6, bracer = 5, buckler = 5, dragon_lance = 9, force_staff = 14, glimmer_cape = 16, headdress = 7, hydras_breath = 7, infused_raindrop = 8, magic_wand = 67, pavise = 12, ring_of_basilius = 31, solar_crest = 20, specialists_array = 10, tranquil_boots = 47, ultimate_scepter = 29, urn_of_shadows = 9, vladmir = 7, wind_lace = 14, wraith_band = 14, yasha = 7 },
 		},
 		[5] = {
-			buy = { 'item_flask', 'item_branches', 'item_blood_grenade', 'item_magic_stick', 'item_magic_wand', 'item_ring_of_basilius', 'item_tranquil_boots', 'item_ultimate_scepter', 'item_solar_crest', 'item_aether_lens', 'item_glimmer_cape' },
-			known = { aether_lens = 22, aghanims_shard = 11, ancient_janggo = 7, blink = 6, boots = 27, buckler = 7, dragon_lance = 7, force_staff = 14, glimmer_cape = 20, headdress = 8, hydras_breath = 5, infused_raindrop = 9, magic_wand = 68, pavise = 15, ring_of_basilius = 34, solar_crest = 23, specialists_array = 7, tranquil_boots = 49, travel_boots = 1, travel_boots_2 = 0, ultimate_scepter = 25, urn_of_shadows = 8, vladmir = 7, wind_lace = 14, wraith_band = 9 },
+			buy = { 'item_branches', 'item_branches', 'item_wind_lace', 'item_blood_grenade', 'item_faerie_fire', 'item_magic_wand', 'item_ring_of_basilius', 'item_tranquil_boots', 'item_solar_crest', 'item_ultimate_scepter' },
+			known = { aether_lens = 19, aghanims_shard = 8, ancient_janggo = 8, blink = 5, boots = 24, boots_of_bearing = 6, buckler = 10, dragon_lance = 6, force_staff = 16, glimmer_cape = 17, headdress = 8, infused_raindrop = 8, magic_wand = 65, pavise = 14, ring_of_basilius = 34, solar_crest = 21, specialists_array = 6, tranquil_boots = 49, ultimate_scepter = 23, urn_of_shadows = 7, vladmir = 11, wind_lace = 12, wraith_band = 10 },
 		},
 	},
 	['npc_dota_hero_venomancer'] = {

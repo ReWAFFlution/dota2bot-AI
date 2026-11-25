@@ -76,9 +76,11 @@ Customize.Strict_Ban_Match = true
 
 -- Draft (All Pick, data in FunLib/meta_draft_data.lua). Each bot team takes 1 meta
 -- and 1 popular hero for their positions; the team facing a human also takes 1
--- counter to the human's hero. One category may get a 2nd hero with this chance (%),
--- checked in priority order counter -> meta -> popular.
+-- counter to the human's hero. Counter or popular may get a 2nd hero with this
+-- chance (%), checked in priority order counter -> popular.
 Customize.Second_Pick_Chance = 20
+-- Chance (%) of a 2nd meta hero (own roll). A meta hero may also be the counter.
+Customize.Meta_Second_Chance = 60
 -- These heroes go to cores (pos 1-3) first. Chance (%) that one meta/counter hero goes
 -- to a support instead and a core gets a free hero that plays its position.
 Customize.Support_Swap_Chance = 25
