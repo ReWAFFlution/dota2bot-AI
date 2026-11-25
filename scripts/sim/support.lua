@@ -49,3 +49,31 @@ enemies = { sven } axe.dmg = true
 print('fight ally', P.SupportFightToJoin(lion) and P.SupportFightToJoin(lion).name)
 assert(P.SupportFightToJoin(lion) == axe)
 print('support ok')
+
+-- Nothing to do: the support stacks our camp near a core (CM idled under
+-- our T3, 9105652499).
+do
+	SIM_T = 20 * 60 + 40
+	enemies = {}
+	local camp = { location = Vector(1200, 300), team = 2, type = 'large' }
+	function GetNeutralSpawners() return { camp } end
+	axe.loc = Vector(2400, 900) -- a core nearby, not on the camp
+	lion.loc = Vector(400, 0)
+	function lion:GetCurrentMovementSpeed() return 300 end
+	local neutral = { name = 'centaur', loc = Vector(1250, 320) } function neutral:GetLocation() return self.loc end
+	function lion:GetNearbyNeutralCreeps(r) return (self.loc - neutral.loc):Length2D() < r and { neutral } or {} end
+	function lion:GetAttackRange() return 600 end
+	J.CanNotUseAction = function() return false end
+	local planned = P.StackPlan(lion)
+	print('stack planned at :40', planned)
+	assert(planned)
+	P.StackThink(lion) print(':40 ->', lion.last)
+	SIM_T = 20 * 60 + 53 lion.loc = Vector(1500, 500)
+	P.StackThink(lion) print(':53 ->', lion.last)
+	assert(lion.last == 'attack centaur')
+	SIM_T = 20 * 60 + 54 P.StackThink(lion) print(':54 ->', lion.last)
+	assert(lion.last:find('move'))
+	SIM_T = 20 * 60 + 58.6 P.StackThink(lion)
+	assert(lion._stack == nil and lion._stackDoneMinute == 20)
+	print('stack ok')
+end

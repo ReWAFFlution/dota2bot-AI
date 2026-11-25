@@ -908,6 +908,14 @@ function X.RoamDesire(bot)
 		bot._teamAction = 'ward_carry'
 		return 0.72
 	end
+	-- A support with nothing to do stacks a camp of ours near our cores
+	-- (Crystal Maiden stood by Arc Warden under our T3, "idle for 12 s" every
+	-- 20 s, 9105652499): hit a neutral at ~:53 and walk it out of the camp,
+	-- so two camps' worth spawn for the core at :00.
+	if X.StackPlan(bot) then
+		bot._teamAction = 'stack'
+		return 0.6
+	end
 	-- Idle with no lane safe to push: stay next to our nearest core.
 	local follow = Objectives.IdleFollow and Objectives.IdleFollow(bot)
 	if follow then
@@ -1074,8 +1082,98 @@ function X.RoamThink(bot)
 	elseif a == 'hunt' and S.hunt then
 		ThinkHunt(bot, S)
 		return true
+	elseif a == 'stack' and bot._stack then
+		return X.StackThink(bot)
 	end
 	return false
+end
+
+--------------------------------------------------------------------------------
+-- Camp stacking (supports with nothing else to do)
+--------------------------------------------------------------------------------
+
+local FarmPlanLib -- loaded on first use (no require loop at load time)
+
+-- The camp to stack this minute, or nil: a support (pos 4-5) after 6:00,
+-- HP over 60%, no enemy hero within 1600, between :35 and :59 of the minute;
+-- our own non-ancient camp within 2500 that is safe and has no hero of ours
+-- farming it, within 2000 of one of our cores (the farm goes to someone).
+function X.StackPlan(bot)
+	local t = DotaTime()
+	local sec = t % 60
+	local st = bot._stack
+	-- An ongoing stack holds until :59.
+	if st and st.minute == math.floor(t / 60) and sec < 59 and J.GetHP(bot) > 0.4 then return true end
+	bot._stack = nil
+	if J.GetPosition(bot) < 4 or t < 6 * 60 or sec < 35 or sec > 50 then return false end
+	if J.GetHP(bot) < 0.6 or #RealEnemiesNear(bot:GetLocation(), 1600) > 0 then return false end
+	if bot._stackDoneMinute == math.floor(t / 60) then return false end
+	if FarmPlanLib == nil then
+		local ok, F = pcall(require, GetScriptDirectory()..'/FunLib/farm_plan')
+		FarmPlanLib = ok and F or false
+	end
+	local best, bd
+	for _, camp in pairs(GetNeutralSpawners and GetNeutralSpawners() or {}) do
+		if camp and camp.location and camp.team == GetTeam() and camp.type ~= 'ancient' then
+			local d = GetUnitToLocationDistance(bot, camp.location)
+			if d < 2500 and (not bd or d < bd) then
+				local safe = not FarmPlanLib or not FarmPlanLib.IsSafe or FarmPlanLib.IsSafe(bot, camp)
+				local coreNear, farmed = false, false
+				for _, m in ipairs(Members()) do
+					if m ~= bot and m:IsAlive() and J.GetPosition(m) <= 3 then
+						local dm = GetUnitToLocationDistance(m, camp.location)
+						if dm < 2000 then coreNear = true end
+						if dm < 700 then farmed = true end
+					end
+				end
+				-- Walk there in time: ~:53 at the camp.
+				local eta = d / math.max(250, bot:GetCurrentMovementSpeed())
+				if safe and coreNear and not farmed and sec + eta < 52 then best, bd = camp, d end
+			end
+		end
+	end
+	if not best then return false end
+	bot._stack = { camp = best, minute = math.floor(t / 60), state = 'go' }
+	Log(bot:GetUnitName()..' stacks the '..tostring(best.type)..' camp at '..string.format('(%d, %d)', best.location.x, best.location.y))
+	return true
+end
+
+function X.StackThink(bot)
+	local st = bot._stack
+	if not st then return false end
+	if J.CanNotUseAction(bot) then return true end
+	local t = DotaTime()
+	local sec = t % 60
+	local loc = st.camp.location
+	local away = J.GetTeamFountain() - loc
+	away = away / math.max(1, away:Length2D())
+	if st.state == 'go' then
+		-- Wait at the camp's edge until :52.5, then hit a neutral once.
+		local neutrals = bot:GetNearbyNeutralCreeps(700)
+		if sec >= 52.5 and #neutrals > 0 then
+			local n = neutrals[1]
+			if GetUnitToUnitDistance(bot, n) > bot:GetAttackRange() + 150 then
+				bot:Action_MoveToLocation(n:GetLocation())
+			else
+				bot:Action_AttackUnit(n, true)
+				st.state, st.hitT = 'hit', t
+			end
+			return true
+		end
+		local spot = loc + away * 350
+		if GetUnitToLocationDistance(bot, spot) > 120 then bot:Action_MoveToLocation(spot) end
+		return true
+	end
+	-- Hit (or the swing started): walk them out until :59.
+	if st.state == 'hit' and t - st.hitT > 0.5 then st.state = 'pull' end
+	if st.state == 'pull' then
+		bot:Action_MoveToLocation(loc + away * 1100)
+		if sec >= 58.5 then
+			bot._stackDoneMinute = st.minute
+			bot._stack = nil
+		end
+	end
+	return true
 end
 
 --------------------------------------------------------------------------------
