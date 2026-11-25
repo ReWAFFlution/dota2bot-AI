@@ -413,7 +413,7 @@ function X.Think(bot)
 		-- stood 60 from the top bounty at 0:00, "tried", status missing, and
 		-- left at 0:03 while it lay there, bot vs bot 9105560137).
 		if Dist(myLoc, runeLoc) <= 250 and DotaTime() >= 2 then bot._runeTried = true end
-		bot:Action_PickUpRune(rune)
+		bot:Action_ClearActions(true) bot:Action_PickUpRune(rune)
 		return true
 	end
 
@@ -445,7 +445,7 @@ function X.Think(bot)
 	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 250 and (bot._runeTryT or -math.huge) <= DotaTime() - 0.45 then
 		bot._runeTryT = DotaTime()
 		if DotaTime() >= 2 then bot._runeTried = true end
-		bot:Action_PickUpRune(rune)
+		bot:Action_ClearActions(true) bot:Action_PickUpRune(rune)
 		return true
 	end
 	-- After the horn, not sure it's gone: walk onto the spot and try.
@@ -467,7 +467,7 @@ function X.Think(bot)
 			end
 		end
 		if picker then
-			if Dist(myLoc, runeLoc) > 400 then bot:Action_MoveToLocation(runeLoc) else bot._runeTryT = DotaTime() bot:Action_PickUpRune(rune) end
+			if Dist(myLoc, runeLoc) > 400 then bot:Action_MoveToLocation(runeLoc) else bot._runeTryT = DotaTime() bot:Action_ClearActions(true) bot:Action_PickUpRune(rune) end
 			return true
 		end
 	end

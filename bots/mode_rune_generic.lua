@@ -341,6 +341,28 @@ function Think()
 		return
 	end
 
+	-- On an available rune: pick it up whatever is queued (Keeper of the Light
+	-- stood on a bounty "0 away" for 3 s until the stuck check gave up,
+	-- 9105606782; a queued action makes CanNotUseAction say wait). A fresh
+	-- order every 0.6 s, the queue cleared first.
+	if bot._passRune and bot:IsAlive() and not bot:IsChanneling() and not bot:IsCastingAbility() and not bot:IsStunned() then
+		local loc = GetRuneSpawnLocation(bot._passRune)
+		if GetUnitToLocationDistance(bot, loc) <= 250 then
+			local now = DotaTime()
+			if now - (bot._runeOrderT or -math.huge) >= 0.6 then
+				if bot._runeOrderT and now - bot._runeOrderT < 2 and now - (bot._runeOrderLogT or -math.huge) > 30 then
+					bot._runeOrderLogT = now
+					print(string.format('[Diag] %s on rune %d: pickup again (action %s, %d queued)', bot:GetUnitName(), bot._passRune,
+						tostring(bot:GetCurrentActionType()), bot:NumQueuedActions()))
+				end
+				bot._runeOrderT = now
+				bot:Action_ClearActions(true)
+				bot:Action_PickUpRune(bot._passRune)
+			end
+			return
+		end
+	end
+
 	if J.CanNotUseAction(bot)
 	or bot:GetCurrentActionType() == BOT_ACTION_TYPE_PICK_UP_RUNE
 	then
