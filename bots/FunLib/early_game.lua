@@ -153,7 +153,16 @@ end
 
 AssignmentRaw = function(bot, plan)
 	local pos = J.GetPosition(bot)
-	if pos == 5 then return plan.safeRune, true end
+	-- The safe support goes where its carry goes: with the carry joining
+	-- the off-lane pair, Dazzle stood alone at the safe bounty against
+	-- Enigma and CM, gave it up and they took it (9105652499).
+	if pos == 5 then
+		for i = 1, 5 do
+			local m = GetTeamMember(i)
+			if m and m ~= bot and J.GetPosition(m) == 1 and m._earlyJoin then return plan.offRune, false end
+		end
+		return plan.safeRune, true
+	end
 	if pos == 1 then
 		if bot._earlyJoin == nil then bot._earlyJoin = RandomInt(1, 100) <= CARRY_JOIN_CHANCE end
 		return bot._earlyJoin and plan.offRune or plan.safeRune, false
