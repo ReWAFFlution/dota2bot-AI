@@ -944,7 +944,12 @@ function X.RetreatStep(bot)
 				local tl = tw:GetLocation()
 				local d = Dist(tl, myLoc)
 				local safer = Dist(tl, fountain) < Dist(myLoc, fountain) + 300
-				if safer and d < bestD and d > 300 and not CutOff(myLoc, tl, enemies) then goal, bestD = tl, d end
+				-- The spot behind the tower (fountain side), not its center: the
+				-- center can't be reached, and a hero against the T3 "retreated"
+				-- into it standing still while Terrorblade killed it (Chaos
+				-- Knight, "stands still 5 s in mode retreat", 9105669779).
+				local behind = tl + (fountain - tl) / math.max(1, Dist(fountain, tl)) * 450
+				if safer and d < bestD and d > 300 and not CutOff(myLoc, tl, enemies) then goal, bestD = behind, d end
 			end
 		end
 		bot._retreatGoal = { loc = goal, t = t }
@@ -961,6 +966,11 @@ function X.RetreatStep(bot)
 	if not pr or Dist(pr.goal, goal) > 50 or gd < pr.d - 100 then
 		bot._retreatProgress = { goal = goal, d = gd, t = t }
 	elseif t - pr.t > 1.0 then
+		-- Already on the engine's path and still stuck: the fountain.
+		if (bot._retreatPathUntil or -math.huge) > t - 0.5 then
+			bot._retreatGoal = { loc = fountain, t = t, lastT = t }
+			goal = fountain
+		end
 		bot._retreatPathUntil = t + 2.5
 		bot._retreatProgress = { goal = goal, d = gd, t = t }
 	end
