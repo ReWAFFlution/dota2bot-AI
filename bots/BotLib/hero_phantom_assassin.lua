@@ -496,6 +496,25 @@ function X.ConsiderQ()
 end
 
 
+-- Phantom Strike on creeps (lane, camps, waves): a gap closer, not damage.
+-- Only to a creep 550+ away, once per 12 s, and never the last charge (PA
+-- spent both charges on the lane wave she was farming, bot vs bot
+-- 9105560137: nothing left for a fight or an escape).
+local function CreepStrikeOk(target)
+	if not target or GetUnitToUnitDistance(bot, target) < 550 then return false end
+	if DotaTime() - (bot._paCreepStrikeT or -math.huge) < 12 then return false end
+	local ok, charges = pcall(function() return abilityW:GetCurrentAbilityCharges() end)
+	if not ok or type(charges) ~= 'number' then
+		ok, charges = pcall(function() return abilityW:GetCurrentCharges() end)
+	end
+	if ok and type(charges) == 'number' and charges > 0 and charges < 2 then return false end
+	return true
+end
+local function CreepStrike(target)
+	bot._paCreepStrikeT = DotaTime()
+	return BOT_ACTION_DESIRE_HIGH, target
+end
+
 function X.ConsiderW()
 
 	if not abilityW:IsFullyCastable() then
@@ -610,9 +629,9 @@ function X.ConsiderW()
 				and GetUnitToUnitDistance( creep, bot ) > 400
 			then
 				local nTime = nCastPoint * 3
-				if J.WillKillTarget( creep, nDamage + nBonus, nDamageType, nTime )
+				if J.WillKillTarget( creep, nDamage + nBonus, nDamageType, nTime ) and CreepStrikeOk( creep )
 				then
-					return BOT_ACTION_DESIRE_HIGH, creep
+					return CreepStrike( creep )
 				end
 			end
 		end
@@ -635,20 +654,10 @@ function X.ConsiderW()
 				  or GetUnitToUnitDistance( targetCreep, bot ) >= 650 )
 		then
 
-			if J.IsAllowedToSpam( bot, nManaCost )
+			-- Into a camp from afar only (it was cast from 400 on any camp too).
+			if bot:GetMana() >= 100 and CreepStrikeOk( targetCreep )
 			then
-				if ( #nCreeps >= 3 and GetUnitToUnitDistance( targetCreep, bot ) <= 400 )
-					or ( #nCreeps >= 2 and not J.CanKillTarget( targetCreep, nDamage * 3, nDamageType ) )
-					or ( #nCreeps >= 1 and not J.CanKillTarget( targetCreep, nDamage * 6, nDamageType ) )
-				then
-					return BOT_ACTION_DESIRE_HIGH, targetCreep
-				end
-			end
-
-			if bot:GetMana() >= 100
-				and GetUnitToUnitDistance( targetCreep, bot ) >= 550
-			then
-				return BOT_ACTION_DESIRE_HIGH, targetCreep
+				return CreepStrike( targetCreep )
 			end
 
 		end
@@ -666,12 +675,12 @@ function X.ConsiderW()
 		if J.IsValid( npcTarget )
 			and not npcTarget:IsHero()
 			and not npcTarget :HasModifier( "modifier_fountain_glyph" )
-			and ( ( not J.IsInRange( bot, npcTarget, 630 ) and bot:GetMana() >= 100 )
-				or ( #nLaneCreeps >= 3 and J.IsAllowedToSpam( bot, nManaCost ) ) )
+			and not J.IsInRange( bot, npcTarget, 630 ) and bot:GetMana() >= 100
+			and CreepStrikeOk( npcTarget )
 		then
 			if not J.IsEnemyHeroAroundLocation( npcTarget:GetLocation(), 660 )
 			then
-				return BOT_ACTION_DESIRE_HIGH, npcTarget
+				return CreepStrike( npcTarget )
 			end
 		end
 	end

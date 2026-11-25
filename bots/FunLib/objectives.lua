@@ -2427,6 +2427,16 @@ function X.FinishTravel(bot, lane)
 	local S = TeamPlanState and TeamPlanState[GetTeam()]
 	if not S then return false end
 	local finish = S.phase == 'finish' and S.finishLane == lane and (S.finishUntil or 0) - DotaTime() >= 15
+	-- A teleport for a finish needs one to last: more of us alive, and a dead
+	-- enemy with 20+ s to wait (PA teleported off her top push to a mid
+	-- "finish" at 4 vs 4 that turned to a regroup 20 s later, 11:37, bot vs
+	-- bot 9105560137; the "until" fell back to 25 s from the start).
+	if finish then
+		local lvl = J.GetAverageLevel(true) or 10
+		local longest = 0
+		for _, dt in pairs(S.deadAt or {}) do longest = math.max(longest, dt + 6 + 2.2 * lvl - DotaTime()) end
+		if longest < 20 or GetNumAlive(GetTeam()) <= GetNumAlive(GetOpposingTeam()) then finish = false end
+	end
 	local teamSiege = S.phase == 'siege' and S.siegeAll and S.siegeLane == lane
 	if not finish and not teamSiege then return false end
 	local front = GetLaneFrontLocation(GetTeam(), lane, 0)
