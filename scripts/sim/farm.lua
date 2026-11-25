@@ -73,3 +73,11 @@ assert(F.BetweenWaves(bot, list) == nil)
 print('at 60% HP, the clear would leave under 55%: no camp')
 hp = 1000
 print('cost of a small camp at 5:00:', math.floor(F.CampCost(bot, list[1].cattr)))
+-- A lost lane: the jungle even with the wave there.
+pos = 1 bot._waveCamp = nil creeps = { {} } neutrals = { {} } bot.loc = Vector(0, 0) SIM_T = 6 * 60 hp = 1000
+assert(F.BetweenWaves(bot, list) == nil)
+bot._lostLaneUntil = SIM_T + 120
+local j = F.BetweenWaves(bot, list)
+print('lane lost, wave there: camp', j and j.cattr.type)
+assert(j ~= nil)
+bot._lostLaneUntil = nil

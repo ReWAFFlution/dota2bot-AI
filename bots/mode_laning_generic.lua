@@ -65,6 +65,48 @@ function GetDesire()
 			end
 		end
 	end
+	-- A core that died twice in 4 minutes in a lane we lose there: the other
+	-- side lane when it's quiet and we hold it, else the jungle for 2 minutes
+	-- (Gyrocopter died 6 times in the bottom lane by 8:37 to Omniknight and
+	-- Skywrath and walked back each time, bot vs bot 9105560137).
+	if J.GetPosition(bot) <= 3 and J.GetPosition(bot) ~= 2 and bot._laneDeaths and DotaTime() < 10 * 60 then
+		local t = DotaTime()
+		local recent = 0
+		for _, dt in ipairs(bot._laneDeaths) do if t - dt < 240 then recent = recent + 1 end end
+		local swapOn = bot._laneSwap and t < bot._laneSwap.untilT
+		local jungleOn = (bot._lostLaneUntil or -math.huge) > t
+		if recent >= 2 and not swapOn and not jungleOn and t - (bot._laneLostDecideT or -math.huge) > 60 then
+			local own = bot:GetAssignedLane()
+			local front = GetLaneFrontLocation(GetTeam(), own, 0)
+			local ok, ratio = pcall(Objectives.FightAt, front, bot)
+			if ok and ratio and ratio < 0.8 then
+				bot._laneLostDecideT = t
+				local other = (own == LANE_TOP) and LANE_BOT or (own == LANE_BOT) and LANE_TOP or nil
+				local choice
+				if other then
+					local of = GetLaneFrontLocation(GetTeam(), other, 0)
+					local seen = 0
+					for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+						if IsHeroAlive(pid) then
+							local info = GetHeroLastSeenInfo(pid)
+							local d = info and info[1]
+							if d and d.time_since_seen < 30 and (d.location - of):Length2D() < 2000 then seen = seen + 1 end
+						end
+					end
+					local ok2, r2 = pcall(Objectives.FightAt, of, bot)
+					if seen <= 1 and ok2 and r2 and r2 >= 1.0 then choice = other end
+				end
+				if choice then
+					bot._laneSwap = { lane = choice, untilT = t + 180 }
+					print(string.format('[Lane] %s: died %d times in 4 min, lane %d lost (x%.2f): moves to lane %d', botName, recent, own, ratio, choice))
+				else
+					bot._lostLaneUntil = t + 120
+					print(string.format('[Lane] %s: died %d times in 4 min, lane %d lost (x%.2f): farms the jungle', botName, recent, own, ratio))
+				end
+			end
+		end
+		if (bot._lostLaneUntil or -math.huge) > t then return 0.1 end
+	end
 	local botLV = bot:GetLevel()
 	local currentTime = DotaTime()
 

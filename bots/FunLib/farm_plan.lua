@@ -184,8 +184,8 @@ function X.NoteLife(bot)
 	elseif new then
 		local lane, d = NearestLane(bot._lastAliveLoc or bot:GetLocation())
 		if lane and d and d < 2000 then
-			bot._laneDeaths = bot._laneDeaths or {}
-			table.insert(bot._laneDeaths, { lane = lane, t = DotaTime() })
+			bot._laneDeathsAt = bot._laneDeathsAt or {}
+			table.insert(bot._laneDeathsAt, { lane = lane, t = DotaTime() })
 		end
 	end
 end
@@ -194,7 +194,7 @@ function X.LaneDanger(bot, lane, front)
 	local t = DotaTime()
 	local mult = 1
 	local recent, older = 0, 0
-	for _, dth in ipairs(bot._laneDeaths or {}) do
+	for _, dth in ipairs(bot._laneDeathsAt or {}) do
 		if dth.lane == lane then
 			if t - dth.t < 180 then recent = recent + 1 elseif t - dth.t < 480 then older = older + 1 end
 		end
@@ -358,6 +358,7 @@ end
 -- away and "the wave is gone" said go.
 local function WaveInReach(bot)
 	local ok, lane = pcall(function() return bot:GetAssignedLane() end)
+	if bot._laneSwap and DotaTime() < bot._laneSwap.untilT then ok, lane = true, bot._laneSwap.lane end
 	local front = ok and lane and GetLaneFrontLocation(GetTeam(), lane, 0)
 	if not front or GetUnitToLocationDistance(bot, front) > 3000 then return false end
 	for _, c in pairs(GetUnitList(UNIT_LIST_ENEMY_CREEPS)) do
@@ -394,7 +395,9 @@ function X.BetweenWaves(bot, list)
 		end
 	end
 	bot._waveCamp = nil
-	if #bot:GetNearbyLaneCreeps(1300, true) > 0 or WaveInReach(bot) then return nil end -- the wave is still there
+	-- A lost lane (team plan / laning mode set it): the jungle, wave or not.
+	local lost = (bot._lostLaneUntil or -math.huge) > DotaTime()
+	if not lost and (#bot:GetNearbyLaneCreeps(1300, true) > 0 or WaveInReach(bot)) then return nil end -- the wave is still there
 	local best, bestRate
 	for _, entry in ipairs(list) do
 		local camp = entry.cattr
@@ -407,7 +410,7 @@ function X.BetweenWaves(bot, list)
 			if not X.CanAffordCamp(bot, camp) then rate = 0 end
 			local gold = (GOLD[camp.type or 'medium'] or 80) * (1 + DotaTime() / 3600)
 			local secs = rate > 0 and gold / rate - 2 or 99 -- walk + clear
-			if secs <= 30 and rate >= 3.5 and (not bestRate or rate > bestRate) then best, bestRate = entry, rate end
+			if secs <= (lost and 45 or 30) and rate >= (lost and 2.5 or 3.5) and (not bestRate or rate > bestRate) then best, bestRate = entry, rate end
 		end
 	end
 	if best then

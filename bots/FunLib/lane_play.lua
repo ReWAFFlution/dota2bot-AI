@@ -21,6 +21,7 @@ local X = {}
 -- Titan, Dark Willow, IO, Marci...) get theirs from it: the engine's lane
 -- assignment isn't reliable for them.
 function X.Lane(bot)
+	if bot._laneSwap and DotaTime() < bot._laneSwap.untilT then return bot._laneSwap.lane end
 	if bot._laneOverrideFn then
 		local ok, lane = pcall(bot._laneOverrideFn)
 		if ok and lane then return lane end
