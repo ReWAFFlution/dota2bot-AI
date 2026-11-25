@@ -77,7 +77,20 @@ function GetDesire()
 		local t = DotaTime()
 		if started then
 			bot._campHoldT = bot._campHoldT or t
-			if t - bot._campHoldT < 12 and #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) == 0 then
+			-- Not while chased: hit by a hero in the last 4 s, or one seen
+			-- within 1600 in the last 3 s (fog too) - the hold kept a fleeing
+			-- Gyrocopter in a camp next to Puck (9105560137, 24:35).
+			local chased = bot:WasRecentlyDamagedByAnyHero(4.0)
+			if not chased then
+				for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
+					if IsHeroAlive(pid) then
+						local info = GetHeroLastSeenInfo(pid)
+						local d = info and info[1]
+						if d and d.time_since_seen < 3 and GetUnitToLocationDistance(bot, d.location) < 1600 then chased = true break end
+					end
+				end
+			end
+			if t - bot._campHoldT < 12 and not chased and #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) == 0 then
 				res = math.max(res, 0.8)
 			end
 		else

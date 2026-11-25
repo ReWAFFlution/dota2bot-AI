@@ -952,6 +952,19 @@ function X.RetreatStep(bot)
 	bot._retreatGoal.lastT = t
 	local dir = goal - myLoc
 	if dir:Length2D() < 1 then return goal end
+	-- No progress toward the goal for 1 s (the straight step ran into the
+	-- trees and cliffs around a camp; Gyrocopter stood in a camp fleeing
+	-- Puck at 24:35 and died, bot vs bot 9105560137): the engine's own path
+	-- to the goal for 2.5 s.
+	local gd = dir:Length2D()
+	local pr = bot._retreatProgress
+	if not pr or Dist(pr.goal, goal) > 50 or gd < pr.d - 100 then
+		bot._retreatProgress = { goal = goal, d = gd, t = t }
+	elseif t - pr.t > 1.0 then
+		bot._retreatPathUntil = t + 2.5
+		bot._retreatProgress = { goal = goal, d = gd, t = t }
+	end
+	if (bot._retreatPathUntil or -math.huge) > t then return goal end
 	dir = dir / dir:Length2D()
 	-- Bend away from enemies ahead or at the side; a chaser behind pushes
 	-- the same way we go anyway.
@@ -968,6 +981,8 @@ function X.RetreatStep(bot)
 	step = step / step:Length2D()
 	local loc = myLoc + step * 500
 	if not IsLocationPassable(loc) then loc = myLoc + dir * 500 end
+	-- Both steps blocked: the goal itself, the engine paths around.
+	if not IsLocationPassable(loc) then return goal end
 	return loc
 end
 
