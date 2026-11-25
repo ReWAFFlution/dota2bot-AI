@@ -111,7 +111,17 @@ function Think()
 
 	if ClosestOutpost ~= nil
 	then
-		if GetUnitToUnitDistance(bot, ClosestOutpost) > 300
+		-- The outpost's hull keeps a hero ~400 from its center: "> 300" walked
+		-- into it forever and nobody ever captured one (outposts_captured 0
+		-- for all ten, Riki/Undying/Sniper "stand still 5 s in outpost" at
+		-- 0.79, bot vs bot 9105279794). No closer for 1 s within 650 = there.
+		local d = GetUnitToUnitDistance(bot, ClosestOutpost)
+		local t = DotaTime()
+		if not bot._opApproach or bot._opApproach.u ~= ClosestOutpost or d < bot._opApproach.d - 20 then
+			bot._opApproach = { u = ClosestOutpost, d = d, t = t }
+		end
+		local there = d <= 300 or (d <= 650 and t - bot._opApproach.t > 1.0)
+		if not there
 		then
 			bot.outpostNearSince = nil
 			bot:Action_MoveToLocation(ClosestOutpost:GetLocation())

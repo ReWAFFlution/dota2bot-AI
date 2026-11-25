@@ -389,6 +389,10 @@ local function TrackModes(S)
 				local busy = m:GetAttackTarget() ~= nil or m:IsChanneling() or m:IsUsingAbility() or m:IsCastingAbility()
 				if r.loc and Dist(loc, r.loc) < 100 and not busy and m:DistanceFromFountain() > 1000 then
 					r.still = r.still + 1
+					-- Seconds standing per mode (the "still" share said how much,
+					-- not where: the user saw bots stop for seconds after a task).
+					r.stillBy = r.stillBy or {}
+					r.stillBy[name] = (r.stillBy[name] or 0) + 1
 					-- Standing 5 s in a row: say in which mode (Troll and CM stood
 					-- by the bounty rune after taking it; nothing said why).
 					r.stillRun = (r.stillRun or 0) + 1
@@ -448,9 +452,16 @@ local function ModeReport(S, t)
 				farmRate = farmRate..' ('..table.concat(bp, ' ')..')'
 			end
 			r.branch = {}
-			table.insert(rows, string.format('%s: %s, still %d%%, dead %d%%, %d switches%s', string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''),
-				table.concat(parts, ' '), math.floor(100 * r.still / r.n), math.floor(100 * r.dead / r.n), r.switches or 0, farmRate))
+			local sb = {}
+			for k, v in pairs(r.stillBy or {}) do if v >= 3 then table.insert(sb, { k, v }) end end
+			table.sort(sb, function(a, b) return a[2] > b[2] end)
+			local sbs = {}
+			for i = 1, math.min(3, #sb) do sbs[i] = sb[i][1]..' '..sb[i][2]..'s' end
+			table.insert(rows, string.format('%s: %s, still %d%%%s, dead %d%%, %d switches%s', string.gsub(m:GetUnitName(), 'npc_dota_hero_', ''),
+				table.concat(parts, ' '), math.floor(100 * r.still / r.n), #sbs > 0 and (' ('..table.concat(sbs, ' ')..')') or '',
+				math.floor(100 * r.dead / r.n), r.switches or 0, farmRate))
 			r.counts, r.still, r.dead, r.n, r.farmGold, r.switches = {}, 0, 0, 0, 0, 0 -- per 5-minute window
+			r.stillBy = {}
 		end
 	end
 	Log(string.format('modes %d:%02d team %d: %s', math.floor(t / 60), math.floor(t % 60), GetTeam(), table.concat(rows, ' | ')))
@@ -828,16 +839,27 @@ end
 -- Idle: alive, healthy, out of the fountain, no income for 20 s and not
 -- moving anywhere (pacing by a rune or a watcher). Rune/outpost/ward/watcher
 -- modes switch off for an idle bot so it goes farming or back to its lane.
+-- A rolling 12 s window (samples every 2 s): the fixed 20 s windows let an
+-- idle bot stand 20-40 s before anything sent it off (70 times in bot vs bot
+-- 9105279794, about 25 minutes of hero time).
+local IDLE_WINDOW = 12
 function X.IsIdle(bot)
 	local t = DotaTime()
 	if t < 60 or not bot:IsAlive() then return false end
-	local h = bot._idleHist
-	if not h or t - h.t > 20 then
-		local idle = h and (bot:GetNetWorth() - h.nw < 30) and GetUnitToLocationDistance(bot, h.loc) < 900
+	local h = bot._idleSamples
+	if not h then h = {} bot._idleSamples = h end
+	if #h == 0 or t - h[#h].t >= 2 or t < h[#h].t then
+		if #h > 0 and t < h[#h].t then for i = #h, 1, -1 do h[i] = nil end end
+		table.insert(h, { t = t, nw = bot:GetNetWorth(), loc = bot:GetLocation() })
+		while #h > 1 and t - h[2].t >= IDLE_WINDOW do table.remove(h, 1) end
+		local o = h[1]
+		local idle = t - o.t >= IDLE_WINDOW and (bot:GetNetWorth() - o.nw < 25) and GetUnitToLocationDistance(bot, o.loc) < 800
 			and J.GetHP(bot) > 0.6 and bot:DistanceFromFountain() > 1500
-		bot._idleHist = { t = t, nw = bot:GetNetWorth(), loc = bot:GetLocation() }
+		if idle and not bot._idleNow and t - (bot._idleLogT or -math.huge) > 20 then
+			bot._idleLogT = t
+			print('[Score] '..bot:GetUnitName()..' was idle for '..IDLE_WINDOW..' s, back to farming')
+		end
 		bot._idleNow = idle or false
-		if idle then print('[Score] '..bot:GetUnitName()..' was idle for 20 s, back to farming') end
 	end
 	return bot._idleNow == true
 end
@@ -1003,9 +1025,14 @@ function X.IdlePushLane(bot)
 	-- Nothing wants it: the winning mode's desire under 0.2 for 6 s counts
 	-- as idle too (Vengeful stood 20 s at our top T2 in defend_top at 0.11
 	-- before the 20 s idle check sent her off).
-	local low = bot:GetActiveModeDesire() < 0.2 and bot:GetActiveMode() ~= BOT_MODE_RETREAT
+	-- A retreat at a low desire with good HP is the same nothing-to-do (the
+	-- winner when every mode wants nothing: 14 stands of 5 s in "retreat" at
+	-- 0.14-0.41, bot vs bot 9105279794). 3 s, not 6.
+	local mode, md = bot:GetActiveMode(), bot:GetActiveModeDesire()
+	local low = (md < 0.2 and mode ~= BOT_MODE_RETREAT)
+		or (mode == BOT_MODE_RETREAT and md < 0.45 and J.GetHP(bot) > 0.7 and not bot:WasRecentlyDamagedByAnyHero(3))
 	if low then bot._lowDesireSince = bot._lowDesireSince or t else bot._lowDesireSince = nil end
-	local lowLong = bot._lowDesireSince and t - bot._lowDesireSince >= 6 and bot:DistanceFromFountain() > 1500
+	local lowLong = bot._lowDesireSince and t - bot._lowDesireSince >= 3 and bot:DistanceFromFountain() > 1500
 	-- Idle starts a 40 s push window (renewed while still idle).
 	if X.IsIdle(bot) or lowLong then
 		if t - (bot._idlePushStart or -math.huge) > 40 then bot._idlePushStart = t end
