@@ -509,6 +509,15 @@ function GetDesireHelper()
 					preferedCamp = nearCamp
 					bestLane = nil
 				end
+				-- A camp we already hit is finished first: Gyrocopter hit a camp,
+				-- left it for a wave worth more on paper, then walked back
+				-- (bot vs bot 9105159777).
+				if bestLane and preferedCamp and preferedCamp.cattr and preferedCamp.cattr.location
+				and GetUnitToLocationDistance(bot, preferedCamp.cattr.location) < 900 then
+					for _, n in pairs(bot:GetNearbyNeutralCreeps(700)) do
+						if J.IsValid(n) and n:GetHealth() < n:GetMaxHealth() then bestLane = nil break end
+					end
+				end
 				if bestLane and DotaTime() - (bot._waveLogT or -math.huge) > 60 then
 					bot._waveLogT = DotaTime()
 					print(string.format('[Farm] %s -> wave in lane %d (%.1f gold/s, best camp %.1f)', bot:GetUnitName(), bestLane, bestRate, campRate))

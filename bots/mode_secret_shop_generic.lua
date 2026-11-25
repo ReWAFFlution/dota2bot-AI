@@ -29,7 +29,11 @@ function GetDesireHelper()
 		return BOT_MODE_DESIRE_NONE
 	end
 
-	if J.IsFarming(bot) and J.IsPushing(bot) and J.IsDefending(bot) then
+	-- Farming, pushing or defending: the courier brings it (the 'and' here
+	-- never held - Gyrocopter left a camp and a wave for the shop and walked
+	-- back, bot vs bot 9105159777). Only with the courier dead we walk.
+	local courierDead = bot.theCourier ~= nil and GetCourierState(bot.theCourier) == COURIER_STATE_DEAD
+	if (J.IsFarming(bot) or J.IsPushing(bot) or J.IsDefending(bot)) and not courierDead then
 		return BOT_MODE_DESIRE_NONE
 	end
 
@@ -51,8 +55,10 @@ function GetDesireHelper()
 			hasItemToSell, itemSlot = X.HaveItemToSell();
 			if hasItemToSell then
 				preferedShop = X.GetPreferedSecretShop();
-				if preferedShop ~= nil then
-					return RemapValClamped(  GetUnitToLocationDistance(bot, preferedShop), 6000, 0, 0.75, 0.95 );
+				-- A sale is worth a short walk only (junk is sold at the shop
+				-- passed anyway).
+				if preferedShop ~= nil and GetUnitToLocationDistance(bot, preferedShop) < 1500 then
+					return RemapValClamped(  GetUnitToLocationDistance(bot, preferedShop), 1500, 0, 0.6, 0.8 );
 				end	
 			end
 		end

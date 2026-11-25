@@ -42,6 +42,10 @@ local TIER1 = { [LANE_TOP] = TOWER_TOP_1, [LANE_MID] = TOWER_MID_1, [LANE_BOT] =
 
 local function Log(bot, msg) print('[Lane] '..bot:GetUnitName()..': '..msg) end
 local function Dist(a, b) return (a - b):Length2D() end
+local function Hull(u)
+	local ok, r = pcall(function() return u:GetBoundingRadius() end)
+	return (ok and r) or 24
+end
 
 local function RealHeroes(enemy, loc, radius)
 	local list = {}
@@ -647,7 +651,12 @@ function X.CoreThink(bot)
 			local delay = J.GetAttackProDelayTime(bot, c) + X.TurnTime(bot, c)
 			-- On cooldown: the swing lands late, so only our own hit counts (the
 			-- others' share missed for Ember); never a wait instead of a swing.
-			if X.KillsOnSwing(c, dmg, delay, cdLeft > 0.25) then
+			-- From within range only: a swing from 500-750 away (Spectre, melee,
+			-- from 685; Gyrocopter from 699 and 741) is a walk first and the
+			-- creep dies meanwhile (bot vs bot 9105159777). Out of range the
+			-- walk-in below brings us next to it.
+			local inReach = GetUnitToUnitDistance(bot, c) <= range + Hull(bot) + Hull(c) + 60
+			if inReach and X.KillsOnSwing(c, dmg, delay, cdLeft > 0.25) then
 				X.NoteLastHitTry(bot, c, dmg, delay)
 				bot._lhSwing = { t = DotaTime(), c = c }
 				bot:Action_AttackUnit(c, true)
