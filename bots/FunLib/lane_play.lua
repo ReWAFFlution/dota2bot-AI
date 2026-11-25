@@ -675,6 +675,27 @@ function X.CoreThink(bot)
 			if c:GetHealth() < dmg * 2.2 and (not walkTo or c:GetHealth() < walkTo:GetHealth()) then walkTo = c end
 		end
 	end
+	-- A creep nobody hits: its HP stands still and the wait for its last hit
+	-- never ends (PA stood by the ranged creep taking Windranger's arrows
+	-- and walked to the fountain; bot vs bot 9105560137). Stalled 1.2 s:
+	-- hit it down ourselves when two hits kill it, and don't count it as a
+	-- last hit coming up.
+	local stalled = false
+	if walkTo then
+		local w = bot._lhWatch
+		local hp = walkTo:GetHealth()
+		if not w or w.c ~= walkTo or hp < w.hp - 1 then
+			bot._lhWatch = { c = walkTo, hp = hp, t = t }
+		elseif t - w.t > 1.2 then
+			stalled = true
+		end
+		if stalled and hp <= dmg * 2 and cdLeft <= 0.25
+		and GetUnitToUnitDistance(bot, walkTo) <= range + Hull(bot) + Hull(walkTo) + 60 then
+			bot._lhWatch = nil
+			bot:Action_AttackUnit(walkTo, true)
+			return
+		end
+	end
 	-- A deny now beats a hit on a hero too.
 	for _, c in pairs(bot:GetNearbyLaneCreeps(range + 150, false)) do
 		if J.IsValid(c) and J.GetHP(c) < 0.5 and c:GetHealth() <= dmg and J.CanBeAttacked(c) then
@@ -723,7 +744,9 @@ function X.CoreThink(bot)
 		-- Only when the harass really costs (under 75% HP, or more hurt than
 		-- the harasser), and not with a deny or last hit coming up: DK stepped
 		-- out of Invoker's range every 20 s at 96% HP and denied nothing.
-		local soon = walkTo ~= nil
+		-- Not a creep that stopped dropping, nor a wait under the harass
+		-- at half HP.
+		local soon = walkTo ~= nil and not stalled and J.GetHP(bot) >= 0.5
 		for _, c in pairs(bot:GetNearbyLaneCreeps(range + 400, false)) do
 			if J.IsValid(c) and J.GetHP(c) < 0.5 and c:GetHealth() < dmg * 2 then soon = true end
 		end
