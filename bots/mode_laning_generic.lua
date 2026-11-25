@@ -78,7 +78,7 @@ function GetDesire()
 	-- side lane when it's quiet and we hold it, else the jungle for 2 minutes
 	-- (Gyrocopter died 6 times in the bottom lane by 8:37 to Omniknight and
 	-- Skywrath and walked back each time, bot vs bot 9105560137).
-	if J.GetPosition(bot) <= 3 and J.GetPosition(bot) ~= 2 and bot._laneDeaths and DotaTime() < 10 * 60 then
+	if J.GetPosition(bot) <= 3 and J.GetPosition(bot) ~= 2 and bot._laneDeaths and (DotaTime() < 10 * 60 or J.IsInLaningPhase()) then
 		local t = DotaTime()
 		local recent = 0
 		for _, dt in ipairs(bot._laneDeaths) do if t - dt < 240 then recent = recent + 1 end end
