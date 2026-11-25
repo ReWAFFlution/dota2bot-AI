@@ -72,6 +72,48 @@ function X.IsSafe(bot, camp)
 	return true
 end
 
+-- What a camp costs in HP to clear: its attack damage per second (all its
+-- neutrals; they drop as they die, ~0.6 of the full camp over the clear),
+-- scaled by the hero's armor, plus the spells of the camp (stomps, shock
+-- waves, chain lightning) by the magic resistance. Ranged heroes take a bit
+-- less (some neutrals reach them late). Neutrals grow ~1/40 per minute.
+-- Without it a level-3 carry took a large camp, came out at 30% and walked
+-- or teleported away from the lane.
+local CAMP_DPS = { small = 45, medium = 75, large = 110, ancient = 190 }
+local CAMP_SPELL = { small = 0, medium = 60, large = 140, ancient = 300 }
+function X.ClearTime(bot, camp)
+	local kind = camp.type or 'medium'
+	local dps = Dps(bot) * (1 + 0.15 * math.max(0, bot:GetLevel() - 6) / 6)
+	return (HP[kind] or 1500) / math.max(30, dps)
+end
+function X.CampCost(bot, camp)
+	local kind = camp.type or 'medium'
+	local grow = 1 + DotaTime() / 60 / 40
+	local armor = 0
+	pcall(function() armor = bot:GetArmor() or 0 end)
+	local phys = 1 - (0.06 * armor) / (1 + 0.06 * math.abs(armor))
+	local mres = 0.25
+	pcall(function() mres = bot:GetMagicResist() or 0.25 end)
+	local ranged = 1
+	pcall(function() if bot:GetAttackRange() > 350 then ranged = 0.75 end end)
+	local hits = (CAMP_DPS[kind] or 75) * grow * phys * ranged * 0.6 * X.ClearTime(bot, camp)
+	local spells = (CAMP_SPELL[kind] or 60) * grow * (1 - mres)
+	return hits + spells
+end
+-- Enough HP (and mana in the laning stage) left after the clear to stay in
+-- the lane: 55% of max HP and 40% mana before 10:00, 35% HP later.
+function X.CanAffordCamp(bot, camp)
+	local maxHP = math.max(1, bot:GetMaxHealth() or 1)
+	local early = DotaTime() < 10 * 60
+	local after = (bot:GetHealth() - X.CampCost(bot, camp)) / maxHP
+	if after < (early and 0.55 or 0.35) then return false end
+	if early then
+		local okM, mp = pcall(function() return J.GetMP(bot) end)
+		if okM and mp and mp < 0.4 then return false end
+	end
+	return true
+end
+
 -- Gold per second of a camp for this hero.
 function X.CampRate(bot, camp)
 	local kind = camp.type or 'medium'
@@ -188,6 +230,7 @@ function X.BestCamp(bot, list, fallback)
 			if not TakenByOther(bot, camp) then -- one farmer per camp
 				nFree = nFree + 1
 				local r = X.CampRate(bot, camp)
+				if not X.CanAffordCamp(bot, camp) then r = 0 end
 				-- Not across the map (Arc Warden walked 10200 for a camp):
 				-- beyond 6000 the lanes are closer gold.
 				if GetUnitToLocationDistance(bot, camp.location) > 6000 then r = 0 end
@@ -303,6 +346,7 @@ function X.BetweenWaves(bot, list)
 		and GetUnitToLocationDistance(bot, camp.location) < (DotaTime() > 10 * 60 and 2500 or 1500) then
 			local rate = X.CampRate(bot, camp)
 			if BeingPulled(bot, camp) then rate = rate * 1.5 end
+			if not X.CanAffordCamp(bot, camp) then rate = 0 end
 			local gold = (GOLD[camp.type or 'medium'] or 80) * (1 + DotaTime() / 3600)
 			local secs = rate > 0 and gold / rate - 2 or 99 -- walk + clear
 			if secs <= 30 and rate >= 3.5 and (not bestRate or rate > bestRate) then best, bestRate = entry, rate end

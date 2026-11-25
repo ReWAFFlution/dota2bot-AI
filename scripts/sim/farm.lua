@@ -16,6 +16,8 @@ function bot:GetLocation() return self.loc end function bot:GetUnitName() return
 function bot:GetNearbyLaneCreeps() return creeps end
 local neutrals = { {} }
 function bot:GetNearbyNeutralCreeps() return neutrals end function bot:GetAttackDamage() return 100 end
+local hp = 900
+function bot:GetHealth() return hp end function bot:GetMaxHealth() return 1000 end
 function bot:GetSecondsPerAttack() return 1.2 end function bot:GetLevel() return 6 end function bot:GetCurrentMovementSpeed() return 315 end
 function GetUnitToLocationDistance(u, l) return (u:GetLocation() - l):Length2D() end
 local F = dofile(BOTS..'/FunLib/farm_plan.lua')
@@ -64,3 +66,10 @@ print('mid before 3:00: no camp')
 SIM_T = later bot._waveCamp = nil
 print('mid after 8:00: camp', F.BetweenWaves(bot, list) ~= nil)
 print('farm ok')
+-- A clear that would leave us low (the camp's own hits and spells): no camp.
+pos = 1 bot._waveCamp = nil creeps = {} neutrals = { {} } bot.loc = Vector(0, 0) SIM_T = 5 * 60
+hp = 600
+assert(F.BetweenWaves(bot, list) == nil)
+print('at 60% HP, the clear would leave under 55%: no camp')
+hp = 1000
+print('cost of a small camp at 5:00:', math.floor(F.CampCost(bot, list[1].cattr)))
