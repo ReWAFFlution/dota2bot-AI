@@ -396,9 +396,17 @@ function X.Think(bot)
 	local enemies = RealHeroesNear(myLoc, 1200, true)
 	local allies = RealHeroesNear(myLoc, 1400, false)
 
+	-- A pickup just ordered: no other order for 0.45 s (the retreat / kill
+	-- checks below re-ordered every frame and cancelled it: Vengeful stood on
+	-- the available bounty at 0:00 and Primal Beast took it at 0:03, bot vs
+	-- bot 9105594922).
+	if DotaTime() >= 0 and bot._runeTryT and DotaTime() - bot._runeTryT < 0.45
+	and GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE and Dist(myLoc, runeLoc) <= 400 then
+		return true
+	end
 	-- Next to the rune after the horn: take it before any fight or retreat
 	-- (it's a moment; Nyx fought 99 from the bounty and Lina took it).
-	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 400 and (bot._runeTryT or -math.huge) < DotaTime() - 0.5
+	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 400 and (bot._runeTryT or -math.huge) <= DotaTime() - 0.45
 	and (GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE or Dist(myLoc, runeLoc) <= 250) then
 		bot._runeTryT = DotaTime()
 		-- A try counts once the rune is up: at 0:00 it isn't yet (Silencer
@@ -434,7 +442,7 @@ function X.Think(bot)
 
 	-- Standing at the spot after the horn: pick up whatever is there (the
 	-- status may not say "available" for a rune right under the hero).
-	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 250 and (bot._runeTryT or -math.huge) < DotaTime() - 0.5 then
+	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 250 and (bot._runeTryT or -math.huge) <= DotaTime() - 0.45 then
 		bot._runeTryT = DotaTime()
 		if DotaTime() >= 2 then bot._runeTried = true end
 		bot:Action_PickUpRune(rune)
@@ -459,7 +467,7 @@ function X.Think(bot)
 			end
 		end
 		if picker then
-			if Dist(myLoc, runeLoc) > 400 then bot:Action_MoveToLocation(runeLoc) else bot:Action_PickUpRune(rune) end
+			if Dist(myLoc, runeLoc) > 400 then bot:Action_MoveToLocation(runeLoc) else bot._runeTryT = DotaTime() bot:Action_PickUpRune(rune) end
 			return true
 		end
 	end
