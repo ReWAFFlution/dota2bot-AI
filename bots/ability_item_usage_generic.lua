@@ -8612,9 +8612,40 @@ function ItemUsageThink()
 	if not J.IsNoItemIllution(bot) then ItemUsageComplement() end
 end
 
+-- A channel that ends early with nothing disabling us: which mode / action
+-- cut it (Enigma's Black Hole stopped mid-cast, nothing said why,
+-- 9105652499).
+local function WatchChannel()
+	local ch = bot:IsChanneling()
+	local w = bot._chanWatch
+	if ch then
+		if not w then
+			local name, total = '?', 0
+			for i = 0, 23 do
+				local a = bot:GetAbilityInSlot(i)
+				if a and not a:IsNull() and a:IsChanneling() then
+					name = a:GetName()
+					pcall(function() total = a:GetChannelTime() end)
+					break
+				end
+			end
+			bot._chanWatch = { name = name, t = DotaTime(), total = total }
+		end
+	elseif w then
+		bot._chanWatch = nil
+		local held = DotaTime() - w.t
+		local disabled = bot:IsStunned() or bot:IsSilenced() or bot:IsHexed() or bot:IsNightmared() or not bot:IsAlive()
+		if w.total and w.total > 1 and held < w.total - 0.4 and not disabled and w.name ~= 'item_tpscroll' then
+			print(string.format('[Diag] %s: channel of %s ended at %.1f of %.1f s (mode %d, action %s, %d queued)', botName, w.name, held, w.total,
+				bot:GetActiveMode(), tostring(bot:GetCurrentActionType()), bot:NumQueuedActions()))
+		end
+	end
+end
+
 function AbilityUsageThink()
 	if RefreshBotHandle() then return end
 	if bot:IsInvulnerable() or not bot:IsHero() or not bot:IsAlive() or not string.find(botName, "hero") or bot:IsIllusion() then return end
+	pcall(WatchChannel)
 	if bot.lastAbilityFrameProcessTime == nil then bot.lastAbilityFrameProcessTime = DotaTime() end
 	if DotaTime() > 30 and (DotaTime() - bot.lastAbilityFrameProcessTime < (bot.frameProcessTime * (1 + Customize.ThinkLess))) and bot.isBear == nil then return end
 	bot.lastAbilityFrameProcessTime = DotaTime()

@@ -12,6 +12,9 @@ function GetDesire()
     return bot.PushLaneDesire[LANE_MID]
 end
 function Think()
+    -- Never over a channel (Black Hole, TP...): the formation step below
+    -- ordered a move with no check and cut Enigma's Black Hole (9105652499).
+    if bot:IsChanneling() or bot:IsCastingAbility() or bot:IsUsingAbility() then return end
     if Objectives.FinishTravel(bot, LANE_MID) then return end -- finish: teleport in from far
     if Objectives.PushThink(bot, LANE_MID) then return end -- get to the ally's push (TP if far)
     if Objectives.BaseSiegeThink(bot) then return end -- their high ground: barracks first
