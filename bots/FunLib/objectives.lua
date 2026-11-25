@@ -2297,7 +2297,19 @@ function X.FightHint(bot)
 	local ev = X.FightValue(bot, target)
 	-- In lane, enemies standing nearby is normal: back off only when they're
 	-- actually hitting us or could kill us very fast.
-	local laneCalm = J.IsInLaningPhase() and not bot:WasRecentlyDamagedByAnyHero(2.0) and J.GetHP(bot) > 0.5 and ttkThem > 3
+	-- One hero's harass isn't an all-in: "they kill us in 3-4 s" is their
+	-- full 4 s of damage, which two lane heroes always have at levels 1-3,
+	-- and any hit turned the calm off - a 3 s retreat at 0.9 per harass hit
+	-- (Ursa and Sven 20-25% of the first 5 minutes in retreat, 2 and 4 last
+	-- hits at 5:00, bot vs bot 9105606782). Calm unless they kill us within
+	-- 2.5 s, we're under 40%, or two of them hit us in the last 2 s; the
+	-- lane code steps out of a single harasser's range on its own.
+	local hitters = 0
+	for _, e in ipairs(HeroesNear(GetOpposingTeam(), bot:GetLocation(), 1400)) do
+		local okH, h = pcall(function() return bot:WasRecentlyDamagedByHero(e, 2.0) end)
+		if okH and h then hitters = hitters + 1 end
+	end
+	local laneCalm = J.IsInLaningPhase() and J.GetHP(bot) > 0.4 and ttkThem > 2.5 and hitters <= 1
 	local function Say(what)
 		if not bot._fightLogT or t - bot._fightLogT > 8 then
 			bot._fightLogT = t

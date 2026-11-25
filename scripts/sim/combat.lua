@@ -264,3 +264,30 @@ local after = O.ExtraLife(wkE)
 print(string.format('enemy WK second life: before %d, after his rebirth %d', before, after))
 assert(before > 0 and after == 0)
 print('combat ok')
+
+-- Laning: one hero's harass ("they kill us in ~4 s" is their full 4 s) is no
+-- retreat; two heroes hitting us at once is (Ursa and Sven spent 20-25% of
+-- the first 5 minutes backing off from single harass hits, 9105606782).
+do
+	J.IsInLaningPhase = function() return true end
+	local h1 = hero('dragon_knight', 3, Vector(300, 0), 700, 200) h1.pid = 5
+	local h2 = hero('terrorblade', 3, Vector(350, 100), 650, 200) h2.pid = 6
+	me.loc, me.hp = Vector(0, 0), 1200 -- 60%
+	allies = { me }
+	enemies = { h1, h2 }
+	local hitBy = { [h1] = true }
+	me.WasRecentlyDamagedByHero = function(_, e) return hitBy[e] == true end
+	me._decision, me._fightHintT, me._hpHist = nil, nil, nil
+	SIM_T = SIM_T + 10
+	local one = O.FightHint(me)
+	print(string.format('lane, harassed by one (them %.1f s): hint %.2f', me._combat.ttkThem, one))
+	assert(one < 0.9, 'a single harasser should not make a lane retreat')
+	hitBy[h2] = true
+	me._decision, me._fightHintT, me._hpHist = nil, nil, nil
+	SIM_T = SIM_T + 10
+	local two = O.FightHint(me)
+	print(string.format('lane, hit by both (them %.1f s): hint %.2f', me._combat.ttkThem, two))
+	assert(two >= 0.9, 'two heroes on us should make a lane retreat')
+	J.IsInLaningPhase = function() return false end
+end
+print('lane calm ok')
