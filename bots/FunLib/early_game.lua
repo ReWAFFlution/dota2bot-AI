@@ -366,6 +366,8 @@ function X.GetDesire(bot)
 	-- bounties left them at 0:03 and they lay there, bot vs bot 9104356633).
 	if GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE or #enemies > 0 or t < 3 then return 0.9 end
 	if not bot._runeTried and t < 12 then return 0.9 end
+	-- Tried: a last look a moment later (the rune can appear a second late).
+	if t < 5 then return 0.9 end
 	bot._earlyDone = true
 	Log(bot, 'bounty done, going to lane')
 	return nil
@@ -399,7 +401,10 @@ function X.Think(bot)
 	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 400 and (bot._runeTryT or -math.huge) < DotaTime() - 0.5
 	and (GetRuneStatus(rune) == RUNE_STATUS_AVAILABLE or Dist(myLoc, runeLoc) <= 250) then
 		bot._runeTryT = DotaTime()
-		if Dist(myLoc, runeLoc) <= 250 then bot._runeTried = true end
+		-- A try counts once the rune is up: at 0:00 it isn't yet (Silencer
+		-- stood 60 from the top bounty at 0:00, "tried", status missing, and
+		-- left at 0:03 while it lay there, bot vs bot 9105560137).
+		if Dist(myLoc, runeLoc) <= 250 and DotaTime() >= 2 then bot._runeTried = true end
 		bot:Action_PickUpRune(rune)
 		return true
 	end
@@ -431,7 +436,7 @@ function X.Think(bot)
 	-- status may not say "available" for a rune right under the hero).
 	if DotaTime() >= 0 and Dist(myLoc, runeLoc) <= 250 and (bot._runeTryT or -math.huge) < DotaTime() - 0.5 then
 		bot._runeTryT = DotaTime()
-		bot._runeTried = true
+		if DotaTime() >= 2 then bot._runeTried = true end
 		bot:Action_PickUpRune(rune)
 		return true
 	end
