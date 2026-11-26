@@ -5590,9 +5590,15 @@ function J.IsInLaningPhase()
 	if bTurbo and nTime < 8 * 60 then return true end
 	if not bTurbo and nTime < 10 * 60 then return true end
 
-	-- Soft extension: still laning up to 10min (turbo) / 14min (normal) if networth is low
-	if bTurbo and nTime < 10 * 60 and GetBot():GetNetWorth() < 8000 then return true end
-	if not bTurbo and nTime < 14 * 60 and GetBot():GetNetWorth() < 8000 then return true end
+	-- Soft extension: still laning up to 10min (turbo) / 14min (normal) if networth is low.
+	-- Supports only: a poor core needs more farm, not four more minutes of
+	-- "camps only between waves" (Phantom Lancer 46% laning at 10-15 min,
+	-- 316 gold/min while farming, 7.3k at 30:00, bot vs bot 9105717267).
+	local me = GetBot()
+	local okP, myPos = pcall(J.GetPosition, me)
+	if okP and myPos and myPos <= 3 then return false end
+	if bTurbo and nTime < 10 * 60 and me:GetNetWorth() < 8000 then return true end
+	if not bTurbo and nTime < 14 * 60 and me:GetNetWorth() < 8000 then return true end
 
 	return false
 end
