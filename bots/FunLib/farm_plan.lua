@@ -54,20 +54,34 @@ local function Dps(bot)
 	return bot:GetAttackDamage() / math.max(0.3, spa)
 end
 
+-- Returns safe, why (why: the reason it isn't, for the far-camp log).
+-- An enemy seen by the camp doesn't close it by itself: our near camps
+-- always have enemy heroes around them, and with the old "seen within 1500
+-- in 8 s" veto 107 of 140 far-camp walks were for "near ones unsafe"
+-- (9105791662). By strength instead: closed only where we don't win
+-- (FightAt below 1.2 with this hero there, 1.5 in their jungle). A camp our
+-- observer ward watches has no hidden enemies: only the seen ones count.
 function X.IsSafe(bot, camp)
 	local loc = camp.location
 	local missing, recent = MissingAndRecent(loc, 1500)
-	if recent then return false end
-	if NearEnemyTower(loc, 1500) then return false end
-	-- Alone out of tower cover where the unseen enemies may be: not there.
+	if NearEnemyTower(loc, 1500) then return false, 'tower' end
 	if Objectives == nil then
 		local ok, O = pcall(require, GetScriptDirectory()..'/FunLib/objectives')
 		Objectives = ok and O or false
 	end
-	if Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, loc, camp.team == GetTeam()) then return false end
-	if camp.team ~= GetTeam() then
-		if missing >= 2 then return false end
-		if AliveCount(GetOpposingTeam()) > AliveCount(GetTeam()) then return false end
+	local ours = camp.team == GetTeam()
+	if recent then
+		local need = ours and 1.2 or 1.5
+		local okF, r = false, nil
+		if Objectives and Objectives.FightAt then okF, r = pcall(Objectives.FightAt, loc, bot, false, true) end
+		if not (okF and r) or r < need then return false, 'enemy seen' end
+	end
+	-- Alone out of tower cover where the unseen enemies may be: not there.
+	if Objectives and Objectives.PickoffRisk and Objectives.PickoffRisk(bot, loc, ours) then return false, 'pickoff' end
+	if not ours then
+		local watched = Objectives and Objectives.Watched and Objectives.Watched(loc)
+		if missing >= 2 and not watched then return false, 'enemies missing' end
+		if AliveCount(GetOpposingTeam()) > AliveCount(GetTeam()) then return false, 'outnumbered' end
 	end
 	return true
 end
@@ -266,7 +280,11 @@ local function TakenByOther(bot, camp)
 	if ok and same then return false end
 	return GetUnitToLocationDistance(c.bot, camp.location) < GetUnitToLocationDistance(bot, camp.location) + 300
 end
-local function Claim(bot, camp) claims[CampKey(camp)] = { bot = bot, t = DotaTime() } end
+local function Claim(bot, camp)
+	claims[CampKey(camp)] = { bot = bot, t = DotaTime() }
+	-- The supports ward where the carry farms (team_plan CarryWardSpot).
+	bot._farmCampLoc, bot._farmCampAt = camp.location, DotaTime()
+end
 
 -- Why no camp: printed once a minute per bot.
 local function Diag(bot, msg)
@@ -337,7 +355,12 @@ function X.BestCamp(bot, list, fallback)
 			elseif near then table.insert(nearWhy, tostring(camp.type)..' taken')
 			end
 		elseif near then
-			table.insert(nearWhy, tostring(camp.type)..(IsEmpty(camp) and ' empty' or ' unsafe'))
+			local why = 'empty'
+			if not IsEmpty(camp) then
+				local _, w = X.IsSafe(bot, camp)
+				why = 'unsafe: '..tostring(w)
+			end
+			table.insert(nearWhy, tostring(camp.type)..' '..why)
 		end
 	end
 	-- A camp right here beats a far one unless the far one is clearly

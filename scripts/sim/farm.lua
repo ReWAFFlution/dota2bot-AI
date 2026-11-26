@@ -116,3 +116,33 @@ do
 	assert(pick and pick.idx == 12)
 end
 print('route ok')
+-- Camp safety by strength and wards: an enemy seen by our camp closes it
+-- only where we lose (107 of 140 far-camp walks were "near ones unsafe",
+-- 9105791662); their camp with enemies missing is open when our ward
+-- watches it.
+do
+	SIM_T = 20 * 60
+	local fight, watched = 2.0, false
+	local O = { FightAt = function() return fight end, PickoffRisk = function() return false end,
+		Watched = function() return watched end }
+	require = function(p) if p:find('jmz_func') then return J end if p:find('objectives') then return O end end
+	local F2 = dofile(BOTS..'/FunLib/farm_plan.lua')
+	GetTeamPlayers = function(team) return team == 3 and { 7, 8, 9 } or { 1, 2, 3 } end
+	IsHeroAlive = function() return true end
+	local seen = { [7] = { location = Vector(1000, 0), time_since_seen = 2 } }
+	GetHeroLastSeenInfo = function(pid) return seen[pid] and { seen[pid] } or {} end
+	local our = { location = Vector(0, 0), team = 2, type = 'large' }
+	local s1 = F2.IsSafe(bot, our)
+	fight = 0.8
+	local s2, why2 = F2.IsSafe(bot, our)
+	print('our camp, enemy seen: strong', s1, '| weak', s2, why2)
+	assert(s1 == true and s2 == false and why2 == 'enemy seen')
+	seen = {} -- 8 and 9 (and 7) missing
+	local their = { location = Vector(0, 0), team = 3, type = 'large' }
+	local s3, why3 = F2.IsSafe(bot, their)
+	watched = true
+	local s4 = F2.IsSafe(bot, their)
+	print('their camp, 3 missing: no ward', s3, why3, '| ward', s4)
+	assert(s3 == false and why3 == 'enemies missing' and s4 == true)
+end
+print('safety ok')

@@ -1232,15 +1232,20 @@ end
 function X.CarryWardSpot(bot, S)
 	local t = DotaTime()
 	local pos = J.GetPosition(bot)
-	if pos < 4 or t < 8 * 60 or J.GetHP(bot) < 0.5 or not HasObserver(bot) then return false end
+	if pos < 4 or t < 7 * 60 or J.GetHP(bot) < 0.5 or not HasObserver(bot) then return false end
 	if S.carryWardT and t - S.carryWardT < 60 then return false end
 	if S.carryWardBy and S.carryWardBy ~= bot and t < (S.carryWardUntil or 0) then return false end
 
 	local carry = MemberAt(1)
 	if not (carry and carry:IsAlive()) then return false end
+	-- Where the carry farms: the camp it picked (it may still be walking
+	-- there from the lane), else where it is in the jungle. A watched camp
+	-- counts as safe for the farm (Objectives.Watched): no hidden enemies.
 	local cLoc = carry:GetLocation()
-	if carry:GetActiveMode() ~= BOT_MODE_FARM or InSomeLane(cLoc) then return false end
-	if ObserverNear(cLoc, 1600) then return false end
+	if carry._farmCampLoc and t - (carry._farmCampAt or -math.huge) < 15 then
+		cLoc = carry._farmCampLoc
+	elseif carry:GetActiveMode() ~= BOT_MODE_FARM or InSomeLane(cLoc) then return false end
+	if ObserverNear(cLoc, 1300) then return false end
 
 	-- Between the carry and where the enemies come from.
 	local dir = (J.GetEnemyFountain() - cLoc):Normalized()

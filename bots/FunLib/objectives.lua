@@ -2253,15 +2253,40 @@ end
 -- 3 s, or vanished in the last 20 s with `loc` within their reach since
 -- (1200 + 320 per second). Long-missing ones aren't counted (radius 6000:
 -- they'd be "everywhere" and kept Spectre out of every camp).
-function X.EnemiesInReach(loc, near)
+-- Our observer ward watches the spot: an enemy coming there is seen on the
+-- way, so the fog around it hides nobody who could already be there. The
+-- jungle by a ward is safe to farm until someone shows up (the farm leaves
+-- on sight). Cached 1 s per spot.
+local watchCache = {}
+function X.Watched(loc)
+	if not loc then return false end
+	local key = math.floor(loc.x / 200)..':'..math.floor(loc.y / 200)
+	local c = watchCache[key]
+	if c and DotaTime() - c.t < 1 then return c.r end
+	local r = false
+	local ok, wards = pcall(GetUnitList, UNIT_LIST_ALLIED_WARDS)
+	for _, w in pairs(ok and wards or {}) do
+		if w and not w:IsNull() then
+			local okN, name = pcall(function() return w:GetUnitName() end)
+			if okN and name and string.find(name, 'observer') and Dist(w:GetLocation(), loc) < 1300 then r = true break end
+		end
+	end
+	watchCache[key] = { t = DotaTime(), r = r }
+	return r
+end
+
+-- watched: our ward sees the spot (X.Watched), so only enemies seen in the
+-- last 6 s can be on their way there unseen (20 s otherwise).
+function X.EnemiesInReach(loc, near, watched)
 	local n = 0
+	local fogFor = watched and 6 or 20
 	for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
 		if IsHeroAlive(pid) then
 			local info = GetHeroLastSeenInfo(pid)
 			local d = info and info[1]
 			if d and d.time_since_seen < 3 then
 				if Dist(d.location, loc) < near then n = n + 1 end
-			elseif d and d.time_since_seen <= 20 and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen then
+			elseif d and d.time_since_seen <= fogFor and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen then
 				n = n + 1
 			end
 		end
@@ -2278,7 +2303,8 @@ function X.PickoffRisk(bot, loc, ownSide)
 		if a ~= bot then return false end
 	end
 	if Dist(loc, J.GetTeamFountain()) < 4500 or OurNearestTowerDist(loc) < 2500 then return false end
-	local n = X.EnemiesInReach(loc, 1800)
+	local watched = X.Watched(loc)
+	local n = X.EnemiesInReach(loc, 1800, watched)
 	-- By strength too: an enemy that kills this hero alone in 4 s while it
 	-- can't kill him back counts as enough by itself, and is feared for 25 s
 	-- in the fog (not 20; 40 s would cover the whole map). Lifestealer (4.2k at 20:00) farmed a far camp and
@@ -2293,7 +2319,7 @@ function X.PickoffRisk(bot, loc, ownSide)
 			local info = GetHeroLastSeenInfo(pid)
 			local d = info and info[1]
 			if d and ((d.time_since_seen < 3 and Dist(d.location, loc) < 1800)
-			or (d.time_since_seen <= 25 and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen)) then
+			or (d.time_since_seen <= (watched and 6 or 25) and Dist(d.location, loc) <= 1200 + 320 * d.time_since_seen)) then
 				killer = true
 			end
 		end
