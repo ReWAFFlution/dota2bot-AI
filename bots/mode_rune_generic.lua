@@ -286,25 +286,33 @@ function GetDesire()
 						return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius)
 					end
 
-					if bBottle or (not J.IsEarlyGame() and botPos <= 3) then
-						return X.GetScaledDesire(BOT_MODE_DESIRE_HIGH, rune.distance, nProximityRadius * 2.5)
+					-- The carry and the offlaner take a power rune on their way, not
+					-- from across the map (Drow Ranger 15% of 10-15 min in the rune
+					-- mode, 6.6k at 20:00, bot vs bot 9105740279); the mid and the
+					-- supports from up to 4000.
+					local reach = (botPos == 1 or botPos == 3) and 1800 or nProximityRadius * 2.5
+					if rune.distance > reach then
+						-- (nothing: farm)
+					elseif bBottle or (not J.IsEarlyGame() and botPos <= 3) then
+						return X.GetScaledDesire(BOT_MODE_DESIRE_HIGH, rune.distance, reach)
 					else
-						return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius * 2.5)
+						return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, reach)
 					end
 				-- Out of sight ("unknown") is most of the time: check it only right
 				-- after a spawn (even minute, first 10 s) and from nearby (DK spent
 				-- 23% of 10-15 min walking to river spots to look).
 				elseif rune.status == RUNE_STATUS_UNKNOWN and DotaTime() > 113
-				and minute % 2 == 0 and second < 10 and rune.distance <= 2000 then
+				and minute % 2 == 0 and second < 10 and rune.distance <= ((botPos == 1 or botPos == 3) and 1000 or 2000) then
 					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, 2000)
 				-- The horn: the mid checks the river spots by its lane (Earth
 				-- Spirit stood by his tower while the top one held a rune).
 				elseif rune.status == RUNE_STATUS_UNKNOWN and DotaTime() >= 0 and DotaTime() < 20
 				and botPos == 2 and rune.distance <= 2500 then
 					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, 2000)
-				elseif rune.status == RUNE_STATUS_MISSING and DotaTime() > 60 and (minute % 2 == 1 and second > 53) then
+				-- (Waiting for a spawn / guarding a rune: not the carry or offlaner.)
+				elseif rune.status == RUNE_STATUS_MISSING and DotaTime() > 60 and (minute % 2 == 1 and second > 53) and botPos ~= 1 and botPos ~= 3 then
 					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius)
-				elseif rune.status == RUNE_STATUS_UNKNOWN and X.IsTeamMustSaveRune(rune.location) and DotaTime() > 113 and rune.distance <= nProximityRadius * 2 then
+				elseif rune.status == RUNE_STATUS_UNKNOWN and botPos ~= 1 and botPos ~= 3 and X.IsTeamMustSaveRune(rune.location) and DotaTime() > 113 and rune.distance <= nProximityRadius * 2 then
 					return X.GetScaledDesire(BOT_MODE_DESIRE_MODERATE, rune.distance, nProximityRadius * 2)
 				end
 			end
@@ -910,6 +918,17 @@ function X.GetCurrentWisdomTime()
 end
 
 function X.GetWisdomAlly(vLocation)
+	-- A support first (the XP is theirs; the closest hero was often the
+	-- farming carry, 9105740279), the closest anyone when none is near.
+	local sup, supD = nil, 6000
+	for i = 1, 5 do
+		local member = GetTeamMember(i)
+		if J.IsValidHero(member) and not J.IsDoingTormentor(member) and J.GetPosition(member) >= 4 then
+			local d = GetUnitToLocationDistance(member, vLocation)
+			if d < supD then sup, supD = member, d end
+		end
+	end
+	if sup then return sup end
 	local target = nil
 	local targetDistance = math.huge
 	for i = 1, 5 do
