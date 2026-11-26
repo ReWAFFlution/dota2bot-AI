@@ -508,6 +508,22 @@ function X.ConsiderR()
 		return BOT_ACTION_DESIRE_HIGH, castRTarget
 	end
 
+	-- A sure kill anywhere in cast range: also a close one (the pick above
+	-- skips targets inside attack range - 300 and those an ally "can kill"),
+	-- a hero running off low (a human Mirana at 10/0 got away from Sniper,
+	-- 9105761054). Not into a disable that would break the 2 s cast.
+	if not bot:IsSilenced() and not (J.IsRetreating(bot) and bot:WasRecentlyDamagedByAnyHero(1.0)) then
+		for _, e in pairs( nEnemysHerosCanSeen ) do
+			if J.IsValidHero( e ) and J.IsInRange( bot, e, nCastRange ) and J.CanCastOnNonMagicImmune( e )
+			and not e:HasModifier( "modifier_teleporting" )
+			and J.WillMagicKillTarget( bot, e, nDamage, nCastPoint )
+			and not ( J.IsInRange( bot, e, nAttackRange ) and J.CanKillTarget( e, bot:GetAttackDamage() * 2, DAMAGE_TYPE_PHYSICAL ) ) then
+				print('[Fight] '..bot:GetUnitName()..': Assassinate for the kill on '..e:GetUnitName()..' (HP '..e:GetHealth()..')')
+				return BOT_ACTION_DESIRE_HIGH, e
+			end
+		end
+	end
+
 	if J.IsValid( nChannelingEnemyHeroInCastRange )
 		and not bot:IsInvisible()
 		and not J.IsRetreating( bot )
