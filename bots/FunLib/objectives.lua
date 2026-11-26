@@ -433,7 +433,61 @@ local function TrackModes(S)
 	end
 end
 
+-- Skill use (diagnostics, every second): casts per ability (its cooldown
+-- starting), and seconds a ready ability sat unused while the bot hit an
+-- enemy hero in its cast range ("bots don't use their skills on heroes").
+local function TrackSkills(S)
+	S.skills = S.skills or {}
+	for _, m in ipairs(Members()) do
+		if m:IsAlive() and m:IsBot() then
+			local pid = m:GetPlayerID()
+			local r = S.skills[pid] or { casts = {}, idle = {}, cd = {} }
+			S.skills[pid] = r
+			local tgt = m:GetAttackTarget()
+			local onHero = tgt and not tgt:IsNull() and tgt:IsHero() and tgt:GetTeam() ~= GetTeam()
+			for i = 0, 5 do
+				local a = m:GetAbilityInSlot(i)
+				if a and not a:IsNull() and a:GetLevel() > 0 and not a:IsPassive() and not a:IsHidden() then
+					local name = a:GetName()
+					local cd = a:GetCooldownTimeRemaining() or 0
+					if cd > (r.cd[name] or 0) + 0.5 then r.casts[name] = (r.casts[name] or 0) + 1 end
+					r.cd[name] = cd
+					if onHero and a:IsFullyCastable() then
+						local range = a:GetCastRange() or 0
+						if range <= 0 then range = 600 end
+						if GetUnitToUnitDistance(m, tgt) <= range + 100 then r.idle[name] = (r.idle[name] or 0) + 1 end
+					end
+				end
+			end
+		end
+	end
+end
+
+local function SkillReport(S, t)
+	if not S.skills then return end
+	local rows = {}
+	for _, m in ipairs(Members()) do
+		local r = S.skills[m:GetPlayerID()]
+		if r then
+			local parts = {}
+			local names = {}
+			for n in pairs(r.casts) do names[n] = true end
+			for n in pairs(r.idle) do names[n] = true end
+			for n in pairs(names) do
+				local short = string.gsub(string.gsub(n, string.gsub(m:GetUnitName(), 'npc_dota_hero_', '')..'_', ''), 'npc_dota_hero_', '')
+				local idle = r.idle[n] or 0
+				table.insert(parts, short..' '..(r.casts[n] or 0)..(idle > 0 and (' (ready '..idle..'s on a hero)') or ''))
+			end
+			table.sort(parts)
+			if #parts > 0 then table.insert(rows, string.gsub(m:GetUnitName(), 'npc_dota_hero_', '')..': '..table.concat(parts, ', ')) end
+			r.casts, r.idle = {}, {}
+		end
+	end
+	if #rows > 0 then Log(string.format('skills %d:%02d team %d: %s', math.floor(t / 60), math.floor(t % 60), GetTeam(), table.concat(rows, ' | '))) end
+end
+
 local function ModeReport(S, t)
+	pcall(SkillReport, S, t)
 	if not S.modes then return end
 	local rows = {}
 	for _, m in ipairs(Members()) do
@@ -816,6 +870,7 @@ function X.Update()
 	if t < 0 then return S end
 	X.RememberEnemies()
 	pcall(TrackModes, S) -- diagnostics only
+	pcall(TrackSkills, S)
 	if HumanWatch then pcall(HumanWatch.Update) end -- how the humans play
 	ScoreHeroes(S, t)
 	ScoreBuildings(S)

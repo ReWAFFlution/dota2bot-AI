@@ -829,13 +829,22 @@ function ItemPurchaseThink()
 	end
 
 	--买小净化
+	-- Not while one waits in the stash (it bought one per check until the
+	-- courier came), the laning stage only (it ran all game), at most one a
+	-- minute, not with a Bottle or a big mana pool.
 	if J.GetMP(bot) < 0.3
 	and botDistanceFromFountain > 2000
 	and botCourierValue == 0
+	and botStashValue == 0
+	and DotaTime() < 15 * 60
+	and bot:GetMaxMana() < 1200
+	and bot:FindItemSlot('item_bottle') < 0
+	and DotaTime() - (bot._clarityBuyT or -math.huge) > 60
 	and GetItemStockCount('item_clarity') > 1
 	and Item.GetItemCharges(bot, 'item_clarity') <= 0
 	and botGold >= GetItemCost( "item_clarity" )
 	then
+		bot._clarityBuyT = DotaTime()
 		bot.hasBuyClarity = true
 		bot:ActionImmediate_PurchaseItem( "item_clarity" )
 	end

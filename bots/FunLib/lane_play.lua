@@ -124,6 +124,18 @@ end
 -- Harass
 --------------------------------------------------------------------------------
 
+-- An enemy hero healing on a Salve, Clarity or Bottle: any damage cancels
+-- it, a hit is worth more than usual (the bots never broke one).
+local REGEN_MODS = { 'modifier_flask_healing', 'modifier_clarity_potion', 'modifier_bottle_regeneration' }
+local function IsBreakableRegen(e)
+	for _, m in ipairs(REGEN_MODS) do
+		local ok, has = pcall(function() return e:HasModifier(m) end)
+		if ok and has then return true end
+	end
+	return false
+end
+X.IsBreakableRegen = IsBreakableRegen
+
 local function PickHarassTarget(bot)
 	local myLoc = bot:GetLocation()
 	local reach = math.max(bot:GetAttackRange() + 300, 750)
@@ -132,6 +144,10 @@ local function PickHarassTarget(bot)
 		if J.CanBeAttacked(e) and not EnemyTowerNear(e:GetLocation(), 750) then table.insert(list, e) end
 	end
 	if #list == 0 then return nil end
+	-- Healing on a consumable: break it first.
+	for _, e in ipairs(list) do
+		if IsBreakableRegen(e) then return e end
+	end
 	if IsSupport(bot) then
 		-- The enemy core first (deny its farm), the lowest HP one if several;
 		-- their support when no core is in reach.
@@ -177,8 +193,28 @@ function X.Harass(bot)
 	if bot:GetActiveMode() ~= BOT_MODE_LANING then return end
 	local t = DotaTime()
 	if t < 0 or t > LANING_END then return end
-	if (bot.forceFightUntil or -math.huge) > t or (bot._harassNext or -math.huge) > t then return end
+	if (bot.forceFightUntil or -math.huge) > t then return end
 	if bot._pull then return end
+	-- An enemy in reach healing on a Salve/Clarity/Bottle: one hit cancels it
+	-- - now, whatever the harass gap (not under their tower, not into two).
+	if J.GetHP(bot) > 0.35 and not EnemyTowerNear(bot:GetLocation(), 850) then
+		local reach = bot:GetAttackRange() + 250
+		for _, e in ipairs(RealHeroes(true, bot:GetLocation(), reach)) do
+			if IsBreakableRegen(e) and J.CanBeAttacked(e) and not EnemyTowerNear(e:GetLocation(), 750)
+			and #RealHeroes(true, bot:GetLocation(), 1200) <= #RealHeroes(false, bot:GetLocation(), 1200) + 1 then
+				if t - (bot._breakLogT or -math.huge) > 20 then
+					bot._breakLogT = t
+					Log(bot, 'breaks '..e:GetUnitName()..'\'s regen')
+				end
+				bot.forceFightUntil = t + 1.0
+				bot._harassNext = t + 1.0 + CORE_HARASS_GAP
+				bot._harassTarget = e
+				bot:SetTarget(e)
+				return
+			end
+		end
+	end
+	if (bot._harassNext or -math.huge) > t then return end
 
 	local support = IsSupport(bot)
 	if J.GetHP(bot) < (support and 0.4 or 0.5) then return end
@@ -780,6 +816,7 @@ function X.CoreThink(bot)
 		local kill = J.GetHP(target) < 0.35
 		local d = GetUnitToUnitDistance(bot, target)
 		if (kill and d < range + 400 and not EnemyTowerNear(target:GetLocation(), 750))
+		or (IsBreakableRegen(target) and d < range + 300 and not EnemyTowerNear(target:GetLocation(), 750))
 		or (d < range + 80 and not EnemyTowerNear(target:GetLocation(), 900) and not walkTo) then
 			bot:Action_AttackUnit(target, true)
 			return
