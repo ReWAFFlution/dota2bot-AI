@@ -1289,6 +1289,40 @@ function ItemPurchaseThink()
 		end
 	end
 
+	-- Main slots full and cheap leftovers in the backpack (they do nothing
+	-- there): sell them at a shop, whatever the networth - the sells above
+	-- wait for 14-15k or four big items, and Dragon Knight at 11.7k carried
+	-- three dead items into the late game (9105689895). Not wards, TPs,
+	-- consumables, parts of the item being built, or anything over 1200.
+	if currentTime > (bot._bpSellT or -99) + 0.5 and DotaTime() > 15 * 60
+	and (botDistanceFromFountain <= 400 or bot:DistanceFromSecretShop() <= 200) then
+		bot._bpSellT = currentTime
+		local mainFull = true
+		for slot = 0, 5 do if bot:GetItemInSlot(slot) == nil then mainFull = false break end end
+		if mainFull then
+			local tKeep = { item_tpscroll = true, item_ward_observer = true, item_ward_sentry = true, item_ward_dispenser = true,
+				item_dust = true, item_smoke_of_deceit = true, item_gem = true, item_cheese = true, item_refresher_shard = true,
+				item_aegis = true, item_famango = true, item_great_famango = true, item_greater_famango = true,
+				item_moon_shard = true, item_aghanims_shard = true, item_blood_grenade = true, item_bottle = true }
+			local sellSlot, sellCost = nil, 1201
+			for slot = 6, 8 do
+				local it = bot:GetItemInSlot(slot)
+				if it ~= nil then
+					local name = it:GetName()
+					local cost = GetItemCost(name)
+					local needed = (bot.currBuyingRequiredCounts and bot.currBuyingRequiredCounts[name]) or _plannedComponent(name)
+					local consumable = string.find(name, 'flask') or string.find(name, 'clarity') or string.find(name, 'tango')
+						or string.find(name, 'enchanted_mango') or string.find(name, 'faerie_fire') or string.find(name, 'token')
+					if not tKeep[name] and not needed and not consumable and cost > 0 and cost < sellCost then sellSlot, sellCost = slot, cost end
+				end
+			end
+			if sellSlot ~= nil then
+				print('[Items] '..botName..' sells '..bot:GetItemInSlot(sellSlot):GetName()..' from the backpack (main slots full)')
+				bot:ActionImmediate_SellItem(bot:GetItemInSlot(sellSlot))
+			end
+		end
+	end
+
 	--出售过渡装备
 	local countEmptyBackpack = Utils.CountBackpackEmptySpace(bot)
 	if currentTime > bot.sell_time + 0.5
