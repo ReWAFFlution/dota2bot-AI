@@ -153,7 +153,17 @@ function GetDesireHelper()
 	-- are their jobs (FunLib/team_plan.lua).
 	-- Not while being chased: hit by a hero in the last 4 s, or low with
 	-- enemies around lately (Bristleback stopped in a camp, low, chased).
-	if bot:WasRecentlyDamagedByAnyHero(4.0) then return BOT_MODE_DESIRE_NONE end
+	-- Chased, not just hit once: a hero's hit in the last 1.5 s with that
+	-- hero (or another) still within 1000, or any hit in 4 s under 60% HP.
+	-- One Mirana arrow switched the farm off for 4 s every time and the
+	-- laning/retreat modes took the cores (Muerta 14-20% "laning" at 15-25
+	-- min, 6k at 25:00, 9105761054).
+	if bot:WasRecentlyDamagedByAnyHero(4.0) then
+		local nearHero = #J.GetNearbyHeroes(bot, 1000, true, BOT_MODE_NONE) > 0
+		if (bot:WasRecentlyDamagedByAnyHero(1.5) and nearHero) or J.GetHP(bot) < 0.6 then
+			return BOT_MODE_DESIRE_NONE
+		end
+	end
 	if J.GetHP(bot) < 0.4 then
 		for _, pid in pairs(GetTeamPlayers(GetOpposingTeam())) do
 			if IsHeroAlive(pid) then
