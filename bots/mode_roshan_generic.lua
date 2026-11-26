@@ -40,8 +40,21 @@ local function RoshanGroup()
 	end
 	return n, math.max(1, math.min(3, alive))
 end
-local function RoshanHere()
+-- Which pit: the day/night guess can be wrong (the Dire bots stood at an
+-- empty pit for 20-30 s each in the roshan mode, 9105791662). A pit found
+-- empty from close is marked for 2 minutes and the other one is used.
+RoshanBadPit = RoshanBadPit or {}
+local function PitLocation()
 	local loc = J.GetCurrentRoshanLocation()
+	local bad = RoshanBadPit[GetTeam()]
+	if bad and DotaTime() < bad.untilT and (bad.loc - loc):Length2D() < 500 then
+		local r, d = J.Utils.RadiantRoshanLoc, J.Utils.DireRoshanLoc
+		if r and d then loc = ((loc - r):Length2D() < (loc - d):Length2D()) and d or r end
+	end
+	return loc
+end
+local function RoshanHere()
+	local loc = PitLocation()
 	for _, c in pairs(bot:GetNearbyNeutralCreeps(1600)) do
 		if c and not c:IsNull() and c:IsAlive() and c:GetUnitName() == 'npc_dota_roshan' then return c, loc end
 	end
@@ -106,6 +119,17 @@ function Think()
 			bot:Action_AttackUnit(rosh, false)
 			return
 		end
+	end
+	-- At the pit and no Roshan within 1600 for 2 s: the wrong pit.
+	if not rosh and GetUnitToLocationDistance(bot, loc) < 500 then
+		bot._roshEmptySince = bot._roshEmptySince or DotaTime()
+		if DotaTime() - bot._roshEmptySince > 2 then
+			RoshanBadPit[GetTeam()] = { loc = loc, untilT = DotaTime() + 120 }
+			bot._roshEmptySince = nil
+			print('[Rosh] '..botName..': no Roshan at the pit ('..math.floor(loc.x)..', '..math.floor(loc.y)..'), trying the other one')
+		end
+	else
+		bot._roshEmptySince = nil
 	end
 	-- Wait at the entrance, on our side.
 	local toUs = J.GetTeamFountain() - loc
