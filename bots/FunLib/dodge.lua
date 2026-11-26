@@ -86,10 +86,23 @@ function X.Threat(bot)
 				end
 			end
 		end
-		-- Avoidance zones.
+		-- Avoidance zones: new ones only (a delayed hit is about to land). A
+		-- lasting one (Shrapnel, Static Storm...) had the bot step out, the
+		-- other modes step back in, and Dragon Knight stood 20 s in the dodge
+		-- mode in the first 10 minutes (9105761054).
+		X._zoneSeen = X._zoneSeen or {}
+		if now - (X._zonePurgeT or -math.huge) > 30 then
+			X._zonePurgeT = now
+			for k, t0 in pairs(X._zoneSeen) do if now - t0 > 60 then X._zoneSeen[k] = nil end end
+		end
 		local okZ, zones = pcall(GetAvoidanceZones)
 		for _, z in pairs(okZ and zones or {}) do
-			if z and z.location and z.radius and Enemy(z.caster) then
+			local zkey = z and z.location and (math.floor(z.location.x / 50)..':'..math.floor(z.location.y / 50)..':'..AbilityName(z.ability)) or nil
+			if zkey then
+				X._zoneSeen[zkey] = X._zoneSeen[zkey] or now
+			end
+			local fresh = zkey and now - X._zoneSeen[zkey] < 2.5
+			if z and z.location and z.radius and fresh and Enemy(z.caster) then
 				local d = Dist(myLoc, z.location)
 				local edge = z.radius + HULL + 40
 				if d < edge then

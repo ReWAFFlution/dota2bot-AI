@@ -55,4 +55,10 @@ fresh()
 zones = { { location = Vector(50, 0), radius = 250, caster = ally } }
 assert(D.Desire(bot) == 0)
 print("ally's zone: no dodge")
+-- The same enemy zone 3 s later (a lasting one, like Shrapnel): no dodge.
+fresh()
+zones = { { location = Vector(50, 0), radius = 250, caster = enemy, ability = { GetName = function() return 'lina_light_strike_array' end } } }
+SIM_T = SIM_T + 3
+assert(D.Desire(bot) == 0)
+print('lasting zone (3 s): no dodge')
 print('dodge ok')
