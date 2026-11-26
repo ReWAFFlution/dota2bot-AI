@@ -98,3 +98,21 @@ do
 	assert(seenRate > camp and unseenRate < seenRate * 0.5)
 end
 print('wave estimate ok')
+-- Route: of two equal camps at the same distance, the one with another camp
+-- next to it (Dragon Knight walked 3300-4900 to lone camps, 9105740279).
+do
+	SIM_T = 22 * 60 + 5
+	pos = 1 bot._waveCamp = nil bot._farmCamp = nil creeps = {} neutrals = {} bot.loc = Vector(0, 0) hp = 1000
+	local lone = { location = Vector(-2000, 0), team = 2, type = 'medium' }
+	local pair = { location = Vector(2000, 0), team = 2, type = 'medium' }
+	local next = { location = Vector(2900, 0), team = 2, type = 'medium' }
+	local camps = { { idx = 11, cattr = lone }, { idx = 12, cattr = pair }, { idx = 13, cattr = next } }
+	GetNeutralSpawners = function() return { lone, pair, next } end
+	local oldDmg = bot.GetAttackDamage
+	bot.GetAttackDamage = function() return 260 end -- a 22-minute core
+	local pick = F.BestCamp(bot, { camps[1], camps[2] }, function() return nil end)
+	bot.GetAttackDamage = oldDmg
+	print('lone vs paired camp ->', pick and pick.idx, string.format('(bonus %.1f g/s)', F.RouteBonus(bot, pair.location, pair)))
+	assert(pick and pick.idx == 12)
+end
+print('route ok')

@@ -276,6 +276,37 @@ local function Diag(bot, msg)
 	end
 end
 
+-- One step ahead: the best camp of ours to farm next from `loc` (within
+-- 1500 of it, not empty, safe, not another's), as gold per second from there
+-- (walk from loc + clear). A camp or wave with another camp next to it is
+-- worth more than a lone one across the map: Dragon Knight walked 3300-4900
+-- to single camps with "near ones unsafe" (9105740279). Cached 2 s per spot.
+local NEXT_SHARE = 0.35
+local nextCache = {}
+function X.NextRate(bot, loc, except)
+	if not loc then return 0 end
+	local okI, pid = pcall(function() return bot:GetPlayerID() end)
+	local key = tostring(okI and pid or bot)..':'..math.floor(loc.x / 100)..':'..math.floor(loc.y / 100)..':'..tostring(except and except.location and math.floor(except.location.x) or '')
+	local c = nextCache[key]
+	if c and DotaTime() - c.t < 2 then return c.r end
+	local best = 0
+	local speed = 300
+	pcall(function() speed = math.max(250, bot:GetCurrentMovementSpeed()) end)
+	for _, entry in ipairs(AllCamps()) do
+		local camp = entry.cattr
+		if camp and camp.location and camp ~= except and camp.team == GetTeam() and camp.type ~= 'ancient'
+		and Dist(camp.location, loc) < 1500 and not IsEmpty(camp) and not TakenByOther(bot, camp) and X.IsSafe(bot, camp) then
+			local kind = camp.type or 'medium'
+			local gold = (GOLD[kind] or 80) * (1 + DotaTime() / 3600)
+			local r = gold / (Dist(camp.location, loc) / speed + X.ClearTime(bot, camp) + 2)
+			if r > best then best = r end
+		end
+	end
+	nextCache[key] = { t = DotaTime(), r = best }
+	return best
+end
+function X.RouteBonus(bot, loc, except) return NEXT_SHARE * X.NextRate(bot, loc, except) end
+
 -- Drop-in for J.Site.GetClosestNeutralSpwan(bot, list): list entries are
 -- { idx = ..., cattr = camp }.
 function X.BestCamp(bot, list, fallback)
@@ -297,6 +328,7 @@ function X.BestCamp(bot, list, fallback)
 				nFree = nFree + 1
 				local r = X.CampRate(bot, camp)
 				if not X.CanAffordCamp(bot, camp) then r = 0 end
+				if r > 0 then r = r + X.RouteBonus(bot, camp.location, camp) end
 				-- Not across the map (Arc Warden walked 10200 for a camp):
 				-- beyond 6000 the lanes are closer gold.
 				if GetUnitToLocationDistance(bot, camp.location) > 6000 then r = 0 end

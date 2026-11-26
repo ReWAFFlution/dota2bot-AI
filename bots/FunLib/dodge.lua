@@ -50,7 +50,11 @@ function X.Threat(bot)
 	local c = bot._dodgeCache
 	if c and c.at == now then return c.res end
 	local res = nil
-	if bot:IsAlive() and not bot:IsChanneling() then
+	-- Not while it can't move (stunned, rooted, hexed): Dragon Knight stood
+	-- 5 s in the dodge mode at 0.99 (9105740279).
+	local stuck = false
+	pcall(function() stuck = bot:IsStunned() or bot:IsRooted() or bot:IsHexed() or bot:IsNightmared() end)
+	if bot:IsAlive() and not bot:IsChanneling() and not stuck then
 		local myLoc = bot:GetLocation()
 		local best
 		-- Linear projectiles.

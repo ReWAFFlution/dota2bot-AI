@@ -513,8 +513,10 @@ function GetDesireHelper()
 					if committed and committed ~= lane then risky = true end
 					local danger = FarmPlan.LaneDanger and FarmPlan.LaneDanger(bot, lane, laneFront) or 1
 					if #nEnemiesAtLane == 0 and not bTaken and not risky and danger > 0 then
-						local wr, _, seen = FarmPlan.WaveRate(bot, lane)
+						local wr, wFront, seen = FarmPlan.WaveRate(bot, lane)
 						local r = wr * danger
+						-- A wave with a camp next to it: the next step counts.
+						if r > 0 and FarmPlan.RouteBonus then r = r + FarmPlan.RouteBonus(bot, wFront) * danger end
 						if lane == bot:GetAssignedLane() then r = r * 1.15 end
 						-- Stick to the lane picked: Weaver switched 1 -> 3 -> 2 -> 1
 						-- in five minutes for 1-2 gold/s more on paper, walked
@@ -535,6 +537,7 @@ function GetDesireHelper()
 				-- camp, and the wave wins once it is the closer gold).
 				local nearCamp = FarmPlan.BestCamp(bot, availableCamp, J.Site.GetClosestNeutralSpwan)
 				local campRate = nearCamp and nearCamp.cattr and FarmPlan.CampRate(bot, nearCamp.cattr) or 0
+				if campRate > 0 and FarmPlan.RouteBonus then campRate = campRate + FarmPlan.RouteBonus(bot, nearCamp.cattr.location, nearCamp.cattr) end
 				if nearCamp and (not bestLane or campRate > bestRate) then
 					preferedCamp = nearCamp
 					bestLane = nil
