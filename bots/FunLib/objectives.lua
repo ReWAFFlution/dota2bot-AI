@@ -938,7 +938,9 @@ function X.RetreatStep(bot)
 	else
 		local bestD = math.huge
 		goal = fountain
-		for _, info in ipairs(TOWERS) do
+		-- In our base: the fountain itself, no tower hops.
+		local inBase = Dist(myLoc, fountain) < 4500
+		for _, info in ipairs(inBase and {} or TOWERS) do
 			local tw = GetTower(GetTeam(), info.id)
 			if tw then
 				local tl = tw:GetLocation()
@@ -949,7 +951,12 @@ function X.RetreatStep(bot)
 				-- into it standing still while Terrorblade killed it (Chaos
 				-- Knight, "stands still 5 s in mode retreat", 9105669779).
 				local behind = tl + (fountain - tl) / math.max(1, Dist(fountain, tl)) * 450
-				if safer and d < bestD and d > 300 and not CutOff(myLoc, tl, enemies) then goal, bestD = behind, d end
+				-- A spot one can stand on: behind a T4 it fell inside the ancient
+				-- and Razor 'retreated' into it for 50 s (9105717267).
+				local okP, pass = pcall(IsLocationPassable, behind)
+				local okA, anc = pcall(function() return GetAncient(GetTeam()):GetLocation() end)
+				local ancientNear = okA and anc and Dist(behind, anc) < 500
+				if safer and d < bestD and d > 300 and (not okP or pass) and not ancientNear and not CutOff(myLoc, tl, enemies) then goal, bestD = behind, d end
 			end
 		end
 		bot._retreatGoal = { loc = goal, t = t }
