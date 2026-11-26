@@ -350,14 +350,25 @@ function Think()
 		if GetUnitToLocationDistance(bot, loc) <= 250 then
 			local now = DotaTime()
 			if now - (bot._runeOrderT or -math.huge) >= 0.6 then
-				if bot._runeOrderT and now - bot._runeOrderT < 2 and now - (bot._runeOrderLogT or -math.huge) > 30 then
+				-- The rune under us may answer to another slot: the order for
+				-- the spot's own slot came back idle and the bot stood on a
+				-- bounty (Razor at the river spot, slot 0, 9105717267; Keeper
+				-- the same, 9105606782). Each retry tries the next available slot.
+				local again = bot._runeOrderT and now - bot._runeOrderT < 2
+				local slots = { bot._passRune }
+				for _, r2 in ipairs({ RUNE_POWERUP_1, RUNE_POWERUP_2, RUNE_BOUNTY_1, RUNE_BOUNTY_2, RUNE_BOUNTY_3, RUNE_BOUNTY_4 }) do
+					if type(r2) == 'number' and r2 ~= bot._passRune and GetRuneStatus(r2) == RUNE_STATUS_AVAILABLE then table.insert(slots, r2) end
+				end
+				bot._runeTryIdx = again and ((bot._runeTryIdx or 1) % #slots) + 1 or 1
+				local r = slots[bot._runeTryIdx]
+				if again and now - (bot._runeOrderLogT or -math.huge) > 30 then
 					bot._runeOrderLogT = now
-					print(string.format('[Diag] %s on rune %d: pickup again (action %s, %d queued)', bot:GetUnitName(), bot._passRune,
-						tostring(bot:GetCurrentActionType()), bot:NumQueuedActions()))
+					print(string.format('[Diag] %s on rune %d: pickup again as slot %d (action %s, %d queued)', bot:GetUnitName(), bot._passRune,
+						r, tostring(bot:GetCurrentActionType()), bot:NumQueuedActions()))
 				end
 				bot._runeOrderT = now
 				bot:Action_ClearActions(true)
-				bot:Action_PickUpRune(bot._passRune)
+				bot:Action_PickUpRune(r)
 			end
 			return
 		end
