@@ -901,6 +901,10 @@ local IDLE_WINDOW = 12
 function X.IsIdle(bot)
 	local t = DotaTime()
 	if t < 60 or not bot:IsAlive() then return false end
+	-- Not in the laning stage: a mid waiting by its wave for the next last
+	-- hit read as idle (Furion 10, Huskar 9 times by 10:00) and the idle
+	-- switch turned its rune mode off (bot vs bot 9105791662).
+	if J.IsInLaningPhase() then bot._idleNow = false return false end
 	local h = bot._idleSamples
 	if not h then h = {} bot._idleSamples = h end
 	if #h == 0 or t - h[#h].t >= 2 or t < h[#h].t then

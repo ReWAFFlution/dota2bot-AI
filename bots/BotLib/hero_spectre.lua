@@ -557,13 +557,31 @@ end
 
 function X.ConsiderShadowStep()
     if not ShadowStep:IsFullyCastable()
-    or J.IsInLaningPhase()
     then
         return BOT_ACTION_DESIRE_NONE, nil
     end
 
     ShadowStepDuration = ShadowStep:GetSpecialValueFloat('duration')
     local nTeamFightLocation = J.GetTeamFightLocation(bot)
+
+    -- A chase: our target running off (500-2500 away) under half HP, the
+    -- fight around it ours. Shadow Step was never cast (laning-stage lock,
+    -- and "not 2 of us vs 1" skipped the good fights; ready 11 s on a hero
+    -- by 10:00, bot vs bot 9105791662).
+    local tgt = J.GetProperTarget(bot)
+    if J.IsValidHero(tgt) and not J.IsSuspiciousIllusion(tgt) and J.GetHP(tgt) < 0.5
+    and GetUnitToUnitDistance(bot, tgt) > 500 and GetUnitToUnitDistance(bot, tgt) < 2500
+    and not J.IsRetreating(bot) and J.GetHP(bot) > 0.4
+    and not J.IsLocationInChrono(tgt:GetLocation()) and not J.IsLocationInBlackHole(tgt:GetLocation()) then
+        local ours = J.GetNearbyHeroes(tgt, 1200, true, BOT_MODE_NONE)
+        local theirs = J.GetNearbyHeroes(tgt, 1200, false, BOT_MODE_NONE)
+        if ours and theirs and #ours + 1 >= #theirs then
+            ShadowStepEnemyTarget = tgt
+            return BOT_ACTION_DESIRE_HIGH, tgt
+        end
+    end
+
+    if J.IsInLaningPhase() then return BOT_ACTION_DESIRE_NONE, nil end
 
     if J.IsGoingOnSomeone(bot)
     then
@@ -580,7 +598,6 @@ function X.ConsiderShadowStep()
 
             if nInRangeAlly ~= nil and nTargetInRangeAlly ~= nil
             and #nInRangeAlly >= #nTargetInRangeAlly
-            and not (#nInRangeAlly >= 2 and #nTargetInRangeAlly <= 1)
             then
                 ShadowStepEnemyTarget = weakestTarget
                 return BOT_ACTION_DESIRE_HIGH, weakestTarget
@@ -633,13 +650,24 @@ function X.ConsiderHaunt()
     if not Haunt:IsTrained()
     or not Haunt:IsFullyCastable()
     or Haunt:IsHidden()
-    or ShadowStep:IsFullyCastable()
-    or J.IsInLaningPhase()
     then
         return BOT_ACTION_DESIRE_NONE
     end
 
     HauntDuration = Haunt:GetSpecialValueFloat('duration')
+
+    -- Our own fight: an illusion on every enemy hero - with 2+ of them within
+    -- 1600, or our target in kill range. It was cast only for a far ally's
+    -- fight, never in Spectre's own (ready 9 s on a hero by 10:00, 9105791662).
+    if not J.IsRetreating(bot) and J.GetHP(bot) > 0.3 then
+        local enemies = J.GetNearbyHeroes(bot, 1600, true, BOT_MODE_NONE)
+        local tgt = J.GetProperTarget(bot)
+        local fighting = J.IsGoingOnSomeone(bot) or (J.IsValidHero(tgt) and GetUnitToUnitDistance(bot, tgt) < 900)
+        if fighting and enemies and (#enemies >= 2 or (J.IsValidHero(tgt) and J.GetHP(tgt) < 0.5)) then
+            return BOT_ACTION_DESIRE_HIGH
+        end
+    end
+    if ShadowStep:IsFullyCastable() or J.IsInLaningPhase() then return BOT_ACTION_DESIRE_NONE end
 
     for _, allyHero in pairs(GetUnitList(UNIT_LIST_ALLIED_HEROES))
     do
