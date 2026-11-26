@@ -199,11 +199,15 @@ function GetDesireHelper()
 	or (J.IsDoingRoshan(bot) and bNotClone)
 	or (J.IsDoingTormentor(bot) and bNotClone)
     or DotaTime() < 50
+    -- Those modes keep the bot only while they really want it: "> 0" made a
+    -- retreat at 0.15 unbeatable (farm 0 against it, so it stayed the winner)
+    -- - cores 15-25% in retreat, Spectre 27% "laning" at 25-30 min with
+    -- farm the loser, 7.3k at 30:00 (bot vs bot 9105791662).
     or ((botActiveMode == BOT_MODE_SECRET_SHOP
 		or botActiveMode == BOT_MODE_RUNE
 		or botActiveMode == BOT_MODE_WARD
 		or botActiveMode == BOT_MODE_RETREAT
-		or botActiveMode == BOT_MODE_OUTPOST) and botActiveModeDesire > 0)
+		or botActiveMode == BOT_MODE_OUTPOST) and botActiveModeDesire > 0.4)
     then
         return BOT_MODE_DESIRE_NONE
     end
