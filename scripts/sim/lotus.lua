@@ -44,11 +44,21 @@ local dStand = M.RoamDesire(bot)
 print('in the pool, carry hit -> desire', dStand)
 assert(dStand == 0.75)
 bot._lotusStandT, bot._mapTarget = nil, nil
--- The carry gets hit: the support doesn't go (and would turn back).
-SIM_T = SIM_T + 200 carry.hit = true bot._lotusGiveUpUntil = nil
+-- The carry harassed once at 90% HP, nobody next to it: the support goes
+-- (every harass hit used to call the trip back, 9105740279).
+SIM_T = SIM_T + 200 carry.hit = true bot._lotusGiveUpUntil = nil bot._mapTarget, bot._lotusGoT = nil, nil
+local dHarass = M.RoamDesire(bot)
+print('carry harassed at 90% -> lotus desire', dHarass)
+assert(dHarass and dHarass > 0)
+-- The carry at 60% HP, hit, an enemy next to it: the support doesn't go.
+bot._mapTarget, bot._lotusGoT, bot._lotusGiveUpUntil = nil, nil, nil
+local oldHP, oldNear = J.GetHP, J.GetNearbyHeroes
+J.GetHP = function(u) return u == carry and 0.6 or 0.9 end
+J.GetNearbyHeroes = function(u) return u == carry and { {} } or {} end
 local d2 = M.RoamDesire(bot)
-print('carry under attack -> lotus desire', d2)
+print('carry in trouble -> lotus desire', d2)
 assert(d2 == nil)
+J.GetHP, J.GetNearbyHeroes = oldHP, oldNear
 -- Stuck standing in the pool while another roam desire comes first: the
 -- time limit still ends it.
 bot._lotusStandT = DotaTime() - 13 bot._mapTarget = {}

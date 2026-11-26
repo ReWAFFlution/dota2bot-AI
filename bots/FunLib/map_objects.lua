@@ -130,8 +130,11 @@ local function LaneCoreSafe(bot)
 		local m = GetTeamMember(i)
 		if m and m ~= bot and J.GetPosition(m) <= 3 and m:GetAssignedLane() == lane then
 			if not m:IsAlive() then return true end
-			if J.GetHP(m) < 0.5 or m:WasRecentlyDamagedByAnyHero(3) then return false end
-			if #J.GetNearbyHeroes(m, 1000, true, BOT_MODE_NONE) > 0 then return false end
+			-- In trouble, not just in a lane: a harass hit or an enemy laner
+			-- nearby called every lotus trip back (9105740279).
+			if J.GetHP(m) < 0.5 then return false end
+			local near = #J.GetNearbyHeroes(m, 900, true, BOT_MODE_NONE)
+			if near >= 2 or (near >= 1 and m:WasRecentlyDamagedByAnyHero(2) and J.GetHP(m) < 0.7) then return false end
 		end
 	end
 	return true
@@ -232,8 +235,15 @@ function X.Expire(bot)
 	local threat = false
 	if bot._lotusStandT then
 		local ok, r = pcall(function()
-			return bot:WasRecentlyDamagedByCreep(1.0) or bot:WasRecentlyDamagedByAnyHero(1.5)
-				or #bot:GetNearbyLaneCreeps(700, true) > 0 or #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0
+			-- Their creeps walking past the pool aren't a threat (the pools sit
+			-- by the lanes: Vengeful left after 2 s, nobody got a lotus,
+			-- 9105740279) - only creeps hitting us.
+			if bot:WasRecentlyDamagedByCreep(1.0) or bot:WasRecentlyDamagedByAnyHero(1.5) then return true end
+			if #J.GetNearbyHeroes(bot, 1200, true, BOT_MODE_NONE) > 0 then return true end
+			for _, c in pairs(bot:GetNearbyLaneCreeps(700, true)) do
+				if c and not c:IsNull() and c:GetAttackTarget() == bot then return true end
+			end
+			return false
 		end)
 		threat = ok and r or false
 	end
